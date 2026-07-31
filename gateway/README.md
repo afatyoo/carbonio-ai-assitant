@@ -11,6 +11,20 @@ Mailbox SOAP API.
 
 Default: `http://127.0.0.1:8787`.
 
+## Production di Carbonio
+
+Artifact deployment berada di `deploy/`:
+
+- `carbonio-ai-gateway.service` menjalankan gateway sebagai user khusus
+  `carbonio-ai`.
+- `nginx/upstream-carbonio-ai.conf` mendaftarkan upstream loopback.
+- `nginx/backend-carbonio-ai.conf` mem-proxy `/api/ai/` dan mendukung streaming
+  Server-Sent Events.
+
+Runtime production menggunakan Node.js 22 dan data persisten berada di
+`/var/lib/carbonio-ai-assistant/.runtime/`. Endpoint config, model, history,
+dan chat memerlukan cookie sesi Carbonio yang valid.
+
 ## Menghubungkan AI Agent eksternal
 
 ```bash

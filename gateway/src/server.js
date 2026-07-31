@@ -27,6 +27,8 @@ const readJson = async (request) => {
 	return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 };
 
+const authenticate = (request) => getCurrentAccount(request.headers.cookie ?? '');
+
 const server = http.createServer(async (request, response) => {
 	const requestUrl = new URL(request.url, 'http://127.0.0.1');
 
@@ -39,15 +41,23 @@ const server = http.createServer(async (request, response) => {
 	}
 
 	if (request.method === 'GET' && request.url === '/api/ai/config') {
-		sendJson(response, 200, getPublicAgentConfig());
+		try {
+			await authenticate(request);
+			sendJson(response, 200, getPublicAgentConfig());
+		} catch (error) {
+			sendJson(response, 401, { error: error.message });
+		}
 		return;
 	}
 
 	if (request.method === 'GET' && request.url === '/api/ai/models') {
 		try {
+			await authenticate(request);
 			sendJson(response, 200, { models: await listAvailableModels() });
 		} catch (error) {
-			sendJson(response, 502, { error: error.message });
+			sendJson(response, error.message.includes('authentication') ? 401 : 502, {
+				error: error.message
+			});
 		}
 		return;
 	}
@@ -95,10 +105,15 @@ const server = http.createServer(async (request, response) => {
 
 	if (request.method === 'PUT' && request.url === '/api/ai/config') {
 		try {
+			await authenticate(request);
 			const payload = await readJson(request);
 			sendJson(response, 200, updateAgentConfig(payload));
 		} catch (error) {
-			sendJson(response, 400, { error: error.message });
+			sendJson(
+				response,
+				error.message.includes('authentication') ? 401 : 400,
+				{ error: error.message }
+			);
 		}
 		return;
 	}
@@ -109,6 +124,7 @@ const server = http.createServer(async (request, response) => {
 	}
 
 	try {
+		await authenticate(request);
 		const payload = await readJson(request);
 		if (typeof payload.message !== 'string' || !payload.message.trim()) {
 			sendJson(response, 400, { error: 'message is required' });

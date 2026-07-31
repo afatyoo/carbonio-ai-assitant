@@ -65,7 +65,7 @@ const inferProvider = (url) => {
 const initialProvider =
 	process.env.AI_AGENT_PROVIDER ??
 	savedConfig.provider ??
-	inferProvider(process.env.AI_AGENT_URL ?? savedConfig.agentUrl);
+	(process.env.AI_AGENT_URL ? inferProvider(process.env.AI_AGENT_URL) : 'custom');
 const runtimeConfig = {
 	provider: initialProvider,
 	agentUrl:
