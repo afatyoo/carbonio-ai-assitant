@@ -10,6 +10,7 @@
 	},
 	"scripts": {
 		"build": "sdk build",
+		"package:release": "bash deploy/package-release.sh",
 		"start": "sdk watch",
 		"type-check": "tsc --noEmit"
 	},

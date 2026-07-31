@@ -2,6 +2,7 @@
 node_modules/
 dist/
 pkg/
+release/
 .env
 .env.*
 !.env.example
