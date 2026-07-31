@@ -1,12 +1,24 @@
-import React, { FormEvent, useMemo, useState } from 'react';
+import React, { FormEvent, useEffect, useState } from 'react';
 
 import styled from '@emotion/styled';
-import { Button, Icon } from '@zextras/carbonio-design-system';
+import { Button } from '@zextras/carbonio-design-system';
 
-type ChatMessage = {
-	id: number;
-	role: 'assistant' | 'user';
-	text: string;
+import { RobotMark } from '../components/robot-icon';
+import {
+	ChatMessage,
+	NEW_CHAT_EVENT,
+	OPEN_CHAT_EVENT,
+	createConversationId,
+	getConversation,
+	getConversations,
+	saveConversation
+} from '../history/chat-history';
+
+type ModelOption = {
+	id: string;
+	name: string;
+	free: boolean;
+	contextLength?: number;
 };
 
 const Page = styled.div`
@@ -15,33 +27,6 @@ const Page = styled.div`
 	display: flex;
 	background: ${({ theme }): string => theme.palette.gray6.regular};
 	color: ${({ theme }): string => theme.palette.text.regular};
-`;
-
-const History = styled.aside`
-	width: 16rem;
-	padding: 1.25rem 0.875rem;
-	border-right: 0.0625rem solid ${({ theme }): string => theme.palette.gray3.regular};
-	background: ${({ theme }): string => theme.palette.gray5.regular};
-`;
-
-const Brand = styled.div`
-	display: flex;
-	align-items: center;
-	gap: 0.625rem;
-	font-size: 1.1rem;
-	font-weight: 700;
-	margin: 0.25rem 0.5rem 1.5rem;
-`;
-
-const NewChat = styled.button`
-	width: 100%;
-	border: 0.0625rem solid ${({ theme }): string => theme.palette.gray2.regular};
-	border-radius: 0.625rem;
-	padding: 0.75rem;
-	background: transparent;
-	color: inherit;
-	text-align: left;
-	cursor: pointer;
 `;
 
 const Conversation = styled.main`
@@ -66,6 +51,23 @@ const Status = styled.span`
 	border-radius: 1rem;
 	color: ${({ theme }): string => theme.palette.success.regular};
 	background: ${({ theme }): string => theme.palette.gray4.regular};
+`;
+
+const HeaderActions = styled.div`
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+`;
+
+const ModelSelect = styled.select`
+	max-width: 16rem;
+	padding: 0.45rem 2rem 0.45rem 0.7rem;
+	border: 0.0625rem solid ${({ theme }): string => theme.palette.gray3.regular};
+	border-radius: 0.5rem;
+	background: ${({ theme }): string => theme.palette.gray5.regular};
+	color: inherit;
+	font: inherit;
+	font-size: 0.8rem;
 `;
 
 const Messages = styled.div`
@@ -158,63 +160,223 @@ const prompts = [
 	'Apa saja yang butuh tindakan saya?'
 ];
 
-const mockReply = (prompt: string): string => {
-	const normalized = prompt.toLowerCase();
-	if (normalized.includes('belum dibaca') || normalized.includes('ringkas')) {
-		return 'Mode demo aktif. Saya menemukan 3 email belum dibaca untuk diringkas. Setelah Agent API dihubungkan, hasil asli akan tampil di sini lengkap dengan pengirim, subjek, dan tindakan yang disarankan.';
-	}
-	if (normalized.includes('draft') || normalized.includes('balas')) {
-		return 'Siap. Pada versi Agent API, saya akan membaca email yang dipilih lalu membuat draft. Email tidak akan dikirim sebelum Anda menyetujuinya.';
-	}
-	return 'Pesan diterima dalam mode demo. Koneksi UI add-on sudah bekerja; langkah berikutnya adalah memasang endpoint Agent API dan tool mailbox read-only.';
-};
-
 export const AiAssistantView = (): React.JSX.Element => {
+	const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
 	const [input, setInput] = useState('');
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
-	const nextId = useMemo(() => messages.length + 1, [messages.length]);
+	const [agentStatus, setAgentStatus] = useState('Connecting...');
+	const [isSending, setIsSending] = useState(false);
+	const [models, setModels] = useState<ModelOption[]>([
+		{ id: 'openrouter/free', name: 'Auto — Free Models Router', free: true }
+	]);
+	const [selectedModel, setSelectedModel] = useState('openrouter/free');
 
-	const send = (value: string): void => {
+	useEffect(() => {
+		getConversations()
+			.then((conversations) => {
+				const latest = conversations[0];
+				if (!latest) return;
+				setActiveConversationId(latest.id);
+				setMessages(latest.messages);
+				setSelectedModel(latest.model);
+			})
+			.catch(() => {
+				// A new conversation can still be started when history is unavailable.
+			});
+	}, []);
+
+	useEffect(() => {
+		const reset = (): void => {
+			setActiveConversationId(null);
+			setMessages([]);
+		};
+		const open = (event: Event): void => {
+			const id = (event as CustomEvent<string>).detail;
+			getConversation(id)
+				.then((conversation) => {
+					setActiveConversationId(conversation.id);
+					setMessages(conversation.messages);
+					setSelectedModel(conversation.model);
+				})
+				.catch(() => setAgentStatus('Unable to load conversation'));
+		};
+		window.addEventListener(NEW_CHAT_EVENT, reset);
+		window.addEventListener(OPEN_CHAT_EVENT, open);
+		return (): void => {
+			window.removeEventListener(NEW_CHAT_EVENT, reset);
+			window.removeEventListener(OPEN_CHAT_EVENT, open);
+		};
+	}, []);
+
+	useEffect(() => {
+		if (!activeConversationId || messages.length === 0) return;
+		const firstPrompt = messages.find((message) => message.role === 'user')?.text;
+		const now = Date.now();
+		const timeout = window.setTimeout(() => {
+			void saveConversation({
+				id: activeConversationId,
+				title: firstPrompt?.slice(0, 54) || 'Percakapan baru',
+				createdAt: now,
+				updatedAt: now,
+				model: selectedModel,
+				messages
+			}).catch(() => setAgentStatus('Unable to save history'));
+		}, 400);
+		return (): void => window.clearTimeout(timeout);
+	}, [activeConversationId, messages, selectedModel]);
+
+	useEffect(() => {
+		fetch('/api/ai/models')
+			.then(async (response) => {
+				if (!response.ok) throw new Error(`HTTP ${response.status}`);
+				return response.json() as Promise<{ models: ModelOption[] }>;
+			})
+			.then((data) => {
+				if (data.models.length) setModels(data.models);
+			})
+			.catch(() => {
+				// Keep the free auto-router fallback.
+			});
+	}, []);
+
+	useEffect(() => {
+		fetch('/api/ai/health')
+			.then((response) => response.json())
+			.then((data: { mode?: string }) =>
+				setAgentStatus(data.mode === 'remote-agent' ? 'Agent connected' : 'Local agent connected')
+			)
+			.catch(() => setAgentStatus('Agent unavailable'));
+	}, []);
+
+	const send = async (value: string): Promise<void> => {
 		const prompt = value.trim();
-		if (!prompt) return;
+		if (!prompt || isSending) return;
+		if (!activeConversationId) setActiveConversationId(createConversationId());
+		const userId = Date.now();
+		const assistantId = userId + 1;
 		setMessages((current) => [
 			...current,
-			{ id: nextId, role: 'user', text: prompt },
-			{ id: nextId + 1, role: 'assistant', text: mockReply(prompt) }
+			{ id: userId, role: 'user', text: prompt },
+			{ id: assistantId, role: 'assistant', text: '' }
 		]);
 		setInput('');
+		setIsSending(true);
+
+		try {
+			const response = await fetch('/api/ai/chat', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ message: prompt, model: selectedModel })
+			});
+			if (!response.ok || !response.body) {
+				throw new Error(`Gateway HTTP ${response.status}`);
+			}
+
+			const reader = response.body.getReader();
+			const decoder = new TextDecoder();
+			let buffer = '';
+
+			while (true) {
+				const { done, value: chunk } = await reader.read();
+				buffer += decoder.decode(chunk ?? new Uint8Array(), { stream: !done });
+				const events = buffer.split('\n\n');
+				buffer = events.pop() ?? '';
+
+				events.forEach((eventBlock) => {
+					const event = eventBlock
+						.split('\n')
+						.find((line) => line.startsWith('event: '))
+						?.slice(7);
+					const rawData = eventBlock
+						.split('\n')
+						.find((line) => line.startsWith('data: '))
+						?.slice(6);
+					if (!rawData) return;
+					const data = JSON.parse(rawData) as {
+						text?: string;
+						name?: string;
+						status?: string;
+						count?: number;
+						message?: string;
+					};
+					if (event === 'message' && data.text) {
+						setMessages((current) =>
+							current.map((message) =>
+								message.id === assistantId
+									? { ...message, text: message.text + data.text }
+									: message
+							)
+						);
+					}
+					if (event === 'tool') {
+						setAgentStatus(
+							data.status === 'running'
+								? `Running ${data.name}...`
+								: `${data.name}: ${data.count ?? 0} results`
+						);
+					}
+					if (event === 'error') throw new Error(data.message ?? 'Agent error');
+				});
+				if (done) break;
+			}
+			setAgentStatus('Agent connected');
+		} catch (error) {
+			setAgentStatus('Agent error');
+			setMessages((current) =>
+				current.map((message) =>
+					message.id === assistantId
+						? {
+								...message,
+								text: `Tidak bisa menghubungi agent: ${
+									error instanceof Error ? error.message : 'Unknown error'
+								}`
+							}
+						: message
+				)
+			);
+		} finally {
+			setIsSending(false);
+		}
 	};
 
 	const submit = (event: FormEvent): void => {
 		event.preventDefault();
-		send(input);
+		void send(input);
 	};
 
 	return (
 		<Page>
-			<History>
-				<Brand>
-					<Icon icon="MessageCircleOutline" size="large" color="primary" />
-					AI Assistant
-				</Brand>
-				<NewChat onClick={(): void => setMessages([])}>＋ Percakapan baru</NewChat>
-			</History>
 			<Conversation>
 				<Header>
 					<strong>Carbonio AI</strong>
-					<Status>● Demo agent connected</Status>
+					<HeaderActions>
+						<ModelSelect
+							aria-label="AI model"
+							value={selectedModel}
+							onChange={(event): void => {
+								setSelectedModel(event.target.value);
+							}}
+						>
+							{models.map((model) => (
+								<option key={model.id} value={model.id}>
+									{model.name}
+								</option>
+							))}
+						</ModelSelect>
+						<Status>● {agentStatus}</Status>
+					</HeaderActions>
 				</Header>
 				<Messages>
 					{messages.length === 0 ? (
 						<Empty>
 							<Orb>
-								<Icon icon="MessageCircleOutline" size="large" />
+								<RobotMark size={34} />
 							</Orb>
 							<h1>Apa yang bisa saya bantu?</h1>
 							<p>Tanyakan tentang email, thread, atau minta dibuatkan draft balasan.</p>
 							<Suggestions>
 								{prompts.map((prompt) => (
-									<Suggestion key={prompt} onClick={(): void => send(prompt)}>
+									<Suggestion key={prompt} onClick={(): void => void send(prompt)}>
 										{prompt}
 									</Suggestion>
 								))}
@@ -239,8 +401,8 @@ export const AiAssistantView = (): React.JSX.Element => {
 						type="default"
 						color="primary"
 						icon="PaperPlaneOutline"
-						onClick={(): void => send(input)}
-						disabled={!input.trim()}
+						onClick={(): void => void send(input)}
+						disabled={!input.trim() || isSending}
 					/>
 				</Composer>
 			</Conversation>

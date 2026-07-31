@@ -1,0 +1,10 @@
+.DS_Store
+node_modules/
+dist/
+pkg/
+.env
+.env.*
+!.env.example
+gateway/.runtime/
+gateway/node_modules/
+*.log
