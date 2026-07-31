@@ -1,0 +1,67 @@
+{
+	"app": {
+		"name": "AI Assistant"
+	},
+	"sidebar": {
+		"new_chat": "New chat",
+		"recent": "Recent",
+		"empty": "Your conversations will appear here",
+		"more_actions": "More actions for {{title}}",
+		"rename": "Rename",
+		"delete": "Delete",
+		"rename_prompt": "Rename conversation",
+		"delete_confirm": "Delete \"{{title}}\"? This action cannot be undone.",
+		"load_error": "Unable to load conversation history",
+		"rename_error": "Unable to rename the conversation",
+		"delete_error": "Unable to delete the conversation"
+	},
+	"chat": {
+		"product_name": "Carbonio AI",
+		"new_conversation": "New conversation",
+		"headline": "How can I help?",
+		"description": "Ask about email or threads, or request a reply draft.",
+		"message_label": "Message for AI Assistant",
+		"placeholder": "Ask something about your email...",
+		"model_label": "AI model",
+		"send": "Send message",
+		"suggestion": {
+			"unread": "Summarize today's unread email",
+			"important": "Find important email from this week",
+			"reply": "Draft a reply to the latest email",
+			"actions": "What needs my attention?"
+		}
+	},
+	"status": {
+		"connecting": "Connecting...",
+		"agent_connected": "Agent connected",
+		"local_agent_connected": "Local agent connected",
+		"agent_unavailable": "Agent unavailable",
+		"agent_error": "Agent error",
+		"load_conversation_error": "Unable to load conversation",
+		"save_history_error": "Unable to save history",
+		"empty_answer": "The agent returned an empty answer",
+		"contact_error": "Unable to contact the agent: {{message}}"
+	},
+	"settings": {
+		"description": "Configure the Agent API used by Carbonio AI Assistant.",
+		"provider": "AI provider",
+		"provider_hint": "The endpoint and protocol are configured automatically.",
+		"custom_endpoint": "Custom endpoint",
+		"endpoint": "Endpoint",
+		"model": "Model",
+		"model_hint": "Provider model ID. A recommended default is filled automatically.",
+		"api_key": "API key",
+		"api_key_hint": "The current key is never returned to the browser.",
+		"api_key_configured": "Configured — enter a new key to replace it",
+		"api_key_placeholder": "Enter API key",
+		"save": "Save configuration",
+		"saving": "Saving...",
+		"loading": "Loading configuration...",
+		"remote_configured": "Remote agent configured",
+		"local_mode": "Local agent mode",
+		"saved_remote": "Saved — remote agent active",
+		"saved_local": "Saved — local mode",
+		"save_error": "Unable to save",
+		"custom_provider": "Custom endpoint"
+	}
+}

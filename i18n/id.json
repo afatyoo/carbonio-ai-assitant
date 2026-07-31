@@ -1,0 +1,67 @@
+{
+	"app": {
+		"name": "Asisten AI"
+	},
+	"sidebar": {
+		"new_chat": "Percakapan baru",
+		"recent": "Terbaru",
+		"empty": "Percakapan Anda akan tampil di sini",
+		"more_actions": "Tindakan lainnya untuk {{title}}",
+		"rename": "Ubah nama",
+		"delete": "Hapus",
+		"rename_prompt": "Ubah nama percakapan",
+		"delete_confirm": "Hapus \"{{title}}\"? Tindakan ini tidak dapat dibatalkan.",
+		"load_error": "Riwayat percakapan tidak dapat dimuat",
+		"rename_error": "Nama percakapan tidak dapat diubah",
+		"delete_error": "Percakapan tidak dapat dihapus"
+	},
+	"chat": {
+		"product_name": "Carbonio AI",
+		"new_conversation": "Percakapan baru",
+		"headline": "Apa yang bisa saya bantu?",
+		"description": "Tanyakan tentang email atau thread, atau minta dibuatkan draf balasan.",
+		"message_label": "Pesan untuk Asisten AI",
+		"placeholder": "Tanyakan sesuatu tentang email Anda...",
+		"model_label": "Model AI",
+		"send": "Kirim pesan",
+		"suggestion": {
+			"unread": "Ringkas email yang belum dibaca hari ini",
+			"important": "Cari email penting dari minggu ini",
+			"reply": "Buat draf balasan untuk email terakhir",
+			"actions": "Apa saja yang membutuhkan tindakan saya?"
+		}
+	},
+	"status": {
+		"connecting": "Menghubungkan...",
+		"agent_connected": "Agent terhubung",
+		"local_agent_connected": "Agent lokal terhubung",
+		"agent_unavailable": "Agent tidak tersedia",
+		"agent_error": "Agent bermasalah",
+		"load_conversation_error": "Percakapan tidak dapat dimuat",
+		"save_history_error": "Riwayat tidak dapat disimpan",
+		"empty_answer": "Agent tidak mengembalikan jawaban",
+		"contact_error": "Tidak dapat menghubungi agent: {{message}}"
+	},
+	"settings": {
+		"description": "Atur API Agent yang digunakan oleh Asisten AI Carbonio.",
+		"provider": "Provider AI",
+		"provider_hint": "Endpoint dan protokol diatur secara otomatis.",
+		"custom_endpoint": "Endpoint kustom",
+		"endpoint": "Endpoint",
+		"model": "Model",
+		"model_hint": "ID model provider. Rekomendasi bawaan akan diisi secara otomatis.",
+		"api_key": "API key",
+		"api_key_hint": "Key yang aktif tidak pernah dikirim kembali ke browser.",
+		"api_key_configured": "Sudah diatur — masukkan key baru untuk menggantinya",
+		"api_key_placeholder": "Masukkan API key",
+		"save": "Simpan konfigurasi",
+		"saving": "Menyimpan...",
+		"loading": "Memuat konfigurasi...",
+		"remote_configured": "Agent remote sudah diatur",
+		"local_mode": "Mode agent lokal",
+		"saved_remote": "Tersimpan — agent remote aktif",
+		"saved_local": "Tersimpan — mode lokal",
+		"save_error": "Tidak dapat menyimpan",
+		"custom_provider": "Endpoint kustom"
+	}
+}

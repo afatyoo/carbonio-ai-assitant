@@ -2,6 +2,8 @@ import React from 'react';
 
 import styled from '@emotion/styled';
 
+import { useAppTranslation } from '../i18n/use-app-translation';
+
 type RobotMarkProps = {
 	size?: number;
 };
@@ -48,8 +50,11 @@ export const RobotPrimaryBarIcon = ({
 }: {
 	active: boolean;
 	onClick: () => void;
-}): React.JSX.Element => (
-	<NavButton active={active} onClick={onClick} aria-label="AI Assistant">
-		<RobotMark />
-	</NavButton>
-);
+}): React.JSX.Element => {
+	const { t } = useAppTranslation();
+	return (
+		<NavButton active={active} onClick={onClick} aria-label={t('app.name', 'AI Assistant')}>
+			<RobotMark />
+		</NavButton>
+	);
+};

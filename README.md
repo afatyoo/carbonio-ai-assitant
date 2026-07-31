@@ -13,6 +13,8 @@ module.
 
 - AI Assistant button in Carbonio's primary navigation
 - Chat interface with server-side conversation history
+- Carbonio-aware English and Indonesian localization
+- ChatGPT-style history rows with hover actions, rename, and delete
 - History isolation using the authenticated Carbonio account ID
 - Persistent SQLite storage
 - Carbonio SOAP tools for searching and reading email

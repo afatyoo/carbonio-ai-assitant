@@ -3,6 +3,7 @@ import React, { FormEvent, useEffect, useState } from 'react';
 import styled from '@emotion/styled';
 
 import { parseJsonResponse } from '../api/response';
+import { useAppTranslation } from '../i18n/use-app-translation';
 
 type PublicConfig = {
 	provider: string;
@@ -131,12 +132,15 @@ const Status = styled.span<{ error?: boolean }>`
 `;
 
 export const AiSettingsView = (): React.JSX.Element => {
+	const { t } = useAppTranslation();
 	const [provider, setProvider] = useState<keyof typeof providers>('openrouter');
 	const [agentUrl, setAgentUrl] = useState('');
 	const [apiKey, setApiKey] = useState('');
 	const [model, setModel] = useState('~openai/gpt-latest');
 	const [hasApiKey, setHasApiKey] = useState(false);
-	const [status, setStatus] = useState('Loading configuration...');
+	const [status, setStatus] = useState(() =>
+		t('settings.loading', 'Loading configuration...')
+	);
 	const [error, setError] = useState(false);
 	const [saving, setSaving] = useState(false);
 
@@ -150,21 +154,21 @@ export const AiSettingsView = (): React.JSX.Element => {
 				setModel(config.model || '~openai/gpt-latest');
 				setStatus(
 					config.mode === 'remote-agent'
-						? 'Remote agent configured'
-						: 'Local agent mode'
+						? t('settings.remote_configured', 'Remote agent configured')
+						: t('settings.local_mode', 'Local agent mode')
 				);
 			})
 			.catch((reason: Error) => {
 				setError(true);
 				setStatus(reason.message);
 			});
-	}, []);
+	}, [t]);
 
 	const save = async (event: FormEvent): Promise<void> => {
 		event.preventDefault();
 		setSaving(true);
 		setError(false);
-		setStatus('Saving...');
+		setStatus(t('settings.saving', 'Saving...'));
 		try {
 			const response = await fetch('/api/ai/config', {
 				method: 'PUT',
@@ -179,10 +183,18 @@ export const AiSettingsView = (): React.JSX.Element => {
 			const data = await parseJsonResponse<PublicConfig>(response);
 			setHasApiKey(data.hasApiKey);
 			setApiKey('');
-			setStatus(data.mode === 'remote-agent' ? 'Saved — remote agent active' : 'Saved — local mode');
+			setStatus(
+				data.mode === 'remote-agent'
+					? t('settings.saved_remote', 'Saved — remote agent active')
+					: t('settings.saved_local', 'Saved — local mode')
+			);
 		} catch (reason) {
 			setError(true);
-			setStatus(reason instanceof Error ? reason.message : 'Unable to save');
+			setStatus(
+				reason instanceof Error
+					? reason.message
+					: t('settings.save_error', 'Unable to save')
+			);
 		} finally {
 			setSaving(false);
 		}
@@ -190,11 +202,11 @@ export const AiSettingsView = (): React.JSX.Element => {
 
 	return (
 		<Page>
-			<h1>AI Assistant</h1>
-			<p>Configure the Agent API used by Carbonio AI Assistant.</p>
+			<h1>{t('app.name', 'AI Assistant')}</h1>
+			<p>{t('settings.description', 'Configure the Agent API used by Carbonio AI Assistant.')}</p>
 			<Card onSubmit={(event): void => void save(event)}>
 				<Field>
-					AI provider
+					{t('settings.provider', 'AI provider')}
 					<Select
 						value={provider}
 						onChange={(event): void => {
@@ -208,15 +220,22 @@ export const AiSettingsView = (): React.JSX.Element => {
 					>
 						{Object.entries(providers).map(([id, item]) => (
 							<option key={id} value={id}>
-								{item.label}
+								{id === 'custom'
+									? t('settings.custom_provider', 'Custom endpoint')
+									: item.label}
 							</option>
 						))}
 					</Select>
-					<Hint>Endpoint and protocol are configured automatically.</Hint>
+					<Hint>
+						{t(
+							'settings.provider_hint',
+							'The endpoint and protocol are configured automatically.'
+						)}
+					</Hint>
 				</Field>
 				{provider === 'custom' ? (
 					<Field>
-						Custom endpoint
+						{t('settings.custom_endpoint', 'Custom endpoint')}
 						<Input
 							type="url"
 							placeholder="https://agent.example.com/chat"
@@ -226,34 +245,53 @@ export const AiSettingsView = (): React.JSX.Element => {
 					</Field>
 				) : (
 					<Field>
-						Endpoint
+						{t('settings.endpoint', 'Endpoint')}
 						<Input type="url" value={agentUrl} readOnly />
 					</Field>
 				)}
 				<Field>
-					Model
+					{t('settings.model', 'Model')}
 					<Input
 						type="text"
 						placeholder="~openai/gpt-latest"
 						value={model}
 						onChange={(event): void => setModel(event.target.value)}
 					/>
-					<Hint>Provider model ID. A recommended default is filled automatically.</Hint>
+					<Hint>
+						{t(
+							'settings.model_hint',
+							'Provider model ID. A recommended default is filled automatically.'
+						)}
+					</Hint>
 				</Field>
 				<Field>
-					API key
+					{t('settings.api_key', 'API key')}
 					<Input
 						type="password"
 						autoComplete="new-password"
-						placeholder={hasApiKey ? 'Configured — enter a new key to replace' : 'Enter API key'}
+						placeholder={
+							hasApiKey
+								? t(
+										'settings.api_key_configured',
+										'Configured — enter a new key to replace it'
+									)
+								: t('settings.api_key_placeholder', 'Enter API key')
+						}
 						value={apiKey}
 						onChange={(event): void => setApiKey(event.target.value)}
 					/>
-					<Hint>The current key is never returned to the browser.</Hint>
+					<Hint>
+						{t(
+							'settings.api_key_hint',
+							'The current key is never returned to the browser.'
+						)}
+					</Hint>
 				</Field>
 				<Actions>
 					<Save type="submit" disabled={saving}>
-						{saving ? 'Saving...' : 'Save configuration'}
+						{saving
+							? t('settings.saving', 'Saving...')
+							: t('settings.save', 'Save configuration')}
 					</Save>
 					<Status error={error}>{status}</Status>
 				</Actions>

@@ -9,11 +9,13 @@ import {
 	ChatMessage,
 	NEW_CHAT_EVENT,
 	OPEN_CHAT_EVENT,
+	RENAME_CHAT_EVENT,
 	createConversationId,
 	getConversation,
 	getConversations,
 	saveConversation
 } from '../history/chat-history';
+import { useAppTranslation } from '../i18n/use-app-translation';
 
 type ModelOption = {
 	id: string;
@@ -165,23 +167,26 @@ const Input = styled.textarea`
 	color: inherit;
 `;
 
-const prompts = [
-	'Ringkas email yang belum dibaca hari ini',
-	'Cari email penting dari minggu ini',
-	'Buat draft balasan untuk email terakhir',
-	'Apa saja yang butuh tindakan saya?'
-];
-
 export const AiAssistantView = (): React.JSX.Element => {
+	const { t } = useAppTranslation();
 	const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+	const [conversationTitle, setConversationTitle] = useState<string | null>(null);
 	const [input, setInput] = useState('');
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
-	const [agentStatus, setAgentStatus] = useState('Connecting...');
+	const [agentStatus, setAgentStatus] = useState(() =>
+		t('status.connecting', 'Connecting...')
+	);
 	const [isSending, setIsSending] = useState(false);
 	const [models, setModels] = useState<ModelOption[]>([
 		{ id: 'openrouter/free', name: 'Auto — Free Models Router', free: true }
 	]);
 	const [selectedModel, setSelectedModel] = useState('openrouter/free');
+	const prompts = [
+		t('chat.suggestion.unread', "Summarize today's unread email"),
+		t('chat.suggestion.important', 'Find important email from this week'),
+		t('chat.suggestion.reply', 'Draft a reply to the latest email'),
+		t('chat.suggestion.actions', 'What needs my attention?')
+	];
 
 	useEffect(() => {
 		getConversations()
@@ -189,6 +194,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 				const latest = conversations[0];
 				if (!latest) return;
 				setActiveConversationId(latest.id);
+				setConversationTitle(latest.title);
 				setMessages(latest.messages);
 				setSelectedModel(latest.model);
 			})
@@ -200,6 +206,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 	useEffect(() => {
 		const reset = (): void => {
 			setActiveConversationId(null);
+			setConversationTitle(null);
 			setMessages([]);
 		};
 		const open = (event: Event): void => {
@@ -207,18 +214,29 @@ export const AiAssistantView = (): React.JSX.Element => {
 			getConversation(id)
 				.then((conversation) => {
 					setActiveConversationId(conversation.id);
+					setConversationTitle(conversation.title);
 					setMessages(conversation.messages);
 					setSelectedModel(conversation.model);
 				})
-				.catch(() => setAgentStatus('Unable to load conversation'));
+				.catch(() =>
+					setAgentStatus(
+						t('status.load_conversation_error', 'Unable to load conversation')
+					)
+				);
+		};
+		const rename = (event: Event): void => {
+			const detail = (event as CustomEvent<{ id: string; title: string }>).detail;
+			if (detail.id === activeConversationId) setConversationTitle(detail.title);
 		};
 		window.addEventListener(NEW_CHAT_EVENT, reset);
 		window.addEventListener(OPEN_CHAT_EVENT, open);
+		window.addEventListener(RENAME_CHAT_EVENT, rename);
 		return (): void => {
 			window.removeEventListener(NEW_CHAT_EVENT, reset);
 			window.removeEventListener(OPEN_CHAT_EVENT, open);
+			window.removeEventListener(RENAME_CHAT_EVENT, rename);
 		};
-	}, []);
+	}, [activeConversationId, t]);
 
 	useEffect(() => {
 		if (!activeConversationId || messages.length === 0) return;
@@ -227,15 +245,20 @@ export const AiAssistantView = (): React.JSX.Element => {
 		const timeout = window.setTimeout(() => {
 			void saveConversation({
 				id: activeConversationId,
-				title: firstPrompt?.slice(0, 54) || 'Percakapan baru',
+				title:
+					conversationTitle ??
+					firstPrompt?.slice(0, 54) ??
+					t('chat.new_conversation', 'New conversation'),
 				createdAt: now,
 				updatedAt: now,
 				model: selectedModel,
 				messages
-			}).catch(() => setAgentStatus('Unable to save history'));
+			}).catch(() =>
+				setAgentStatus(t('status.save_history_error', 'Unable to save history'))
+			);
 		}, 400);
 		return (): void => window.clearTimeout(timeout);
-	}, [activeConversationId, messages, selectedModel]);
+	}, [activeConversationId, conversationTitle, messages, selectedModel, t]);
 
 	useEffect(() => {
 		fetch('/api/ai/models')
@@ -254,15 +277,22 @@ export const AiAssistantView = (): React.JSX.Element => {
 		fetch('/api/ai/health')
 			.then((response) => parseJsonResponse<{ mode?: string }>(response))
 			.then((data: { mode?: string }) =>
-				setAgentStatus(data.mode === 'remote-agent' ? 'Agent connected' : 'Local agent connected')
+				setAgentStatus(
+					data.mode === 'remote-agent'
+						? t('status.agent_connected', 'Agent connected')
+						: t('status.local_agent_connected', 'Local agent connected')
+				)
 			)
-			.catch(() => setAgentStatus('Agent unavailable'));
-	}, []);
+			.catch(() => setAgentStatus(t('status.agent_unavailable', 'Agent unavailable')));
+	}, [t]);
 
 	const send = async (value: string): Promise<void> => {
 		const prompt = value.trim();
 		if (!prompt || isSending) return;
-		if (!activeConversationId) setActiveConversationId(createConversationId());
+		if (!activeConversationId) {
+			setActiveConversationId(createConversationId());
+			setConversationTitle(prompt.slice(0, 54));
+		}
 		const userId = Date.now();
 		const assistantId = userId + 1;
 		setMessages((current) => [
@@ -287,23 +317,23 @@ export const AiAssistantView = (): React.JSX.Element => {
 				.filter(({ event, data }) => event === 'message' && data.text)
 				.map(({ data }) => data.text)
 				.join('');
-			if (!answer) throw new Error('Agent tidak mengembalikan jawaban');
+			if (!answer) throw new Error(t('status.empty_answer', 'The agent returned an empty answer'));
 			setMessages((current) =>
 				current.map((message) =>
 					message.id === assistantId ? { ...message, text: answer } : message
 				)
 			);
-			setAgentStatus('Agent connected');
+			setAgentStatus(t('status.agent_connected', 'Agent connected'));
 		} catch (error) {
-			setAgentStatus('Agent error');
+			setAgentStatus(t('status.agent_error', 'Agent error'));
 			setMessages((current) =>
 				current.map((message) =>
 					message.id === assistantId
 						? {
 								...message,
-								text: `Tidak bisa menghubungi agent: ${
-									error instanceof Error ? error.message : 'Unknown error'
-								}`
+								text: t('status.contact_error', 'Unable to contact the agent: {{message}}', {
+									message: error instanceof Error ? error.message : 'Unknown error'
+								})
 							}
 						: message
 				)
@@ -322,10 +352,10 @@ export const AiAssistantView = (): React.JSX.Element => {
 		<Page>
 			<Conversation>
 				<Header>
-					<strong>Carbonio AI</strong>
+					<strong>{t('chat.product_name', 'Carbonio AI')}</strong>
 					<HeaderActions>
 						<ModelSelect
-							aria-label="AI model"
+							aria-label={t('chat.model_label', 'AI model')}
 							value={selectedModel}
 							onChange={(event): void => {
 								setSelectedModel(event.target.value);
@@ -346,8 +376,13 @@ export const AiAssistantView = (): React.JSX.Element => {
 							<Orb>
 								<RobotMark size={34} />
 							</Orb>
-							<h1>Apa yang bisa saya bantu?</h1>
-							<p>Tanyakan tentang email, thread, atau minta dibuatkan draft balasan.</p>
+							<h1>{t('chat.headline', 'How can I help?')}</h1>
+							<p>
+								{t(
+									'chat.description',
+									'Ask about email or threads, or request a reply draft.'
+								)}
+							</p>
 							<Suggestions>
 								{prompts.map((prompt) => (
 									<Suggestion key={prompt} onClick={(): void => void send(prompt)}>
@@ -366,8 +401,8 @@ export const AiAssistantView = (): React.JSX.Element => {
 				</Messages>
 				<Composer onSubmit={submit}>
 					<Input
-						aria-label="Pesan untuk AI Assistant"
-						placeholder="Tanyakan sesuatu tentang email Anda..."
+						aria-label={t('chat.message_label', 'Message for AI Assistant')}
+						placeholder={t('chat.placeholder', 'Ask something about your email...')}
 						value={input}
 						onChange={(event): void => setInput(event.target.value)}
 					/>
@@ -377,6 +412,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 						icon="PaperPlaneOutline"
 						onClick={(): void => void send(input)}
 						disabled={!input.trim() || isSending}
+						aria-label={t('chat.send', 'Send message')}
 					/>
 				</Composer>
 			</Conversation>

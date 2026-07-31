@@ -57,7 +57,7 @@ mkdir -p "$package_dir/ui" "$package_dir/gateway"
 cp -a dist/. "$package_dir/ui/"
 cp -a gateway/package.json gateway/src gateway/scripts gateway/deploy \
 	gateway/README.md gateway/.env.example "$package_dir/gateway/"
-cp deploy/install.sh deploy/uninstall.sh LICENSE README.md "$package_dir/"
+cp deploy/install.sh deploy/uninstall.sh CHANGELOG.md LICENSE README.md "$package_dir/"
 
 cat >"$package_dir/release.env" <<EOF
 CARBONIO_AI_VERSION=$version
