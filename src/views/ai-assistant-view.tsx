@@ -22,6 +22,17 @@ type ModelOption = {
 	contextLength?: number;
 };
 
+type AgentEvent = {
+	event: string;
+	data: {
+		text?: string;
+		name?: string;
+		status?: string;
+		count?: number;
+		message?: string;
+	};
+};
+
 const Page = styled.div`
 	height: 100%;
 	min-height: 0;
@@ -265,60 +276,23 @@ export const AiAssistantView = (): React.JSX.Element => {
 		try {
 			const response = await fetch('/api/ai/chat', {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: {
+					Accept: 'application/json',
+					'Content-Type': 'application/json'
+				},
 				body: JSON.stringify({ message: prompt, model: selectedModel })
 			});
-			if (!response.ok || !response.body) {
-				throw new Error(`Gateway HTTP ${response.status}`);
-			}
-
-			const reader = response.body.getReader();
-			const decoder = new TextDecoder();
-			let buffer = '';
-
-			while (true) {
-				const { done, value: chunk } = await reader.read();
-				buffer += decoder.decode(chunk ?? new Uint8Array(), { stream: !done });
-				const events = buffer.split('\n\n');
-				buffer = events.pop() ?? '';
-
-				events.forEach((eventBlock) => {
-					const event = eventBlock
-						.split('\n')
-						.find((line) => line.startsWith('event: '))
-						?.slice(7);
-					const rawData = eventBlock
-						.split('\n')
-						.find((line) => line.startsWith('data: '))
-						?.slice(6);
-					if (!rawData) return;
-					const data = JSON.parse(rawData) as {
-						text?: string;
-						name?: string;
-						status?: string;
-						count?: number;
-						message?: string;
-					};
-					if (event === 'message' && data.text) {
-						setMessages((current) =>
-							current.map((message) =>
-								message.id === assistantId
-									? { ...message, text: message.text + data.text }
-									: message
-							)
-						);
-					}
-					if (event === 'tool') {
-						setAgentStatus(
-							data.status === 'running'
-								? `Running ${data.name}...`
-								: `${data.name}: ${data.count ?? 0} results`
-						);
-					}
-					if (event === 'error') throw new Error(data.message ?? 'Agent error');
-				});
-				if (done) break;
-			}
+			const result = await parseJsonResponse<{ events: AgentEvent[] }>(response);
+			const answer = result.events
+				.filter(({ event, data }) => event === 'message' && data.text)
+				.map(({ data }) => data.text)
+				.join('');
+			if (!answer) throw new Error('Agent tidak mengembalikan jawaban');
+			setMessages((current) =>
+				current.map((message) =>
+					message.id === assistantId ? { ...message, text: answer } : message
+				)
+			);
 			setAgentStatus('Agent connected');
 		} catch (error) {
 			setAgentStatus('Agent error');

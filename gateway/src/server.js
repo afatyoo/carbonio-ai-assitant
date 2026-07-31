@@ -131,14 +131,24 @@ const server = http.createServer(async (request, response) => {
 			return;
 		}
 
-		response.writeHead(200, {
-			'content-type': 'text/event-stream; charset=utf-8',
-			'cache-control': 'no-cache, no-transform',
-			connection: 'keep-alive',
-			'x-accel-buffering': 'no'
-		});
+		const wantsEventStream = request.headers.accept
+			?.toLowerCase()
+			.includes('text/event-stream');
+		const events = [];
+		if (wantsEventStream) {
+			response.writeHead(200, {
+				'content-type': 'text/event-stream; charset=utf-8',
+				'cache-control': 'no-cache, no-transform',
+				connection: 'keep-alive',
+				'x-accel-buffering': 'no'
+			});
+		}
 		const emit = (event, data) => {
-			response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+			if (wantsEventStream) {
+				response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+				return;
+			}
+			events.push({ event, data });
 		};
 
 		await runAgent({
@@ -147,7 +157,11 @@ const server = http.createServer(async (request, response) => {
 			cookie: request.headers.cookie ?? '',
 			emit
 		});
-		response.end();
+		if (wantsEventStream) {
+			response.end();
+		} else {
+			sendJson(response, 200, { events });
+		}
 	} catch (error) {
 		if (!response.headersSent) {
 			sendJson(
