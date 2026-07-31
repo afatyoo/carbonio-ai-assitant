@@ -5,12 +5,17 @@ set -Eeuo pipefail
 project_dir="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_dir"
 
-for command_name in git jq tar pnpm; do
+for command_name in git jq node tar; do
 	if ! command -v "$command_name" >/dev/null 2>&1; then
 		echo "Required command is missing: $command_name" >&2
 		exit 1
 	fi
 done
+
+if [[ ! -x node_modules/.bin/tsc || ! -x node_modules/.bin/sdk ]]; then
+	echo "Project dependencies are missing. Run pnpm install first." >&2
+	exit 1
+fi
 
 if [[ -n "$(git status --short)" ]]; then
 	echo "Refusing to package a dirty worktree. Commit or stash changes first." >&2
@@ -35,8 +40,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-pnpm run type-check
-pnpm run build
+node_modules/.bin/tsc --noEmit
+node_modules/.bin/sdk build
 
 jq -e --arg commit "$commit" \
 	'.name == "carbonio-ai-assistant-ui" and .commit == $commit' \
