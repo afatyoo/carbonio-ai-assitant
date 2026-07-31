@@ -1,0 +1,9 @@
+{
+	"extends": "@zextras/carbonio-ui-configs/rules/tsconfig.type-check.json",
+	"compilerOptions": {
+		"noUncheckedIndexedAccess": false,
+		"baseUrl": "./src"
+	},
+	"include": ["src/**/*"],
+	"exclude": ["node_modules", "dist"]
+}
