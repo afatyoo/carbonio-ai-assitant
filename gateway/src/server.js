@@ -150,7 +150,11 @@ const server = http.createServer(async (request, response) => {
 		response.end();
 	} catch (error) {
 		if (!response.headersSent) {
-			sendJson(response, 500, { error: error.message });
+			sendJson(
+				response,
+				error.message.includes('authentication') ? 401 : 500,
+				{ error: error.message }
+			);
 			return;
 		}
 		response.write(`event: error\ndata: ${JSON.stringify({ message: error.message })}\n\n`);

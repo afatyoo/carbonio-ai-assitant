@@ -25,6 +25,12 @@ Runtime production menggunakan Node.js 22 dan data persisten berada di
 `/var/lib/carbonio-ai-assistant/.runtime/`. Endpoint config, model, history,
 dan chat memerlukan cookie sesi Carbonio yang valid.
 
+Self-test database dapat dijalankan dari working directory service:
+
+```bash
+node /opt/carbonio-ai-assistant/gateway/scripts/self-test-history.mjs
+```
+
 ## Menghubungkan AI Agent eksternal
 
 ```bash
