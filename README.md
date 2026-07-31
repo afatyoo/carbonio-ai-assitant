@@ -61,3 +61,7 @@ The gateway binds to `127.0.0.1:8787` by default. Carbonio Shell should proxy
 This repository is an MVP intended for local testing and further integration
 work. Review authentication, authorization, database operations, auditing, and
 provider data-retention policies before production use.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
