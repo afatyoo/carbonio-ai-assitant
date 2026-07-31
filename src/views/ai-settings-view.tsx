@@ -2,6 +2,8 @@ import React, { FormEvent, useEffect, useState } from 'react';
 
 import styled from '@emotion/styled';
 
+import { parseJsonResponse } from '../api/response';
+
 type PublicConfig = {
 	provider: string;
 	agentUrl: string;
@@ -140,10 +142,7 @@ export const AiSettingsView = (): React.JSX.Element => {
 
 	useEffect(() => {
 		fetch('/api/ai/config')
-			.then(async (response) => {
-				if (!response.ok) throw new Error(`Gateway HTTP ${response.status}`);
-				return response.json() as Promise<PublicConfig>;
-			})
+			.then((response) => parseJsonResponse<PublicConfig>(response))
 			.then((config) => {
 				setProvider((config.provider as keyof typeof providers) || 'custom');
 				setAgentUrl(config.agentUrl);
@@ -177,8 +176,7 @@ export const AiSettingsView = (): React.JSX.Element => {
 					...(apiKey.trim() ? { apiKey } : {})
 				})
 			});
-			const data = (await response.json()) as PublicConfig & { error?: string };
-			if (!response.ok) throw new Error(data.error ?? `Gateway HTTP ${response.status}`);
+			const data = await parseJsonResponse<PublicConfig>(response);
 			setHasApiKey(data.hasApiKey);
 			setApiKey('');
 			setStatus(data.mode === 'remote-agent' ? 'Saved — remote agent active' : 'Saved — local mode');

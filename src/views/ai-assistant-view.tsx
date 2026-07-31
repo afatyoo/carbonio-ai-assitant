@@ -3,6 +3,7 @@ import React, { FormEvent, useEffect, useState } from 'react';
 import styled from '@emotion/styled';
 import { Button } from '@zextras/carbonio-design-system';
 
+import { parseJsonResponse } from '../api/response';
 import { RobotMark } from '../components/robot-icon';
 import {
 	ChatMessage,
@@ -227,10 +228,9 @@ export const AiAssistantView = (): React.JSX.Element => {
 
 	useEffect(() => {
 		fetch('/api/ai/models')
-			.then(async (response) => {
-				if (!response.ok) throw new Error(`HTTP ${response.status}`);
-				return response.json() as Promise<{ models: ModelOption[] }>;
-			})
+			.then((response) =>
+				parseJsonResponse<{ models: ModelOption[] }>(response)
+			)
 			.then((data) => {
 				if (data.models.length) setModels(data.models);
 			})
@@ -241,7 +241,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 
 	useEffect(() => {
 		fetch('/api/ai/health')
-			.then((response) => response.json())
+			.then((response) => parseJsonResponse<{ mode?: string }>(response))
 			.then((data: { mode?: string }) =>
 				setAgentStatus(data.mode === 'remote-agent' ? 'Agent connected' : 'Local agent connected')
 			)
