@@ -16,15 +16,16 @@ Run from a clean Git worktree:
 pnpm run package:release
 ```
 
-The generated archive and SHA-256 checksum are written to `release/`.
+The generated versioned archive and SHA-256 checksum are written to `release/`,
+for example `carbonio-ai-assistant-v0.0.1.tar.gz`.
 
 ## Install or upgrade
 
 Copy the release archive to the Carbonio Proxy/Web UI server, then:
 
 ```bash
-tar -xzf carbonio-ai-assistant-COMMIT.tar.gz
-cd carbonio-ai-assistant-COMMIT
+tar -xzf carbonio-ai-assistant-v0.0.1.tar.gz
+cd carbonio-ai-assistant-v0.0.1
 sudo ./install.sh
 ```
 
