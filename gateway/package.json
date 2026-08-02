@@ -1,6 +1,6 @@
 {
 	"name": "carbonio-ai-agent-gateway",
-	"version": "0.0.3-dev.15",
+	"version": "0.0.3-dev.16",
 	"license": "MIT",
 	"private": true,
 	"type": "module",

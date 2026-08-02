@@ -15,8 +15,9 @@ grep -Eiq '^cache-control: no-store' "$headers_file"
 
 if [[ "$base_url" == "http://127.0.0.1:8787" ]]; then
 	systemctl is-active --quiet carbonio-ai-gateway.service
-	ss -ltnp | grep -Eq '127\.0\.0\.1:8787'
-	if ss -ltnp | grep -Eq '(^|[[:space:]])(0\.0\.0\.0|\[::\]):8787'; then
+	listeners="$(ss -ltnp)"
+	grep -Eq '127\.0\.0\.1:8787' <<<"$listeners"
+	if grep -Eq '(^|[[:space:]])(0\.0\.0\.0|\[::\]):8787' <<<"$listeners"; then
 		echo "Gateway unexpectedly has a public listener." >&2
 		exit 1
 	fi
@@ -31,4 +32,3 @@ cross_origin_status="$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
 [[ "$cross_origin_status" == "403" ]]
 
 echo "smoke_health=ok headers=ok loopback=ok admin_auth=ok csrf=ok"
-
