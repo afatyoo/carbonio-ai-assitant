@@ -2,6 +2,14 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [0.0.3-rc.5] - 2026-08-02
+
+### Fixed
+
+- Release packaging now includes the encrypted API-key helper required by the
+  installer. RC4 was not activated on the pilot because its installer failed closed
+  when that helper was absent.
+
 ## [0.0.3-rc.4] - 2026-08-02
 
 ### Added
@@ -148,6 +156,7 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 
 [0.0.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.2
 [0.0.3-rc.4]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.4
+[0.0.3-rc.5]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.5
 [0.0.3-rc.3]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.3
 [0.0.3-rc.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.2
 [0.0.3-rc.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.1
