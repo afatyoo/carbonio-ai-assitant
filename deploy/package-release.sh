@@ -80,11 +80,17 @@ chmod 0755 "$package_dir/install.sh" "$package_dir/uninstall.sh" \
 mkdir -p "$output_dir"
 COPYFILE_DISABLE=1 tar -C "$workspace" -czf "$archive" "$package_name"
 
-if command -v sha256sum >/dev/null 2>&1; then
-	sha256sum "$archive" >"${archive}.sha256"
-else
-	shasum -a 256 "$archive" >"${archive}.sha256"
-fi
+(
+	cd "$output_dir"
+	archive_name="$(basename "$archive")"
+	if command -v sha256sum >/dev/null 2>&1; then
+		sha256sum "$archive_name" >"${archive_name}.sha256"
+		sha256sum -c "${archive_name}.sha256"
+	else
+		shasum -a 256 "$archive_name" >"${archive_name}.sha256"
+		shasum -a 256 -c "${archive_name}.sha256"
+	fi
+)
 
 echo "Release archive: $archive"
 cat "${archive}.sha256"

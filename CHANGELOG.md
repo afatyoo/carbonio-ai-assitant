@@ -4,6 +4,13 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 
 ## [Unreleased]
 
+## [0.0.3-rc.3] - 2026-08-02
+
+### Fixed
+
+- Release checksum files now contain a portable archive basename instead of the
+  GitHub Actions runner's absolute path and are self-verified during packaging.
+
 ## [0.0.3-rc.2] - 2026-08-02
 
 ### Added
@@ -116,6 +123,7 @@ All notable changes to Carbonio AI Assistant are documented in this file.
   mailbox tools, server-side SQLite history, and systemd-based deployment tooling.
 
 [0.0.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.2
+[0.0.3-rc.3]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.3
 [0.0.3-rc.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.2
 [0.0.3-rc.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.1
 [0.0.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.1
