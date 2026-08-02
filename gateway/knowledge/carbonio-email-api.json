@@ -1,0 +1,64 @@
+{
+	"dataset": "carbonio-email-api",
+	"version": "2026-08-02",
+	"language": "en-id",
+	"scope": "Carbonio SOAP API guidance for reading, drafting, replying, forwarding, attaching, and sending email",
+	"chunks": [
+		{
+			"id": "email-compose-overview",
+			"title": "Choose SaveDraft or SendMsg",
+			"url": "https://docs.zextras.com/apidoc/api-reference/zimbraMail/SaveDraft.html",
+			"sourceVersion": "Carbonio SOAP API Reference 4.27.13",
+			"keywords": ["buat email", "compose email", "draft", "SaveDraft", "SendMsg", "SOAP", "urn:zimbraMail"],
+			"content": "Use SaveDraftRequest in the urn:zimbraMail namespace when the assistant must create or update a draft without sending it. Use SendMsgRequest only for an explicitly confirmed send action. Both operations require the authenticated user's authorization token; admin authorization is not required. A new draft defaults to the Drafts folder, and the saved draft ID is returned by SaveDraftResponse."
+		},
+		{
+			"id": "save-draft-message-structure",
+			"title": "SaveDraft message structure",
+			"url": "https://docs.zextras.com/apidoc/api-reference/zimbraMail/SaveDraft.html",
+			"sourceVersion": "Carbonio SOAP API Reference 4.27.13",
+			"keywords": ["SaveDraftRequest", "subject", "recipient", "to", "cc", "bcc", "mime", "body", "update draft"],
+			"content": "SaveDraftRequest contains an m object. Set m.su for the subject. Add recipient entries in m.e using a for the email address, p for the display name, and t for the address type. Put a simple body in m.content or use one top-level m.mp MIME part with ct and content; multipart bodies may contain nested MIME parts. To update a draft, provide the existing draft ID in m.id. An optional m.idnt selects the composing identity."
+		},
+		{
+			"id": "reply-forward-draft",
+			"title": "Reply and forward drafts",
+			"url": "https://docs.zextras.com/apidoc/api-reference/zimbraMail/SaveDraft.html",
+			"sourceVersion": "Carbonio SOAP API Reference 4.27.13",
+			"keywords": ["reply", "balas", "forward", "teruskan", "origid", "rt", "irt", "draft"],
+			"content": "For a reply or forward draft, set m.origid to the original Carbonio message ID. Set m.rt to r for reply or w for forward. The optional m.irt carries the original Message-ID header for reply threading. Keep this as a draft first so the user can review recipients, subject, and body before any send operation."
+		},
+		{
+			"id": "draft-attachments",
+			"title": "Draft attachments",
+			"url": "https://docs.zextras.com/apidoc/api-reference/zimbraMail/SaveDraft.html",
+			"sourceVersion": "Carbonio SOAP API Reference 4.27.13",
+			"keywords": ["attachment", "lampiran", "upload", "aid", "mime part", "message attachment"],
+			"content": "SaveDraft supports uploaded attachments through an attach object whose aid is the attachment upload ID. It can also reference an existing message, contact, or a MIME part of an existing message. A referenced MIME part uses its message ID and part identifier. Validate attachment type, size, and policy before uploading or exposing attachment content to an AI provider."
+		},
+		{
+			"id": "send-message",
+			"title": "SendMsg and confirmed delivery",
+			"url": "https://docs.zextras.com/apidoc/api-reference/zimbraMail/SendMsg.html",
+			"sourceVersion": "Carbonio SOAP API Reference 4.27.13",
+			"keywords": ["SendMsgRequest", "kirim email", "send email", "did", "sfd", "suid", "noSave", "sent folder"],
+			"content": "SendMsgRequest sends a message and supports from, to, cc, bcc, reply-to, sender, and read-receipt address types. To send a previously reviewed draft, provide its saved draft ID as m.did and set m.sfd to 1 so the message is constructed from that draft. The optional request suid is a send UID and can support an idempotent application flow. Do not set noSave unless intentionally suppressing the Sent-folder copy."
+		},
+		{
+			"id": "send-message-body",
+			"title": "SendMsg body and message metadata",
+			"url": "https://docs.zextras.com/apidoc/api-reference/zimbraMail/SendMsg.html",
+			"sourceVersion": "Carbonio SOAP API Reference 4.27.13",
+			"keywords": ["SendMsg", "MIME", "content", "subject", "identity", "priority", "reply", "forward"],
+			"content": "A SendMsg message may be described directly under m with m.su, recipient entries, headers, content, and MIME parts. Only one top-level MIME part is allowed, but multipart content may nest child parts. For reply or forward, use m.origid with m.rt set to r or w. m.idnt selects the sending identity. A sent copy ID is returned when Carbonio saves the message to Sent."
+		},
+		{
+			"id": "read-original-message",
+			"title": "Read the original message safely",
+			"url": "https://docs.zextras.com/apidoc/api-reference/zimbraMail/GetMsg.html",
+			"sourceVersion": "Carbonio SOAP API Reference 4.27.13",
+			"keywords": ["GetMsgRequest", "read email", "baca email", "quoted content", "html", "neuter", "max", "wantContent"],
+			"content": "GetMsgRequest reads a message by m.id. Leave m.read unset to avoid changing unread state. Use m.max to bound inlined body length. Set m.html when defanged HTML is needed and keep image neutering enabled. wantContent can request full, original, or both; original omits identified quoted content on a best-effort basis. Retrieve only the minimum content needed to draft a response."
+		}
+	]
+}

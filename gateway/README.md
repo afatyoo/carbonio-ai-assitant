@@ -35,6 +35,27 @@ Gateway menulis structured JSON log ke stdout/journald. Setiap request memiliki
 `x-request-id` yang sama pada UI, response gateway, HTTP log, provider log, dan
 Carbonio SOAP log.
 
+## Carbonio documentation RAG
+
+Gateway memiliki knowledge index lokal terkurasi di `knowledge/carbonio-email-api.json`.
+Index awal berfokus pada panduan resmi Carbonio SOAP API untuk membaca email,
+menyimpan draft, reply/forward, attachment, dan mengirim draft yang sudah
+dikonfirmasi. Retrieval hanya aktif untuk pertanyaan dokumentasi atau compose;
+permintaan mailbox biasa seperti ringkasan inbox tidak dicampur dengan context API.
+
+Setiap chunk menyimpan judul, versi dataset, dan URL sumber resmi. Context yang
+diambil dibatasi dan jawaban selalu ditambahkan daftar sumber resmi. Knowledge
+ini tidak berisi atau mengindeks mailbox user.
+
+Uji retrieval secara terautentikasi:
+
+```text
+GET /api/ai/knowledge/search?q=bagaimana%20membuat%20draft%20email
+```
+
+MVP ini menggunakan lexical retrieval tanpa dependency eksternal. Hybrid search
+dan embedding `pgvector` tetap menjadi tahap berikutnya setelah migrasi PostgreSQL.
+
 Default timeout:
 
 - AI provider: `75000` ms, dibatasi maksimum `90000` ms.
@@ -81,6 +102,7 @@ Agent eksternal dapat mengembalikan salah satu field berikut:
 - `GET /api/ai/config`
 - `PUT /api/ai/config`
 - `GET /api/ai/models`
+- `GET /api/ai/knowledge/search?q=...`
 - `GET /api/ai/conversations?cursor=...&q=...`
 - `GET /api/ai/conversations/:id`
 - `PUT /api/ai/conversations/:id`

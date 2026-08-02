@@ -22,6 +22,10 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 - Reliability self-tests for retry and timeout behavior.
 - A direct conversation delete button on history hover, while retaining Delete in
   the overflow menu for discoverability.
+- A curated Carbonio email API knowledge index covering `SaveDraft`, `SendMsg`,
+  reply/forward, attachments, and bounded `GetMsg` usage.
+- Local documentation retrieval with an authenticated search endpoint, provider
+  prompt grounding, official citations, and retrieval self-tests.
 
 ### Changed
 
@@ -29,6 +33,9 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 - Conversation list responses contain metadata only; full message bodies are loaded
   only when a conversation is opened.
 - Email search no longer requests full message content when only list metadata is needed.
+- Documentation RAG activates only for API guidance and compose-related requests,
+  keeping normal mailbox summaries free from unrelated API context.
+- Response chunking now preserves long tokens such as documentation citation URLs.
 
 ## [0.0.2] - 2026-07-31
 

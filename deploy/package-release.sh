@@ -55,7 +55,7 @@ jq -e --arg commit "$commit" \
 
 mkdir -p "$package_dir/ui" "$package_dir/gateway"
 cp -a dist/. "$package_dir/ui/"
-cp -a gateway/package.json gateway/src gateway/scripts gateway/deploy \
+cp -a gateway/package.json gateway/src gateway/scripts gateway/deploy gateway/knowledge \
 	gateway/README.md gateway/.env.example "$package_dir/gateway/"
 cp deploy/install.sh deploy/uninstall.sh CHANGELOG.md LICENSE README.md "$package_dir/"
 

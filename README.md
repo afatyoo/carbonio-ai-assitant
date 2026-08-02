@@ -23,6 +23,7 @@ module.
 - Custom agent endpoint support
 - Per-conversation model selection
 - Correlated request IDs, structured JSON logs, provider retry, and bounded timeouts
+- Citation-backed documentation RAG for the official Carbonio email SOAP API
 - Server-Sent Events for streamed UI responses
 
 ## Requirements

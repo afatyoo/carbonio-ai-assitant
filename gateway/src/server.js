@@ -11,6 +11,7 @@ import {
 	restoreConversation,
 	saveConversation
 } from './history.js';
+import { getKnowledgeMetadata, retrieveKnowledge } from './knowledge.js';
 import { getCurrentAccount } from './mailbox.js';
 import { logEvent } from './logger.js';
 import { listAvailableModels } from './models.js';
@@ -63,6 +64,25 @@ const handleRequest = async (request, response) => {
 			sendJson(response, error.message.includes('authentication') ? 401 : 502, {
 				error: error.message
 			});
+		}
+		return;
+	}
+
+	if (requestUrl.pathname === '/api/ai/knowledge/search' && request.method === 'GET') {
+		try {
+			await authenticate(request);
+			const query = (requestUrl.searchParams.get('q') ?? '').trim();
+			if (!query) {
+				sendJson(response, 400, { error: 'q is required' });
+				return;
+			}
+			sendJson(response, 200, {
+				knowledge: getKnowledgeMetadata(),
+				query,
+				results: retrieveKnowledge(query)
+			});
+		} catch (error) {
+			sendJson(response, 401, { error: error.message });
 		}
 		return;
 	}
