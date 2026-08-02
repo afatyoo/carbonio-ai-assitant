@@ -6,7 +6,7 @@ process.env.AI_AUDIT_DB_PATH = path.join(os.tmpdir(), `carbonio-ai-tools-${rando
 
 const { registerTool, TOOL_RISK } = await import('../src/tool-registry.js');
 const { executeTool } = await import('../src/tool-runner.js');
-const { listAuditEntries } = await import('../src/tool-audit.js');
+const { listAllAuditEntries, listAuditEntries } = await import('../src/tool-audit.js');
 const { listToolDefinitions } = await import('../src/tool-registry.js');
 
 const schema = {
@@ -141,6 +141,9 @@ if (!audit.some(({ tool, resultReference }) => tool === 'test_write_tool' && res
 if (listAuditEntries('owner-b', 20).some(({ status }) => status === 'completed')) {
 	throw new Error('Audit owner isolation failed');
 }
+if (!listAllAuditEntries(20).some(({ ownerId, tool }) => ownerId === 'owner-a' && tool === 'test_write_tool')) {
+	throw new Error('Administrator audit listing is incomplete');
+}
 
 await import('../src/mail-tools.js');
 await import('../src/calendar-tools.js');
@@ -228,5 +231,5 @@ if (zonedLocalToIso('2026-08-03T10:00:00', 'Asia/Jakarta') !== '2026-08-03T03:00
 }
 
 console.log(
-	'tool_registry=ok schema_validation=ok permission=ok confirmation=ok owner_isolation=ok idempotency=ok audit=ok audit_reference=ok mail_tools=ok draft_preview=ok calendar_tools=ok appointment_preview=ok appointment_validation=ok timezone_conversion=ok'
+	'tool_registry=ok schema_validation=ok permission=ok confirmation=ok owner_isolation=ok idempotency=ok audit=ok admin_audit=ok audit_reference=ok mail_tools=ok draft_preview=ok calendar_tools=ok appointment_preview=ok appointment_validation=ok timezone_conversion=ok'
 );

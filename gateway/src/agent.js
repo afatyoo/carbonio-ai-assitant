@@ -12,6 +12,8 @@ import {
 	shouldRetrieveKnowledge
 } from './knowledge.js';
 import { logEvent } from './logger.js';
+import { incrementMetric, observeMetric, setMetric } from './metrics.js';
+import { sanitizeModelOutput } from './output-safety.js';
 import { redactForProvider } from './redaction.js';
 import { executeTool } from './tool-runner.js';
 
@@ -119,11 +121,13 @@ const remoteCompletion = async ({ systemPrompt, userPrompt, requestedModel, json
 			: config.provider === 'gemini'
 				? {
 						systemInstruction: { parts: [{ text: systemPrompt }] },
-						contents: [{ role: 'user', parts: [{ text: userPrompt }] }]
+						contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+						generationConfig: { maxOutputTokens: 2048 }
 					}
 				: isOpenAiCompatible
 					? {
 							model,
+							max_tokens: 2048,
 							...(config.provider === 'openrouter'
 								? {
 										provider: {
@@ -177,7 +181,15 @@ const remoteCompletion = async ({ systemPrompt, userPrompt, requestedModel, json
 			status: response.status,
 			duration_ms: Date.now() - startedAt
 		});
+		incrementMetric(`provider_http_${Math.floor(response.status / 100)}xx_total`);
+		setMetric('provider_last_status', response.status);
+		setMetric('provider_last_response_at', Date.now());
+		observeMetric('provider_duration_ms', Date.now() - startedAt);
 	} catch (error) {
+		incrementMetric('provider_network_error_total');
+		setMetric('provider_last_status', -1);
+		setMetric('provider_last_response_at', Date.now());
+		observeMetric('provider_duration_ms', Date.now() - startedAt);
 		logEvent('error', 'provider_error', {
 			provider: config.provider,
 			model,
@@ -198,7 +210,7 @@ const remoteCompletion = async ({ systemPrompt, userPrompt, requestedModel, json
 		throw new Error(`AI Agent returned HTTP ${response.status}: ${detail}`);
 	}
 	const data = await response.json();
-	return (
+	return sanitizeModelOutput(
 		data.choices?.[0]?.message?.content ??
 		data.content?.find((item) => item.type === 'text')?.text ??
 		data.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('') ??

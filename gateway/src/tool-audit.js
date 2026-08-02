@@ -181,3 +181,25 @@ export const listAuditEntries = (ownerId, limit = 50) =>
 			createdAt: row.created_at,
 			completedAt: row.completed_at
 		}));
+
+export const listAllAuditEntries = (limit = 100) =>
+	database
+		.prepare(
+			`SELECT id, owner_id, request_id, tool_name, risk, status, result_count,
+			        result_ref, error_code, created_at, completed_at
+			 FROM tool_audit ORDER BY created_at DESC, id DESC LIMIT ?`
+		)
+		.all(Math.min(Math.max(Number(limit) || 100, 1), 500))
+		.map((row) => ({
+			id: row.id,
+			ownerId: row.owner_id,
+			requestId: row.request_id,
+			tool: row.tool_name,
+			risk: row.risk,
+			status: row.status,
+			resultCount: row.result_count,
+			resultReference: row.result_ref,
+			errorCode: row.error_code,
+			createdAt: row.created_at,
+			completedAt: row.completed_at
+		}));

@@ -142,6 +142,7 @@ Agent eksternal dapat mengembalikan salah satu field berikut:
 - `GET /api/ai/tools`
 - `GET /api/ai/audit?limit=...`
 - `GET /api/ai/admin/metrics` (administrator only)
+- `GET /api/ai/admin/audit?limit=...` (administrator only)
 - `GET /api/ai/conversations?cursor=...&q=...`
 - `GET /api/ai/conversations/:id`
 - `PUT /api/ai/conversations/:id`

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 
 process.env.AI_ADMIN_ACCOUNTS = 'admin@example.test,account-admin-id';
 process.env.AI_ALLOWED_ORIGINS = 'https://trusted.example.test';
@@ -19,6 +20,7 @@ const {
 const { assertModelAllowed, getModelAllowlist } = await import('../src/config.js');
 const { purgeDailyUsage } = await import('../src/history.js');
 const { redactSensitiveText } = await import('../src/redaction.js');
+const { sanitizeModelOutput } = await import('../src/output-safety.js');
 
 assert.equal(isAdminAccount({ id: 'user-id', name: 'ADMIN@example.test' }), true);
 assert.equal(isAdminAccount({ id: 'account-admin-id', name: 'user@example.test' }), true);
@@ -72,5 +74,12 @@ assert.equal(
 	redactSensitiveText('Authorization: Bearer abcdefghijklmnop password=hunter123'),
 	'Authorization: Bearer [REDACTED] password=[REDACTED]'
 );
+assert.equal(sanitizeModelOutput('<script>alert(1)</script>\u0000'), '<script>alert(1)</script>');
+const assistantView = fs.readFileSync(
+	new URL('../../src/views/ai-assistant-view.tsx', import.meta.url),
+	'utf8'
+);
+assert.equal(assistantView.includes('dangerouslySetInnerHTML'), false);
+assert.match(assistantView, /\{message\.text\}/);
 
-console.log('admin_auth=ok account_policy=ok csrf=ok quota=ok model_allowlist=ok redaction=ok');
+console.log('admin_auth=ok account_policy=ok csrf=ok quota=ok model_allowlist=ok redaction=ok safe_rendering=ok');

@@ -16,6 +16,20 @@ type PublicConfig = {
 	canManageSettings: boolean;
 };
 
+type AdminMetrics = {
+	metrics: { uptimeSeconds: number; counters: Record<string, number> };
+	policy: Record<string, string | number | boolean>;
+};
+
+type AuditEntry = {
+	id: string;
+	ownerId: string;
+	tool: string;
+	risk: string;
+	status: string;
+	createdAt: number;
+};
+
 const providers = {
 	openrouter: {
 		label: 'OpenRouter',
@@ -134,6 +148,28 @@ const Status = styled.span<{ error?: boolean }>`
 		error ? theme.palette.error.regular : theme.palette.success.regular};
 `;
 
+const AdminPanel = styled.section`
+	margin-top: 1.5rem;
+	padding: 1.5rem;
+	border: 0.0625rem solid ${({ theme }): string => theme.palette.gray3.regular};
+	border-radius: 0.75rem;
+	background: ${({ theme }): string => theme.palette.gray6.regular};
+`;
+
+const AdminSummary = styled.pre`
+	max-height: 16rem;
+	overflow: auto;
+	white-space: pre-wrap;
+	font-size: 0.78rem;
+	color: inherit;
+`;
+
+const AuditList = styled.ul`
+	margin: 0;
+	padding-left: 1.25rem;
+	font-size: 0.82rem;
+`;
+
 export const AiSettingsView = (): React.JSX.Element => {
 	const { t } = useAppTranslation();
 	const [provider, setProvider] = useState<keyof typeof providers>('openrouter');
@@ -149,6 +185,8 @@ export const AiSettingsView = (): React.JSX.Element => {
 	const [canManageSettings, setCanManageSettings] = useState(false);
 	const [modelAllowlist, setModelAllowlist] = useState<string[]>([]);
 	const [processingDisclosure, setProcessingDisclosure] = useState('');
+	const [adminMetrics, setAdminMetrics] = useState<AdminMetrics | null>(null);
+	const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
 
 	useEffect(() => {
 		apiFetch('/api/ai/config')
@@ -161,6 +199,24 @@ export const AiSettingsView = (): React.JSX.Element => {
 				setCanManageSettings(config.canManageSettings);
 				setModelAllowlist(config.modelAllowlist ?? []);
 				setProcessingDisclosure(config.processingDisclosure ?? '');
+				if (config.canManageSettings) {
+					void Promise.all([
+						apiFetch('/api/ai/admin/metrics').then((response) =>
+							parseJsonResponse<AdminMetrics>(response)
+						),
+						apiFetch('/api/ai/admin/audit?limit=10').then((response) =>
+							parseJsonResponse<{ entries: AuditEntry[] }>(response)
+						)
+					])
+						.then(([metrics, audit]) => {
+							setAdminMetrics(metrics);
+							setAuditEntries(audit.entries);
+						})
+						.catch((reason: Error) => {
+							setError(true);
+							setStatus(reason.message);
+						});
+				}
 				setStatus(
 					config.mode === 'remote-agent'
 						? t('settings.remote_configured', 'Remote agent configured')
@@ -332,6 +388,33 @@ export const AiSettingsView = (): React.JSX.Element => {
 				</Actions>
 				{processingDisclosure ? <Hint>{processingDisclosure}</Hint> : null}
 			</Card>
+			{canManageSettings ? (
+				<AdminPanel>
+					<h2>{t('settings.admin_status', 'Administration status')}</h2>
+					<AdminSummary>
+						{adminMetrics
+							? JSON.stringify(
+									{
+										uptimeSeconds: adminMetrics.metrics.uptimeSeconds,
+										...adminMetrics.policy,
+										...adminMetrics.metrics.counters
+									},
+									null,
+									2
+								)
+							: t('settings.loading', 'Loading configuration...')}
+					</AdminSummary>
+					<h3>{t('settings.recent_tool_activity', 'Recent tool activity')}</h3>
+					<AuditList>
+						{auditEntries.map((entry) => (
+							<li key={entry.id}>
+								{entry.tool} · {entry.status} · {entry.ownerId} ·{' '}
+								{new Date(entry.createdAt).toLocaleString()}
+							</li>
+						))}
+					</AuditList>
+				</AdminPanel>
+			) : null}
 		</Page>
 	);
 };

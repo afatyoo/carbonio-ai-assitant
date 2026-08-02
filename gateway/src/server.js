@@ -16,10 +16,10 @@ import {
 import { getKnowledgeMetadata, retrieveKnowledge } from './knowledge.js';
 import { getCurrentAccount } from './mailbox.js';
 import { logEvent } from './logger.js';
-import { getMetricsSnapshot, incrementMetric } from './metrics.js';
+import { getMetricsSnapshot, incrementMetric, observeMetric } from './metrics.js';
 import { listAvailableModels } from './models.js';
 import { runWithRequestContext } from './request-context.js';
-import { listAuditEntries } from './tool-audit.js';
+import { listAllAuditEntries, listAuditEntries } from './tool-audit.js';
 import { listToolDefinitions } from './tool-registry.js';
 import { executeTool } from './tool-runner.js';
 import {
@@ -104,6 +104,19 @@ const handleRequest = async (request, response) => {
 			const account = await authenticate(request);
 			requireAdminAccount(account);
 			sendJson(response, 200, { metrics: getMetricsSnapshot(), policy: getSecurityPolicy() });
+		} catch (error) {
+			sendJson(response, errorStatus(error, 403), { error: error.message });
+		}
+		return;
+	}
+
+	if (requestUrl.pathname === '/api/ai/admin/audit' && request.method === 'GET') {
+		try {
+			const account = await authenticate(request);
+			requireAdminAccount(account);
+			sendJson(response, 200, {
+				entries: listAllAuditEntries(requestUrl.searchParams.get('limit') ?? 100)
+			});
 		} catch (error) {
 			sendJson(response, errorStatus(error, 403), { error: error.message });
 		}
@@ -373,6 +386,8 @@ const server = http.createServer((request, response) => {
 	const startedAt = Date.now();
 	void runWithRequestContext({ requestId }, async () => {
 		response.once('finish', () => {
+			incrementMetric(`http_status_${Math.floor(response.statusCode / 100)}xx_total`);
+			observeMetric('http_duration_ms', Date.now() - startedAt);
 			logEvent('info', 'http_request', {
 				method: request.method,
 				path: new URL(request.url, 'http://127.0.0.1').pathname,

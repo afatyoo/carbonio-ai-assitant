@@ -56,6 +56,9 @@ All notable changes to Carbonio AI Assistant are documented in this file.
   mailbox context is sent to an external provider.
 - Per-request OpenRouter Zero Data Retention and data-collection denial, plus a
   documented provider privacy review for the production pilot.
+- Bounded/sanitized model output, safe plain-text UI rendering verification,
+  success/error/latency metrics, provider health gauges, and an administrator
+  audit/status panel in AI settings.
 
 ### Changed
 
