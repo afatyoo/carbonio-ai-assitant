@@ -56,6 +56,19 @@ GET /api/ai/knowledge/search?q=bagaimana%20membuat%20draft%20email
 MVP ini menggunakan lexical retrieval tanpa dependency eksternal. Hybrid search
 dan embedding `pgvector` tetap menjadi tahap berikutnya setelah migrasi PostgreSQL.
 
+## Agent Tool Framework
+
+Mailbox tools terdaftar melalui schema registry dengan risk level `READ`, `DRAFT`,
+`WRITE`, atau `DESTRUCTIVE`. Runner memvalidasi input, memeriksa permission,
+membatasi timeout serta ukuran result, dan menulis audit record tanpa menyimpan
+isi field sensitif. Tool `WRITE` dan `DESTRUCTIVE` menggunakan confirmation token
+sekali pakai yang terikat ke owner, nama tool, dan hash input. Idempotency result
+disimpan per owner/tool/key untuk mencegah mutation ganda.
+
+Audit pilot disimpan di `.runtime/audit.sqlite` dengan mode file `0600` dan dapat
+diarahkan melalui `AI_AUDIT_DB_PATH`. Database ini akan ikut dimigrasikan ke
+PostgreSQL pada fase production database.
+
 Default timeout:
 
 - AI provider: `75000` ms, dibatasi maksimum `90000` ms.
@@ -103,6 +116,8 @@ Agent eksternal dapat mengembalikan salah satu field berikut:
 - `PUT /api/ai/config`
 - `GET /api/ai/models`
 - `GET /api/ai/knowledge/search?q=...`
+- `GET /api/ai/tools`
+- `GET /api/ai/audit?limit=...`
 - `GET /api/ai/conversations?cursor=...&q=...`
 - `GET /api/ai/conversations/:id`
 - `PUT /api/ai/conversations/:id`

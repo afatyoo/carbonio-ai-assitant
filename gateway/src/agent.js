@@ -1,4 +1,5 @@
-import { searchEmails } from './mailbox.js';
+import './mail-tools.js';
+
 import { getAgentConfig } from './config.js';
 import { fetchWithRetry } from './fetch-with-retry.js';
 import {
@@ -8,6 +9,7 @@ import {
 	shouldRetrieveKnowledge
 } from './knowledge.js';
 import { logEvent } from './logger.js';
+import { executeTool } from './tool-runner.js';
 
 const providerTimeoutMs = Math.min(
 	Math.max(Number(process.env.AI_PROVIDER_TIMEOUT_MS ?? 75_000), 5_000),
@@ -27,7 +29,7 @@ const isDocumentationOnlyQuery = (message) =>
 const selectTool = (message) => {
 	const value = message.toLowerCase();
 	if (value.includes('belum dibaca') || value.includes('unread')) {
-		return { name: 'list_unread_emails', query: 'is:unread', limit: 10 };
+		return { name: 'list_unread_emails', input: { query: 'is:unread', limit: 10 } };
 	}
 	if (
 		value.includes('email') ||
@@ -35,7 +37,7 @@ const selectTool = (message) => {
 		value.includes('ringkas') ||
 		value.includes('penting')
 	) {
-		return { name: 'search_emails', query: 'in:inbox', limit: 10 };
+		return { name: 'search_emails', input: { query: 'in:inbox', limit: 10 } };
 	}
 	return null;
 };
@@ -186,7 +188,7 @@ const remoteAnswer = async ({ message, toolResult, knowledgeResults, requestedMo
 	return appendKnowledgeSources(answer, knowledgeResults);
 };
 
-export const runAgent = async ({ message, model, cookie, emit }) => {
+export const runAgent = async ({ message, model, cookie, account, emit }) => {
 	const config = getAgentConfig();
 	const knowledgeStartedAt = Date.now();
 	const knowledgeResults = shouldRetrieveKnowledge(message)
@@ -210,28 +212,18 @@ export const runAgent = async ({ message, model, cookie, emit }) => {
 
 	if (tool) {
 		emit('tool', { name: tool.name, status: 'running' });
-		const toolStartedAt = Date.now();
-		try {
-			const items = await searchEmails({
+		const execution = await executeTool({
+			name: tool.name,
+			input: tool.input,
+			context: {
+				ownerId: account.id,
 				cookie,
-				query: tool.query,
-				limit: tool.limit
-			});
-			toolResult = { name: tool.name, items };
-			emit('tool', { name: tool.name, status: 'completed', count: items.length });
-			logEvent('info', 'tool_completed', {
-				tool: tool.name,
-				result_count: items.length,
-				duration_ms: Date.now() - toolStartedAt
-			});
-		} catch (error) {
-			logEvent('error', 'tool_failed', {
-				tool: tool.name,
-				duration_ms: Date.now() - toolStartedAt,
-				error
-			});
-			throw error;
-		}
+				permissions: ['mail.read']
+			}
+		});
+		const items = execution.result;
+		toolResult = { name: tool.name, items };
+		emit('tool', { name: tool.name, status: 'completed', count: items.length });
 	}
 
 	const answer = config.agentUrl

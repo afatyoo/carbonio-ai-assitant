@@ -16,6 +16,8 @@ import { getCurrentAccount } from './mailbox.js';
 import { logEvent } from './logger.js';
 import { listAvailableModels } from './models.js';
 import { runWithRequestContext } from './request-context.js';
+import { listAuditEntries } from './tool-audit.js';
+import { listToolDefinitions } from './tool-registry.js';
 
 const port = Number(process.env.PORT ?? 8787);
 
@@ -80,6 +82,30 @@ const handleRequest = async (request, response) => {
 				knowledge: getKnowledgeMetadata(),
 				query,
 				results: retrieveKnowledge(query)
+			});
+		} catch (error) {
+			sendJson(response, 401, { error: error.message });
+		}
+		return;
+	}
+
+	if (requestUrl.pathname === '/api/ai/tools' && request.method === 'GET') {
+		try {
+			await authenticate(request);
+			sendJson(response, 200, {
+				tools: listToolDefinitions().map(({ preview, ...definition }) => definition)
+			});
+		} catch (error) {
+			sendJson(response, 401, { error: error.message });
+		}
+		return;
+	}
+
+	if (requestUrl.pathname === '/api/ai/audit' && request.method === 'GET') {
+		try {
+			const account = await authenticate(request);
+			sendJson(response, 200, {
+				entries: listAuditEntries(account.id, requestUrl.searchParams.get('limit') ?? 50)
 			});
 		} catch (error) {
 			sendJson(response, 401, { error: error.message });
@@ -189,7 +215,7 @@ const handleRequest = async (request, response) => {
 	}
 
 	try {
-		await authenticate(request);
+		const account = await authenticate(request);
 		const payload = await readJson(request);
 		if (typeof payload.message !== 'string' || !payload.message.trim()) {
 			sendJson(response, 400, { error: 'message is required' });
@@ -220,6 +246,7 @@ const handleRequest = async (request, response) => {
 			message: payload.message.trim(),
 			model: typeof payload.model === 'string' ? payload.model.trim() : '',
 			cookie: request.headers.cookie ?? '',
+			account,
 			emit
 		});
 		if (wantsEventStream) {

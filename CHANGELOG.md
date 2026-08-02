@@ -28,6 +28,10 @@ All notable changes to Carbonio AI Assistant are documented in this file.
   prompt grounding, official citations, and retrieval self-tests.
 - A shadcn Marker-inspired inline process indicator with an accessible spinner,
   shimmer text, and localized tool status labels.
+- A schema-based agent tool registry with risk levels, permissions, bounded
+  execution, owner-scoped audit records, one-time confirmation tokens, and
+  idempotency storage.
+- Authenticated tool catalog and per-user audit endpoints.
 
 ### Changed
 
@@ -40,6 +44,8 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 - Response chunking now preserves long tokens such as documentation citation URLs.
 - Chat responses now use the gateway SSE transport so tool and generation states
   update while a request is running.
+- Existing mailbox search and unread-list tools now execute through the shared
+  Tool Framework instead of direct handler calls.
 
 ## [0.0.2] - 2026-07-31
 
