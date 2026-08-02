@@ -37,6 +37,11 @@ if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
 	echo "Invalid package version: $version" >&2
 	exit 1
 fi
+release_report="$project_dir/docs/releases/v${version}.md"
+if [[ ! -f "$release_report" ]]; then
+	echo "Release report is missing: $release_report" >&2
+	exit 1
+fi
 
 node_version="v22.22.0"
 package_name="carbonio-ai-assistant-v${version}"
@@ -66,6 +71,7 @@ cp deploy/install.sh deploy/uninstall.sh deploy/setup-postgres.sh \
 	deploy/backup-postgres.sh deploy/restore-postgres.sh deploy/rollback.sh \
 	deploy/smoke-test.sh deploy/set-api-key.sh \
 	CHANGELOG.md LICENSE README.md "$package_dir/"
+cp "$release_report" "$package_dir/RELEASE_NOTES.md"
 
 cat >"$package_dir/release.env" <<EOF
 CARBONIO_AI_VERSION=$version

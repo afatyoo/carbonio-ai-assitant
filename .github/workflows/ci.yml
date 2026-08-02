@@ -49,6 +49,8 @@ jobs:
         run: pnpm run self-test:ui
       - name: Test deployment smoke gate
         run: pnpm run self-test:deploy
+      - name: Test release report contract
+        run: pnpm run self-test:release
       - name: Check and test gateway
         run: |
           npm --prefix gateway run check
