@@ -24,6 +24,7 @@ module.
 - Per-conversation model selection
 - Correlated request IDs, structured JSON logs, provider retry, and bounded timeouts
 - Citation-backed documentation RAG for the official Carbonio email SOAP API
+- Real-time, localized process markers for documentation, mailbox, and AI activity
 - Server-Sent Events for streamed UI responses
 
 ## Requirements

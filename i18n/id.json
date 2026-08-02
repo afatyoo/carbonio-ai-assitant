@@ -51,6 +51,13 @@
 		"load_conversation_error": "Percakapan tidak dapat dimuat",
 		"save_history_error": "Riwayat tidak dapat disimpan",
 		"empty_answer": "Agent tidak mengembalikan jawaban",
+		"thinking": "Sedang berpikir...",
+		"searching_docs": "Mencari dokumentasi Carbonio...",
+		"searching_emails": "Mencari email...",
+		"reading_unread": "Membaca email yang belum dibaca...",
+		"waiting_ai": "Menunggu AI...",
+		"generating_answer": "Menyusun jawaban...",
+		"running_tool": "Menjalankan tool Carbonio...",
 		"contact_error": "Tidak dapat menghubungi agent: {{message}}"
 	},
 	"settings": {

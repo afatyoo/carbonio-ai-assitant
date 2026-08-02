@@ -51,6 +51,13 @@
 		"load_conversation_error": "Unable to load conversation",
 		"save_history_error": "Unable to save history",
 		"empty_answer": "The agent returned an empty answer",
+		"thinking": "Thinking...",
+		"searching_docs": "Searching Carbonio documentation...",
+		"searching_emails": "Searching emails...",
+		"reading_unread": "Reading unread emails...",
+		"waiting_ai": "Waiting for AI...",
+		"generating_answer": "Generating answer...",
+		"running_tool": "Running Carbonio tool...",
 		"contact_error": "Unable to contact the agent: {{message}}"
 	},
 	"settings": {

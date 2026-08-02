@@ -1,8 +1,9 @@
-import React, { FormEvent, useEffect, useState } from 'react';
+import React, { FormEvent, useEffect, useRef, useState } from 'react';
 
 import styled from '@emotion/styled';
 import { Button } from '@zextras/carbonio-design-system';
 
+import { AgentEvent, readAgentEvents } from '../api/agent-stream';
 import { apiFetch, parseJsonResponse } from '../api/response';
 import { RobotMark } from '../components/robot-icon';
 import {
@@ -22,17 +23,6 @@ type ModelOption = {
 	name: string;
 	free: boolean;
 	contextLength?: number;
-};
-
-type AgentEvent = {
-	event: string;
-	data: {
-		text?: string;
-		name?: string;
-		status?: string;
-		count?: number;
-		message?: string;
-	};
 };
 
 const Page = styled.div`
@@ -142,6 +132,64 @@ const Bubble = styled.div<{ role: 'assistant' | 'user' }>`
 		role === 'user' ? theme.palette.gray6.regular : theme.palette.text.regular};
 `;
 
+const ProcessMarker = styled.div`
+	min-height: 2rem;
+	margin: 0 0 1rem;
+	padding: 0.35rem 0.25rem;
+	display: flex;
+	align-items: center;
+	gap: 0.55rem;
+	color: ${({ theme }): string => theme.palette.secondary.regular};
+	font-size: 0.85rem;
+	line-height: 1.25rem;
+`;
+
+const ProcessSpinner = styled.span`
+	box-sizing: border-box;
+	width: 0.95rem;
+	height: 0.95rem;
+	flex: 0 0 auto;
+	border: 0.125rem solid ${({ theme }): string => theme.palette.gray3.regular};
+	border-top-color: ${({ theme }): string => theme.palette.primary.regular};
+	border-radius: 50%;
+	animation: process-spin 700ms linear infinite;
+
+	@keyframes process-spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		animation-duration: 1.5s;
+	}
+`;
+
+const ProcessText = styled.span`
+	background: linear-gradient(
+		90deg,
+		${({ theme }): string => theme.palette.secondary.regular} 20%,
+		${({ theme }): string => theme.palette.text.regular} 48%,
+		${({ theme }): string => theme.palette.secondary.regular} 76%
+	);
+	background-size: 220% 100%;
+	background-clip: text;
+	color: transparent;
+	animation: process-shimmer 1.6s linear infinite;
+
+	@keyframes process-shimmer {
+		to {
+			background-position: -220% 0;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		background: none;
+		color: inherit;
+		animation: none;
+	}
+`;
+
 const Composer = styled.form`
 	margin: 0 max(1.5rem, calc((100% - 48rem) / 2)) 1.5rem;
 	padding: 0.5rem 0.5rem 0.5rem 1rem;
@@ -177,6 +225,8 @@ export const AiAssistantView = (): React.JSX.Element => {
 		t('status.connecting', 'Connecting...')
 	);
 	const [isSending, setIsSending] = useState(false);
+	const [processLabel, setProcessLabel] = useState('');
+	const messagesRef = useRef<HTMLDivElement | null>(null);
 	const [models, setModels] = useState<ModelOption[]>([
 		{ id: 'openrouter/free', name: 'Auto — Free Models Router', free: true }
 	]);
@@ -187,6 +237,29 @@ export const AiAssistantView = (): React.JSX.Element => {
 		t('chat.suggestion.reply', 'Draft a reply to the latest email'),
 		t('chat.suggestion.actions', 'What needs my attention?')
 	];
+
+	const toolStatusLabel = (event: AgentEvent): string => {
+		if (event.event !== 'tool') return t('status.waiting_ai', 'Waiting for AI...');
+		if (event.data.status === 'completed') {
+			return t('status.waiting_ai', 'Waiting for AI...');
+		}
+		switch (event.data.name) {
+			case 'search_carbonio_docs':
+				return t('status.searching_docs', 'Searching Carbonio documentation...');
+			case 'search_emails':
+				return t('status.searching_emails', 'Searching emails...');
+			case 'list_unread_emails':
+				return t('status.reading_unread', 'Reading unread emails...');
+			default:
+				return t('status.running_tool', 'Running Carbonio tool...');
+		}
+	};
+
+	useEffect(() => {
+		const element = messagesRef.current;
+		if (!element) return;
+		element.scrollTop = element.scrollHeight;
+	}, [messages, processLabel]);
 
 	useEffect(() => {
 		getConversations()
@@ -305,27 +378,34 @@ export const AiAssistantView = (): React.JSX.Element => {
 		]);
 		setInput('');
 		setIsSending(true);
+		setProcessLabel(t('status.thinking', 'Thinking...'));
 
 		try {
 			const response = await apiFetch('/api/ai/chat', {
 				method: 'POST',
 				headers: {
-					Accept: 'application/json',
+					Accept: 'text/event-stream',
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({ message: prompt, model: selectedModel })
 			});
-			const result = await parseJsonResponse<{ events: AgentEvent[] }>(response);
-			const answer = result.events
-				.filter(({ event, data }) => event === 'message' && data.text)
-				.map(({ data }) => data.text)
-				.join('');
+			let answer = '';
+			await readAgentEvents(response, (event) => {
+				if (event.event === 'tool') {
+					setProcessLabel(toolStatusLabel(event));
+					return;
+				}
+				if (event.event === 'message' && event.data.text) {
+					answer += event.data.text;
+					setProcessLabel(t('status.generating_answer', 'Generating answer...'));
+					setMessages((current) =>
+						current.map((message) =>
+							message.id === assistantId ? { ...message, text: answer } : message
+						)
+					);
+				}
+			});
 			if (!answer) throw new Error(t('status.empty_answer', 'The agent returned an empty answer'));
-			setMessages((current) =>
-				current.map((message) =>
-					message.id === assistantId ? { ...message, text: answer } : message
-				)
-			);
 			setAgentStatus(t('status.agent_connected', 'Agent connected'));
 		} catch (error) {
 			setAgentStatus(t('status.agent_error', 'Agent error'));
@@ -343,6 +423,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 			);
 		} finally {
 			setIsSending(false);
+			setProcessLabel('');
 		}
 	};
 
@@ -373,7 +454,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 						<Status>● {agentStatus}</Status>
 					</HeaderActions>
 				</Header>
-				<Messages>
+				<Messages ref={messagesRef}>
 					{messages.length === 0 ? (
 						<Empty>
 							<Orb>
@@ -395,11 +476,19 @@ export const AiAssistantView = (): React.JSX.Element => {
 							</Suggestions>
 						</Empty>
 					) : (
-						messages.map((message) => (
-							<Bubble key={message.id} role={message.role}>
-								{message.text}
-							</Bubble>
-						))
+						messages.map((message) =>
+							message.text ? (
+								<Bubble key={message.id} role={message.role}>
+									{message.text}
+								</Bubble>
+							) : null
+						)
+					)}
+					{isSending && processLabel && (
+						<ProcessMarker role="status" aria-live="polite">
+							<ProcessSpinner aria-hidden="true" />
+							<ProcessText>{processLabel}</ProcessText>
+						</ProcessMarker>
 					)}
 				</Messages>
 				<Composer onSubmit={submit}>

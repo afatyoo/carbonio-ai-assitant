@@ -26,6 +26,8 @@ All notable changes to Carbonio AI Assistant are documented in this file.
   reply/forward, attachments, and bounded `GetMsg` usage.
 - Local documentation retrieval with an authenticated search endpoint, provider
   prompt grounding, official citations, and retrieval self-tests.
+- A shadcn Marker-inspired inline process indicator with an accessible spinner,
+  shimmer text, and localized tool status labels.
 
 ### Changed
 
@@ -36,6 +38,8 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 - Documentation RAG activates only for API guidance and compose-related requests,
   keeping normal mailbox summaries free from unrelated API context.
 - Response chunking now preserves long tokens such as documentation citation URLs.
+- Chat responses now use the gateway SSE transport so tool and generation states
+  update while a request is running.
 
 ## [0.0.2] - 2026-07-31
 
