@@ -2,6 +2,19 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [0.0.3-rc.19] - 2026-08-02
+
+### Fixed
+
+- Folder-qualified explicit message targets such as `email Inbox ID 440` now resolve
+  through exact `GetMsg` revalidation instead of being rejected as ambiguous. The parser
+  remains restricted to known Carbonio standard folder names and still requires the
+  confirmation flow before any mutation.
+- Move-email destinations are resolved only from one complete terminal `to`, `into`, or
+  `ke` clause, preventing source qualifiers or connector words inside subjects from being
+  mistaken for the destination. Ambiguous destinations and bare numeric folder values
+  fail closed before mailbox access.
+
 ## [0.0.3-rc.18] - 2026-08-02
 
 ### Fixed

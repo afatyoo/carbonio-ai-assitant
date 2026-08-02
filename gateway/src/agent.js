@@ -62,6 +62,29 @@ const standardFolders = new Map([
 	['draft', ['6', 'Drafts']],
 	['draf', ['6', 'Drafts']]
 ]);
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const standardFolderAliases = [...standardFolders.keys()].sort((left, right) =>
+	right.length - left.length
+);
+const standardFolderPattern = standardFolderAliases.map(escapeRegExp).join('|');
+const namedMoveDestinationPattern = new RegExp(
+	`\\b(?:to|into|ke)\\s+(?:(["'])(${standardFolderPattern})\\1|(${standardFolderPattern}))\\s*[.!?…]*$`,
+	'i'
+);
+const folderIdMoveDestinationPattern =
+	/\b(?:to|into|ke)\s+(?:(["'])folder(?:\s+id)?\s+(\d+)\1|folder(?:\s+id)?\s+(\d+))\s*[.!?…]*$/i;
+
+const resolveMoveDestination = (value) => {
+	const named = value.match(namedMoveDestinationPattern);
+	const alias = named?.[2] ?? named?.[3];
+	if (alias) {
+		const [folderId, folderName] = standardFolders.get(alias.toLowerCase());
+		return { folderId, folderName };
+	}
+	const numeric = value.match(folderIdMoveDestinationPattern);
+	const folderId = numeric?.[2] ?? numeric?.[3];
+	return folderId ? { folderId, folderName: `Folder ${folderId}` } : null;
+};
 
 export const classifyActionRequest = (message) => {
 	const value = String(message ?? '').trim();
@@ -81,12 +104,10 @@ export const classifyActionRequest = (message) => {
 	const tag = value.match(/(?:tambahkan|beri|add)\s+tag\s+["']?([^"'\s,]+)["']?/i);
 	if (tag) return { tool: 'add_tag', tagName: tag[1] };
 	if (/(pindahkan|move)\b[\s\S]*\bemail\b/i.test(value)) {
-		const lowered = value.toLowerCase();
-		for (const [name, [folderId, folderName]] of standardFolders) {
-			if (lowered.includes(name)) return { tool: 'move_email', folderId, folderName };
-		}
-		const folderId = value.match(/folder(?:\s+id)?\s+(\d+)/i)?.[1];
-		if (folderId) return { tool: 'move_email', folderId, folderName: `Folder ${folderId}` };
+		const destination = resolveMoveDestination(value);
+		return destination
+			? { tool: 'move_email', ...destination }
+			: { tool: 'move_email', invalidDestination: true };
 	}
 	if (/(hapus\s+permanen|permanently\s+delete|delete\s+permanently)\b[\s\S]*\bemail\b/i.test(value)) {
 		return { tool: 'delete_email' };
@@ -640,9 +661,19 @@ const prepareDraft = async ({
 };
 
 const prepareLatestEmailMutation = async ({ action, cookie, account, permissions, emit }) => {
-	const explicitId = action.message.match(
-		/\b(?:email|message)\s+id\s*[:#]?\s*([A-Z0-9][A-Z0-9._:-]{0,99})/i
-	)?.[1]?.replace(/[.!?…]+$/, '');
+	if (action.tool === 'move_email' && (!action.folderId || action.invalidDestination)) {
+		throw new Error(
+			'Clarify the destination folder using to/into/ke plus one standard folder name or folder ID'
+		);
+	}
+	const explicitId = action.message
+		.match(
+			new RegExp(
+				`\\b(?:email|message)(?:\\s+(?:${standardFolderPattern}))?\\s+id\\s*[:#]?\\s*([A-Z0-9][A-Z0-9._:-]{0,99})`,
+				'i'
+			)
+		)?.[1]
+		?.replace(/[.!?…]+$/, '');
 	const latestRequested = isExplicitLatestMailRequest(action.message);
 	const criteria = extractMailTargetCriteria(action.message);
 	const timeZone = process.env.AI_DEFAULT_TIMEZONE ?? 'Asia/Jakarta';

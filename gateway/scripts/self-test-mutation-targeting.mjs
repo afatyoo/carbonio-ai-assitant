@@ -178,6 +178,41 @@ const runFailClosedCase = async ({ name, message, respond }) => {
 	}
 };
 
+const runDestinationFailClosedCase = async ({ name, message }) => {
+	activeScenario = {
+		respond: (operation) => {
+			throw new Error(`${name}: unexpected SOAP operation ${operation}`);
+		}
+	};
+	soapRequests.length = 0;
+	const events = [];
+	let rejection;
+	try {
+		await runAgent({
+			message,
+			model: 'test/mutation-targeting',
+			cookie: 'ZM_AUTH_TOKEN=test',
+			account: { id: `owner-${name}`, name: 'owner@example.test' },
+			permissions: ['mail.read', 'mail.write', 'calendar.read', 'calendar.write'],
+			emit: (event, data) => events.push({ event, data })
+		});
+	} catch (error) {
+		rejection = error;
+	}
+	try {
+		assert.ok(rejection, `${name}: invalid destination did not fail closed`);
+		assert.match(rejection.message, /destination|folder|tujuan/i);
+		assert.equal(soapRequests.length, 0, `${name}: invalid destination reached SOAP`);
+		assert.equal(
+			events.some(({ event }) => event === 'confirmation'),
+			false,
+			`${name}: invalid destination reached confirmation`
+		);
+	} catch (error) {
+		failures.push(error);
+	}
+};
+
 const mailItem = ({ id, subject, sender, date }) => ({
 	id,
 	su: subject,
@@ -232,6 +267,119 @@ await runConfirmationCase({
 		assert.equal(requests.find(({ operation }) => operation === 'GetMsg')?.input.m?.id, '435');
 		assert.equal(confirmation.input.id, '435');
 		assert.equal(confirmation.preview.id, '435');
+	}
+});
+
+await runConfirmationCase({
+	name: 'mark-read-folder-qualified-explicit-id',
+	message: 'Tandai sebagai sudah dibaca email Inbox ID 440. Jangan ubah email lain.',
+	respond: (operation) => {
+		if (operation === 'GetMsg') {
+			return {
+				m: [
+					mailItem({
+						id: '440',
+						subject: '[UAT RC18 Disposable]',
+						sender: 'zextras@carbonio.lab',
+						date: '2026-08-02T08:03:31.000Z'
+					})
+				]
+			};
+		}
+		throw new Error(`Unexpected SOAP operation: ${operation}`);
+	},
+	assertConfirmation: (confirmation, requests) => {
+		assert.equal(requests.find(({ operation }) => operation === 'GetMsg')?.input.m?.id, '440');
+		assert.equal(confirmation.input.id, '440');
+		assert.equal(confirmation.preview.id, '440');
+		assert.equal(requests.some(({ operation }) => operation === 'Search'), false);
+	}
+});
+
+await runConfirmationCase({
+	name: 'move-folder-qualified-id-uses-explicit-destination',
+	message: 'Pindahkan email Inbox ID 440 ke Trash',
+	respond: (operation) => {
+		if (operation === 'GetMsg') {
+			return {
+				m: [
+					mailItem({
+						id: '440',
+						subject: '[UAT RC18 Disposable]',
+						sender: 'zextras@carbonio.lab',
+						date: '2026-08-02T08:03:31.000Z'
+					})
+				]
+			};
+		}
+		throw new Error(`Unexpected SOAP operation: ${operation}`);
+	},
+	assertConfirmation: (confirmation, requests) => {
+		assert.equal(requests.find(({ operation }) => operation === 'GetMsg')?.input.m?.id, '440');
+		assert.equal(requests.some(({ operation }) => operation === 'Search'), false);
+		assert.equal(confirmation.input.id, '440');
+		assert.equal(confirmation.input.folderId, '3');
+		assert.equal(confirmation.preview.folderName, 'Trash');
+	}
+});
+
+await runConfirmationCase({
+	name: 'move-destination-after-connector-in-quoted-subject',
+	message: 'Pindahkan email Inbox ID 440 dengan subjek "Pergi ke Bandung" ke Sampah.',
+	respond: (operation) => {
+		if (operation === 'GetMsg') {
+			return {
+				m: [
+					mailItem({
+						id: '440',
+						subject: 'Pergi ke Bandung',
+						sender: 'zextras@carbonio.lab',
+						date: '2026-08-02T08:03:31.000Z'
+					})
+				]
+			};
+		}
+		throw new Error(`Unexpected SOAP operation: ${operation}`);
+	},
+	assertConfirmation: (confirmation) => {
+		assert.equal(confirmation.input.id, '440');
+		assert.equal(confirmation.input.folderId, '3');
+		assert.equal(confirmation.preview.folderName, 'Trash');
+	}
+});
+
+await runDestinationFailClosedCase({
+	name: 'move-ambiguous-destination',
+	message: 'Move email ID 440 to Inbox or Trash'
+});
+
+await runDestinationFailClosedCase({
+	name: 'move-bare-numeric-destination',
+	message: 'Move email ID 440 to 20'
+});
+
+await runConfirmationCase({
+	name: 'move-explicit-folder-id-destination',
+	message: 'Move email ID 440 to folder ID 20',
+	respond: (operation) => {
+		if (operation === 'GetMsg') {
+			return {
+				m: [
+					mailItem({
+						id: '440',
+						subject: '[UAT RC18 Disposable]',
+						sender: 'zextras@carbonio.lab',
+						date: '2026-08-02T08:03:31.000Z'
+					})
+				]
+			};
+		}
+		throw new Error(`Unexpected SOAP operation: ${operation}`);
+	},
+	assertConfirmation: (confirmation) => {
+		assert.equal(confirmation.input.id, '440');
+		assert.equal(confirmation.input.folderId, '20');
+		assert.equal(confirmation.preview.folderName, 'Folder 20');
 	}
 });
 
