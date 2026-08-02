@@ -218,6 +218,47 @@ const extractJsonObject = (value) => {
 	return JSON.parse(value.slice(start, end + 1));
 };
 
+export const zonedLocalToIso = (value, timeZone) => {
+	const match = String(value).match(
+		/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/
+	);
+	if (!match) throw new Error('AI model returned an invalid local appointment date-time');
+	const [, year, month, day, hour, minute, second = '00'] = match;
+	const localAsUtc = Date.UTC(
+		Number(year),
+		Number(month) - 1,
+		Number(day),
+		Number(hour),
+		Number(minute),
+		Number(second)
+	);
+	const formatter = new Intl.DateTimeFormat('en-CA', {
+		timeZone,
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+		hour: '2-digit',
+		minute: '2-digit',
+		second: '2-digit',
+		hourCycle: 'h23'
+	});
+	const offsetAt = (instant) => {
+		const parts = Object.fromEntries(
+			formatter
+				.formatToParts(new Date(instant))
+				.filter(({ type }) => type !== 'literal')
+				.map(({ type, value: partValue }) => [type, Number(partValue)])
+		);
+		return (
+			Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second) -
+			instant
+		);
+	};
+	let instant = localAsUtc - offsetAt(localAsUtc);
+	instant = localAsUtc - offsetAt(instant);
+	return new Date(instant).toISOString();
+};
+
 const prepareDraft = async ({ message, model, cookie, account, emit }) => {
 	const explicitRecipient = message.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0];
 	const wantsReply = /(reply|balas|balasan)/i.test(message);
@@ -309,16 +350,17 @@ const prepareMeeting = async ({ message, model, cookie, account, emit }) => {
 		)
 	].slice(0, 50);
 	const config = getAgentConfig();
+	const defaultTimezone = process.env.AI_DEFAULT_TIMEZONE ?? 'Asia/Jakarta';
 	let generated;
 	if (config.agentUrl) {
 		const raw = await remoteCompletion({
 			requestedModel: model,
 			json: true,
 			systemPrompt:
-				'Prepare a calendar appointment from the user request. Return JSON only with string fields subject, start, end, location, and body. start and end must be ISO 8601 date-times with an explicit UTC offset. Use a 30-minute duration if omitted. Never add attendees and never claim the appointment was created.',
-			userPrompt: `<current_time>${new Date().toISOString()}</current_time>\n<default_timezone>${
-				process.env.AI_DEFAULT_TIMEZONE ?? 'Asia/Jakarta'
-			}</default_timezone>\n<user_request>${message}</user_request>`
+				'Prepare a calendar appointment from the user request. Return JSON only with string fields subject, startLocal, endLocal, timezone, location, and body. startLocal and endLocal must use YYYY-MM-DDTHH:mm:ss with no UTC suffix or numeric offset. timezone must be a valid IANA timezone. Interpret times without a timezone in the supplied default timezone. Use a 30-minute duration if omitted. Never add attendees and never claim the appointment was created.',
+			userPrompt: `<current_time_in_default_timezone>${new Date().toLocaleString('sv-SE', {
+				timeZone: defaultTimezone
+			})}</current_time_in_default_timezone>\n<default_timezone>${defaultTimezone}</default_timezone>\n<user_request>${message}</user_request>`
 		});
 		generated = extractJsonObject(raw);
 	} else {
@@ -326,8 +368,14 @@ const prepareMeeting = async ({ message, model, cookie, account, emit }) => {
 	}
 	const appointmentInput = {
 		subject: String(generated.subject ?? '').trim().slice(0, 300),
-		start: String(generated.start ?? '').trim(),
-		end: String(generated.end ?? '').trim(),
+		start: zonedLocalToIso(
+			String(generated.startLocal ?? '').trim(),
+			String(generated.timezone ?? defaultTimezone).trim()
+		),
+		end: zonedLocalToIso(
+			String(generated.endLocal ?? '').trim(),
+			String(generated.timezone ?? defaultTimezone).trim()
+		),
 		attendees: explicitAttendees.join(','),
 		location: String(generated.location ?? '').trim().slice(0, 500),
 		body: String(generated.body ?? '').trim().slice(0, 20_000)

@@ -202,7 +202,11 @@ try {
 	invalidAppointmentRejected = error.message.includes('end must be after start');
 }
 if (!invalidAppointmentRejected) throw new Error('Invalid appointment range was accepted');
+const { zonedLocalToIso } = await import('../src/agent.js');
+if (zonedLocalToIso('2026-08-03T10:00:00', 'Asia/Jakarta') !== '2026-08-03T03:00:00.000Z') {
+	throw new Error('Appointment timezone conversion failed');
+}
 
 console.log(
-	'tool_registry=ok schema_validation=ok permission=ok confirmation=ok owner_isolation=ok idempotency=ok audit=ok mail_tools=ok draft_preview=ok calendar_tools=ok appointment_preview=ok appointment_validation=ok'
+	'tool_registry=ok schema_validation=ok permission=ok confirmation=ok owner_isolation=ok idempotency=ok audit=ok mail_tools=ok draft_preview=ok calendar_tools=ok appointment_preview=ok appointment_validation=ok timezone_conversion=ok'
 );
