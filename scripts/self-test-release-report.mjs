@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { buildReleaseNotes } from './build-release-notes.mjs';
+import {
+	buildReleaseNotes,
+	validateRepositoryReleaseContract
+} from './build-release-notes.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const workspace = await mkdtemp(path.join(tmpdir(), 'carbonio-ai-release-report-'));
@@ -72,6 +75,53 @@ try {
 		'utf8'
 	);
 	assert.match(repositoryReport, /^# Carbonio AI Assistant v1\.0\.0-beta\.1/m);
+
+	const contract = await validateRepositoryReleaseContract({
+		projectRoot,
+		expectedVersion: '1.0.0-beta.1'
+	});
+	assert.equal(contract.version, '1.0.0-beta.1');
+	assert.equal(contract.closedBugCount, 24);
+
+	const brokenRoot = path.join(workspace, 'broken-repository');
+	const contractFiles = [
+		'package.json',
+		'gateway/package.json',
+		'gateway/package-lock.json',
+		'docs/releases/v1.0.0-beta.1.md',
+		'README.md',
+		'CHANGELOG.md',
+		'deploy/package-release.sh',
+		'.github/workflows/ci.yml',
+		'.github/workflows/release.yml'
+	];
+	for (const relativePath of contractFiles) {
+		const destination = path.join(brokenRoot, relativePath);
+		await mkdir(path.dirname(destination), { recursive: true });
+		await cp(path.join(projectRoot, relativePath), destination);
+	}
+	const extendedReportPath = path.join(brokenRoot, 'docs/releases/v1.0.0-beta.1.md');
+	const extendedReport = `${await readFile(extendedReportPath, 'utf8')}\n### BUG-025 — Additional verified closure\n`;
+	await writeFile(extendedReportPath, extendedReport, 'utf8');
+	const extendedContract = await validateRepositoryReleaseContract({
+		projectRoot: brokenRoot,
+		expectedVersion: '1.0.0-beta.1'
+	});
+	assert.equal(extendedContract.closedBugCount, 25);
+
+	const brokenWorkflowPath = path.join(brokenRoot, '.github/workflows/release.yml');
+	const brokenWorkflow = (await readFile(brokenWorkflowPath, 'utf8')).replace(
+		'--notes-file release/github-release-notes.md',
+		'--generate-notes'
+	);
+	await writeFile(brokenWorkflowPath, brokenWorkflow, 'utf8');
+	await assert.rejects(
+		validateRepositoryReleaseContract({
+			projectRoot: brokenRoot,
+			expectedVersion: '1.0.0-beta.1'
+		}),
+		/Release workflow must publish the curated body with --notes-file/
+	);
 
 	console.log('release_report_contract=ok');
 } finally {
