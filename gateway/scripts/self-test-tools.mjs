@@ -369,10 +369,10 @@ assert.deepEqual(
 						compNum: 0,
 						name: 'UAT Meeting',
 						loc: 'Room 1',
-						s: { u: 1785898800000, tz: 'Asia/Jakarta' },
-						e: { u: 1785900600000 },
+						s: [{ u: 1785898800000, tz: 'Asia/Jakarta' }],
+						e: [{ u: 1785900600000 }],
 						at: [{ a: 'guest@example.test' }],
-						or: { a: 'owner@example.test' },
+						or: [{ a: 'owner@example.test' }],
 						status: 'CONF',
 						desc: 'Agenda'
 					}

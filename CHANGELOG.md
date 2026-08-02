@@ -2,6 +2,13 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [0.0.3-rc.12] - 2026-08-02
+
+### Fixed
+
+- `GetAppointment` normalization now accepts Carbonio JSON array forms for start, end,
+  organizer, and timezone so update previews show a real before/after diff.
+
 ## [0.0.3-rc.11] - 2026-08-02
 
 ### Fixed
@@ -224,6 +231,7 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 [0.0.3-rc.9]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.9
 [0.0.3-rc.10]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.10
 [0.0.3-rc.11]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.11
+[0.0.3-rc.12]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.12
 [0.0.3-rc.3]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.3
 [0.0.3-rc.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.2
 [0.0.3-rc.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.1

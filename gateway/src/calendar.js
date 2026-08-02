@@ -34,10 +34,12 @@ const parseAddresses = (value) =>
 
 const asArray = (value) => (Array.isArray(value) ? value : value ? [value] : []);
 const isTrue = (value) => value === true || value === 1 || value === '1';
+const firstValue = (value) => asArray(value)[0] ?? {};
 
 const normalizeCalendarDate = (value) => {
-	if (Number.isFinite(Number(value?.u))) return new Date(Number(value.u)).toISOString();
-	const compact = String(value?.d ?? '');
+	const date = firstValue(value);
+	if (Number.isFinite(Number(date?.u))) return new Date(Number(date.u)).toISOString();
+	const compact = String(date?.d ?? '');
 	const match = compact.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/);
 	return match
 		? `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}.000Z`
@@ -47,6 +49,9 @@ const normalizeCalendarDate = (value) => {
 export const normalizeAppointmentDetails = (appointment) => {
 	const invite = asArray(appointment?.inv)[0] ?? {};
 	const component = asArray(invite.comp)[0] ?? {};
+	const start = firstValue(component.s);
+	const end = firstValue(component.e);
+	const organizer = firstValue(component.or);
 	return {
 		id: String(appointment?.id ?? ''),
 		inviteId: String(invite.id ?? ''),
@@ -56,12 +61,12 @@ export const normalizeAppointmentDetails = (appointment) => {
 		subject: String(component.name ?? appointment?.name ?? '(No title)').slice(0, 300),
 		start: normalizeCalendarDate(component.s),
 		end: normalizeCalendarDate(component.e),
-		timezone: String(component.s?.tz ?? component.e?.tz ?? '').slice(0, 100),
+		timezone: String(start.tz ?? end.tz ?? firstValue(invite.tz).id ?? '').slice(0, 100),
 		attendees: asArray(component.at)
 			.map(({ a }) => String(a ?? '').trim())
 			.filter(Boolean)
 			.slice(0, 50),
-		organizer: String(component.or?.a ?? '').slice(0, 320),
+		organizer: String(organizer.a ?? '').slice(0, 320),
 		location: String(component.loc ?? '').slice(0, 500),
 		status: String(component.status ?? '').slice(0, 20),
 		recurring: Boolean(component.recur),
