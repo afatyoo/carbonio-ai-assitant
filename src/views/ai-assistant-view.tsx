@@ -25,6 +25,20 @@ type ModelOption = {
 	contextLength?: number;
 };
 
+type PendingConfirmation = {
+	tool: string;
+	token: string;
+	idempotencyKey: string;
+	input: Record<string, string>;
+	preview: {
+		to?: string;
+		cc?: string;
+		bcc?: string;
+		subject?: string;
+		body?: string;
+	};
+};
+
 const Page = styled.div`
 	height: 100%;
 	min-height: 0;
@@ -190,6 +204,42 @@ const ProcessText = styled.span`
 	}
 `;
 
+const ConfirmationCard = styled.section`
+	max-width: 40rem;
+	margin: 0 0 1rem;
+	padding: 1rem;
+	border: 0.0625rem solid ${({ theme }): string => theme.palette.primary.regular};
+	border-radius: 0.875rem;
+	background: ${({ theme }): string => theme.palette.gray5.regular};
+`;
+
+const ConfirmationTitle = styled.strong`
+	display: block;
+	margin-bottom: 0.75rem;
+`;
+
+const DraftField = styled.div`
+	margin-top: 0.5rem;
+	font-size: 0.875rem;
+	line-height: 1.45;
+	white-space: pre-wrap;
+	word-break: break-word;
+
+	> span {
+		display: block;
+		margin-bottom: 0.15rem;
+		color: ${({ theme }): string => theme.palette.secondary.regular};
+		font-size: 0.75rem;
+	}
+`;
+
+const ConfirmationActions = styled.div`
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.5rem;
+	margin-top: 1rem;
+`;
+
 const Composer = styled.form`
 	margin: 0 max(1.5rem, calc((100% - 48rem) / 2)) 1.5rem;
 	padding: 0.5rem 0.5rem 0.5rem 1rem;
@@ -226,6 +276,9 @@ export const AiAssistantView = (): React.JSX.Element => {
 	);
 	const [isSending, setIsSending] = useState(false);
 	const [processLabel, setProcessLabel] = useState('');
+	const [pendingConfirmation, setPendingConfirmation] =
+		useState<PendingConfirmation | null>(null);
+	const [isConfirming, setIsConfirming] = useState(false);
 	const messagesRef = useRef<HTMLDivElement | null>(null);
 	const [models, setModels] = useState<ModelOption[]>([
 		{ id: 'openrouter/free', name: 'Auto — Free Models Router', free: true }
@@ -250,6 +303,9 @@ export const AiAssistantView = (): React.JSX.Element => {
 				return t('status.searching_emails', 'Searching emails...');
 			case 'list_unread_emails':
 				return t('status.reading_unread', 'Reading unread emails...');
+			case 'get_email':
+			case 'get_email_thread':
+				return t('status.reading_email', 'Reading email content...');
 			default:
 				return t('status.running_tool', 'Running Carbonio tool...');
 		}
@@ -284,6 +340,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 			setActiveConversationId(null);
 			setConversationTitle(null);
 			setMessages([]);
+			setPendingConfirmation(null);
 		};
 		const open = (event: Event): void => {
 			const id = (event as CustomEvent<string>).detail;
@@ -293,6 +350,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 					setConversationTitle(conversation.title);
 					setMessages(conversation.messages);
 					setSelectedModel(conversation.model);
+					setPendingConfirmation(null);
 				})
 				.catch(() =>
 					setAgentStatus(
@@ -377,6 +435,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 			{ id: assistantId, role: 'assistant', text: '' }
 		]);
 		setInput('');
+		setPendingConfirmation(null);
 		setIsSending(true);
 		setProcessLabel(t('status.thinking', 'Thinking...'));
 
@@ -393,6 +452,23 @@ export const AiAssistantView = (): React.JSX.Element => {
 			await readAgentEvents(response, (event) => {
 				if (event.event === 'tool') {
 					setProcessLabel(toolStatusLabel(event));
+					return;
+				}
+				if (
+					event.event === 'confirmation' &&
+					event.data.tool &&
+					event.data.token &&
+					event.data.idempotencyKey &&
+					event.data.input &&
+					event.data.preview
+				) {
+					setPendingConfirmation({
+						tool: event.data.tool,
+						token: event.data.token,
+						idempotencyKey: event.data.idempotencyKey,
+						input: event.data.input,
+						preview: event.data.preview
+					});
 					return;
 				}
 				if (event.event === 'message' && event.data.text) {
@@ -424,6 +500,49 @@ export const AiAssistantView = (): React.JSX.Element => {
 		} finally {
 			setIsSending(false);
 			setProcessLabel('');
+		}
+	};
+
+	const confirmDraft = async (): Promise<void> => {
+		if (!pendingConfirmation || isConfirming) return;
+		setIsConfirming(true);
+		try {
+			const response = await apiFetch(
+				`/api/ai/tools/${pendingConfirmation.tool}/execute`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						input: pendingConfirmation.input,
+						confirmationToken: pendingConfirmation.token,
+						idempotencyKey: pendingConfirmation.idempotencyKey
+					})
+				}
+			);
+			const execution = await parseJsonResponse<{
+				result?: { id?: string; status?: string };
+			}>(response);
+			setMessages((current) => [
+				...current,
+				{
+					id: Date.now(),
+					role: 'assistant',
+					text: t(
+						'chat.draft_saved',
+						'Draft saved to Carbonio Drafts (ID: {{id}}). It has not been sent.',
+						{ id: execution.result?.id ?? '-' }
+					)
+				}
+			]);
+			setPendingConfirmation(null);
+		} catch (error) {
+			setAgentStatus(
+				t('chat.draft_save_error', 'Unable to save draft: {{message}}', {
+					message: error instanceof Error ? error.message : 'Unknown error'
+				})
+			);
+		} finally {
+			setIsConfirming(false);
 		}
 	};
 
@@ -489,6 +608,45 @@ export const AiAssistantView = (): React.JSX.Element => {
 							<ProcessSpinner aria-hidden="true" />
 							<ProcessText>{processLabel}</ProcessText>
 						</ProcessMarker>
+					)}
+					{pendingConfirmation && (
+						<ConfirmationCard aria-label={t('chat.draft_preview', 'Email draft preview')}>
+							<ConfirmationTitle>
+								{t('chat.confirm_draft_title', 'Confirm saving this draft')}
+							</ConfirmationTitle>
+							<DraftField>
+								<span>{t('chat.recipient', 'To')}</span>
+								{pendingConfirmation.preview.to}
+							</DraftField>
+							<DraftField>
+								<span>{t('chat.subject', 'Subject')}</span>
+								{pendingConfirmation.preview.subject}
+							</DraftField>
+							<DraftField>
+								<span>{t('chat.body', 'Message')}</span>
+								{pendingConfirmation.preview.body}
+							</DraftField>
+							<ConfirmationActions>
+								<Button
+									type="outlined"
+									color="secondary"
+									onClick={(): void => setPendingConfirmation(null)}
+									disabled={isConfirming}
+								>
+									{t('chat.cancel', 'Cancel')}
+								</Button>
+								<Button
+									type="default"
+									color="primary"
+									onClick={(): void => void confirmDraft()}
+									disabled={isConfirming}
+								>
+									{isConfirming
+										? t('chat.saving_draft', 'Saving...')
+										: t('chat.save_draft', 'Save to Drafts')}
+								</Button>
+							</ConfirmationActions>
+						</ConfirmationCard>
 					)}
 				</Messages>
 				<Composer onSubmit={submit}>

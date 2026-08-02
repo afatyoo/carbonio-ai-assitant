@@ -110,6 +110,56 @@ const normalizeEmail = (item) => ({
 	).slice(0, 320)
 });
 
+const normalizeAddress = (address) => ({
+	address: String(address?.a ?? '').slice(0, 320),
+	name: String(address?.d ?? address?.p ?? '').slice(0, 200),
+	type: String(address?.t ?? '').slice(0, 4)
+});
+
+const contentValue = (value) =>
+	typeof value === 'string' ? value : typeof value?._content === 'string' ? value._content : '';
+
+const collectBodyParts = (part, results = []) => {
+	if (!part || typeof part !== 'object') return results;
+	if (Array.isArray(part)) {
+		for (const child of part) collectBodyParts(child, results);
+		return results;
+	}
+	const content = contentValue(part.content);
+	if (
+		part.body &&
+		typeof content === 'string' &&
+		['text/plain', 'text/html'].includes(part.ct)
+	) {
+		results.push({ type: part.ct, content });
+	}
+	for (const child of part.mp ?? []) collectBodyParts(child, results);
+	return results;
+};
+
+const normalizeMessage = (message, maxBodyLength = 12_000) => {
+	const parts = collectBodyParts(message.mp);
+	const preferred = parts.find(({ type }) => type === 'text/plain') ?? parts[0];
+	return {
+		...normalizeEmail(message),
+		to: (message.e ?? []).filter(({ t }) => t === 't').map(normalizeAddress),
+		cc: (message.e ?? []).filter(({ t }) => t === 'c').map(normalizeAddress),
+		fromAddress: (message.e ?? []).find(({ t }) => t === 'f')?.a ?? '',
+		messageIdHeader: String(message.mid ?? '').slice(0, 500),
+		inReplyTo: String(message.irt ?? '').slice(0, 500),
+		bodyType: preferred?.type ?? 'text/plain',
+		body: String(preferred?.content ?? contentValue(message.content)).slice(0, maxBodyLength),
+		truncated: Boolean(preferred && preferred.content.length > maxBodyLength)
+	};
+};
+
+const parseRecipients = (value, type) =>
+	String(value ?? '')
+		.split(',')
+		.map((address) => address.trim())
+		.filter(Boolean)
+		.map((address) => ({ a: address, t: type }));
+
 export const searchEmails = async ({ cookie, query, limit = 10 }) => {
 	const boundedLimit = Math.min(Math.max(Number(limit) || 10, 1), 20);
 	const result = await soapRequest(
@@ -127,6 +177,95 @@ export const searchEmails = async ({ cookie, query, limit = 10 }) => {
 	);
 
 	return (result.m ?? []).slice(0, boundedLimit).map(normalizeEmail);
+};
+
+export const getEmail = async ({ cookie, id, maxBodyLength = 12_000 }) => {
+	const boundedLength = Math.min(Math.max(Number(maxBodyLength) || 12_000, 1_000), 24_000);
+	const result = await soapRequest(
+		'GetMsg',
+		{
+			m: {
+				id,
+				read: 0,
+				html: 0,
+				neuter: 1,
+				max: boundedLength,
+				wantContent: 'original'
+			}
+		},
+		cookie
+	);
+	if (!result.m?.[0] && !result.m?.id) throw new Error('Carbonio message was not found');
+	return normalizeMessage(result.m?.[0] ?? result.m, boundedLength);
+};
+
+export const getEmailThread = async ({ cookie, conversationId, maxBodyLength = 8_000 }) => {
+	const boundedLength = Math.min(Math.max(Number(maxBodyLength) || 8_000, 1_000), 12_000);
+	const result = await soapRequest(
+		'GetConv',
+		{
+			c: {
+				id: conversationId,
+				fetch: 'all',
+				html: 0,
+				max: boundedLength
+			}
+		},
+		cookie
+	);
+	const conversation = result.c?.[0] ?? result.c;
+	if (!conversation) throw new Error('Carbonio conversation was not found');
+	const messages = [...(conversation.m ?? []), ...(conversation.chat ?? [])]
+		.sort((left, right) => Number(left.d ?? 0) - Number(right.d ?? 0))
+		.slice(-10)
+		.map((message) => normalizeMessage(message, boundedLength));
+	return {
+		id: String(conversation.id ?? conversationId),
+		subject: String(conversation.su ?? '(No subject)').slice(0, 300),
+		total: Number(conversation.total ?? conversation.n ?? messages.length),
+		messages
+	};
+};
+
+export const createEmailDraft = async ({
+	cookie,
+	to,
+	cc = '',
+	bcc = '',
+	subject,
+	body,
+	from = '',
+	originalId = '',
+	replyType = ''
+}) => {
+	const message = {
+		su: { _content: subject },
+		e: [
+			...parseRecipients(to, 't'),
+			...parseRecipients(cc, 'c'),
+			...parseRecipients(bcc, 'b'),
+			...(from ? [{ a: from, t: 'f' }] : [])
+		],
+		mp: [
+			{
+				ct: 'text/plain',
+				body: true,
+				content: { _content: body }
+			}
+		],
+		...(originalId ? { origid: originalId } : {}),
+		...(replyType ? { rt: replyType } : {})
+	};
+	const result = await soapRequest('SaveDraft', { m: message }, cookie);
+	const saved = result.m?.[0] ?? result.m ?? result.chat?.[0] ?? result.chat;
+	if (!saved?.id) throw new Error('Carbonio did not return the saved draft ID');
+	return {
+		id: String(saved.id),
+		conversationId: String(saved.cid ?? ''),
+		subject,
+		to: parseRecipients(to, 't').map(({ a }) => a),
+		status: 'saved_to_drafts'
+	};
 };
 
 export const getCurrentAccount = async (cookie) => {

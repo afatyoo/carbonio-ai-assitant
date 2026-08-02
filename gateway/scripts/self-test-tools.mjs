@@ -7,6 +7,7 @@ process.env.AI_AUDIT_DB_PATH = path.join(os.tmpdir(), `carbonio-ai-tools-${rando
 const { registerTool, TOOL_RISK } = await import('../src/tool-registry.js');
 const { executeTool } = await import('../src/tool-runner.js');
 const { listAuditEntries } = await import('../src/tool-audit.js');
+const { listToolDefinitions } = await import('../src/tool-registry.js');
 
 const schema = {
 	type: 'object',
@@ -137,6 +138,35 @@ if (listAuditEntries('owner-b', 20).some(({ status }) => status === 'completed')
 	throw new Error('Audit owner isolation failed');
 }
 
+await import('../src/mail-tools.js');
+const mailDefinitions = listToolDefinitions();
+for (const toolName of [
+	'search_emails',
+	'list_unread_emails',
+	'get_email',
+	'get_email_thread',
+	'create_email_draft'
+]) {
+	if (!mailDefinitions.some(({ name }) => name === toolName)) {
+		throw new Error(`Missing registered mail tool: ${toolName}`);
+	}
+}
+const draftPending = await executeTool({
+	name: 'create_email_draft',
+	input: {
+		to: 'recipient@example.com',
+		subject: 'Confirmation test',
+		body: 'This draft must not be written during the self-test.'
+	},
+	context: { ownerId: 'owner-a', permissions: ['mail.draft'] }
+});
+if (
+	draftPending.status !== 'confirmation_required' ||
+	draftPending.confirmation?.preview?.kind !== 'email_draft'
+) {
+	throw new Error('Email draft preview and confirmation flow failed');
+}
+
 console.log(
-	'tool_registry=ok schema_validation=ok permission=ok confirmation=ok owner_isolation=ok idempotency=ok audit=ok'
+	'tool_registry=ok schema_validation=ok permission=ok confirmation=ok owner_isolation=ok idempotency=ok audit=ok mail_tools=ok draft_preview=ok'
 );

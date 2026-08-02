@@ -32,6 +32,11 @@ All notable changes to Carbonio AI Assistant are documented in this file.
   execution, owner-scoped audit records, one-time confirmation tokens, and
   idempotency storage.
 - Authenticated tool catalog and per-user audit endpoints.
+- Bounded `get_email` and `get_email_thread` tools backed by Carbonio `GetMsg` and
+  `GetConv` without changing read state.
+- A confirmed `create_email_draft` tool backed by Carbonio `SaveDraft`, with
+  recipient/subject/body preview, one-time tokens, and idempotent execution.
+- A localized in-chat draft confirmation card for reply and compose requests.
 
 ### Changed
 

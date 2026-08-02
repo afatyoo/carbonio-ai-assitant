@@ -21,6 +21,9 @@ module.
 - History isolation using the authenticated Carbonio account ID
 - Persistent SQLite storage
 - Carbonio SOAP tools for searching and reading email
+- Bounded single-message and conversation reads using Carbonio `GetMsg` and `GetConv`
+- AI-generated email draft preview with explicit one-time confirmation before `SaveDraft`
+- Schema-based tool permissions, audit records, result limits, and idempotency protection
 - Provider presets for OpenRouter, OpenAI, Anthropic, DeepSeek, and Gemini
 - Custom agent endpoint support
 - Per-conversation model selection
@@ -60,7 +63,8 @@ The gateway binds to `127.0.0.1:8787` by default. Carbonio Shell should proxy
   `gateway/.runtime/` and excluded from Git.
 - Conversation access is scoped with the active Carbonio session and account
   ID.
-- Mailbox tools are read-only in this prototype.
+- Read tools never mark email as read. Draft creation is the only enabled mailbox
+  mutation and requires a one-time, account-bound confirmation token; it never sends email.
 - Production deployments should use an external secret manager and a supported
   production database.
 

@@ -18,6 +18,7 @@ import { listAvailableModels } from './models.js';
 import { runWithRequestContext } from './request-context.js';
 import { listAuditEntries } from './tool-audit.js';
 import { listToolDefinitions } from './tool-registry.js';
+import { executeTool } from './tool-runner.js';
 
 const port = Number(process.env.PORT ?? 8787);
 
@@ -109,6 +110,37 @@ const handleRequest = async (request, response) => {
 			});
 		} catch (error) {
 			sendJson(response, 401, { error: error.message });
+		}
+		return;
+	}
+
+	const toolExecuteMatch = requestUrl.pathname.match(
+		/^\/api\/ai\/tools\/([a-z][a-z0-9_]{2,63})\/execute$/
+	);
+	if (toolExecuteMatch && request.method === 'POST') {
+		try {
+			const account = await authenticate(request);
+			const payload = await readJson(request);
+			const execution = await executeTool({
+				name: toolExecuteMatch[1],
+				input: payload.input,
+				context: {
+					ownerId: account.id,
+					accountName: account.name,
+					cookie: request.headers.cookie ?? '',
+					permissions: ['mail.read', 'mail.draft'],
+					confirmationToken: payload.confirmationToken,
+					idempotencyKey: payload.idempotencyKey
+				}
+			});
+			sendJson(response, 200, execution);
+		} catch (error) {
+			const status = error.message.includes('authentication')
+				? 401
+				: error.message.includes('Unknown tool')
+					? 404
+					: 400;
+			sendJson(response, status, { error: error.message });
 		}
 		return;
 	}

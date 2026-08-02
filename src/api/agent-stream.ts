@@ -8,6 +8,19 @@ export type AgentEvent = {
 		status?: string;
 		count?: number;
 		message?: string;
+		tool?: string;
+		token?: string;
+		expiresAt?: number;
+		idempotencyKey?: string;
+		preview?: {
+			kind?: string;
+			to?: string;
+			cc?: string;
+			bcc?: string;
+			subject?: string;
+			body?: string;
+		};
+		input?: Record<string, string>;
 	};
 };
 
