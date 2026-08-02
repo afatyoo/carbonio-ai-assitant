@@ -4,6 +4,9 @@ Standalone AI assistant add-on for Carbonio Webmail. The project keeps the
 Carbonio microfrontend and the AI Agent Gateway separate from the existing Mail
 module.
 
+Current release: [`v1.0.0-beta.1`](docs/releases/v1.0.0-beta.1.md), a prerelease
+for controlled Carbonio pilot deployments.
+
 ![Carbonio AI Assistant interface](docs/assets/carbonio-ai-assistant-overview.png)
 
 ## Repository structure
@@ -79,9 +82,11 @@ The gateway binds to `127.0.0.1:8787` by default. Carbonio Shell should proxy
 
 ## Development status
 
-This repository is a production-pilot candidate. Complete the documented browser,
-mailbox-size, upgrade, staging, backup, and pilot-approval gates before expanding beyond
-the configured allowlist.
+`v1.0.0-beta.1` contains the complete core production-pilot feature set, but it is not a
+stable `v1.0.0` declaration. Review the [detailed beta release report](docs/releases/v1.0.0-beta.1.md)
+for verified behavior, the full closed-bug ledger, live UAT evidence, and remaining gates.
+Complete the documented browser, mailbox-size, calendar-mutation, upgrade, staging,
+backup, and pilot-approval gates before expanding beyond the configured allowlist.
 
 ## License
 

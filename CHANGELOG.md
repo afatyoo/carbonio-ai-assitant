@@ -2,6 +2,42 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [1.0.0-beta.1] - 2026-08-02
+
+### Added
+
+- Published the complete controlled-pilot feature set as a SemVer beta: native Carbonio
+  assistant UI, bilingual experience, administrator-managed providers/models, PostgreSQL
+  history, confirmation-protected email/calendar tools, documentation knowledge retrieval,
+  security policy, observability, systemd packaging, and atomic deployment/rollback.
+- Added an authoritative [detailed release report](docs/releases/v1.0.0-beta.1.md) covering
+  all implemented capabilities, Carbonio SOAP boundaries, the complete 24-item closed-bug
+  ledger, exact live UAT evidence, known acceptance gaps, and operator procedures.
+
+### Security
+
+- Preserved fail-closed exact-target mutation resolution, one-time owner-bound
+  confirmations, idempotency, Carbonio session/CSRF checks, loopback gateway binding,
+  encrypted administrator credentials, production PostgreSQL enforcement, account policy,
+  OpenRouter ZDR/data-collection locks, audit records, quotas, and the write kill switch.
+
+### Changed
+
+- Promoted package metadata from the `0.0.3-rc.*` sequence to `1.0.0-beta.1` without a
+  runtime behavior or database-schema change.
+- GitHub prereleases now use the curated report plus exact build/tag/workflow/checksum
+  evidence instead of generated commit-title notes as their authoritative release body.
+- Release archives include `RELEASE_NOTES.md` alongside version/commit/runtime metadata.
+
+### Verified
+
+- RC19 core behavior passed the full UI, deployment, gateway, PostgreSQL reconnect,
+  production build, audit, and secret-scan pipeline before beta promotion.
+- The Carbonio pilot passed strict PostgreSQL-backed smoke, provider streaming, history
+  persistence, and approved send/mark-read/move-to-Trash mutation UAT. Permanent deletion,
+  calendar mutation lifecycle, final pilot sign-off, and other listed external gates remain
+  explicitly open in the detailed report.
+
 ## [0.0.3-rc.19] - 2026-08-02
 
 ### Fixed
@@ -287,6 +323,9 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 - Initial public MVP with a Carbonio microfrontend, AI gateway, provider settings,
   mailbox tools, server-side SQLite history, and systemd-based deployment tooling.
 
+[1.0.0-beta.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v1.0.0-beta.1
+[0.0.3-rc.19]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.19
+[0.0.3-rc.18]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.18
 [0.0.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.2
 [0.0.3-rc.4]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.4
 [0.0.3-rc.5]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.5

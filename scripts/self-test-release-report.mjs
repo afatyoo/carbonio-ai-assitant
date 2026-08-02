@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { buildReleaseNotes } from './build-release-notes.mjs';
 
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const workspace = await mkdtemp(path.join(tmpdir(), 'carbonio-ai-release-report-'));
 
 try {
@@ -52,6 +54,24 @@ try {
 		}),
 		/Tag v1\.0\.0-beta\.2 does not match version 1\.0\.0-beta\.1/
 	);
+
+	const rootPackage = JSON.parse(await readFile(path.join(projectRoot, 'package.json'), 'utf8'));
+	const gatewayPackage = JSON.parse(
+		await readFile(path.join(projectRoot, 'gateway/package.json'), 'utf8')
+	);
+	const gatewayLock = JSON.parse(
+		await readFile(path.join(projectRoot, 'gateway/package-lock.json'), 'utf8')
+	);
+	assert.equal(rootPackage.version, '1.0.0-beta.1');
+	assert.equal(gatewayPackage.version, rootPackage.version);
+	assert.equal(gatewayLock.version, rootPackage.version);
+	assert.equal(gatewayLock.packages[''].version, rootPackage.version);
+
+	const repositoryReport = await readFile(
+		path.join(projectRoot, `docs/releases/v${rootPackage.version}.md`),
+		'utf8'
+	);
+	assert.match(repositoryReport, /^# Carbonio AI Assistant v1\.0\.0-beta\.1/m);
 
 	console.log('release_report_contract=ok');
 } finally {
