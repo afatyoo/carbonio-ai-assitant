@@ -2,6 +2,13 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [0.0.3-rc.8] - 2026-08-02
+
+### Fixed
+
+- Chat confirmation, retry, stop, and send controls use accessible native themed
+  buttons so their labels remain visible with Carbonio Design System 12 in production.
+
 ## [0.0.3-rc.7] - 2026-08-02
 
 ### Added
@@ -180,6 +187,7 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 [0.0.3-rc.5]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.5
 [0.0.3-rc.6]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.6
 [0.0.3-rc.7]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.7
+[0.0.3-rc.8]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.8
 [0.0.3-rc.3]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.3
 [0.0.3-rc.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.2
 [0.0.3-rc.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.1

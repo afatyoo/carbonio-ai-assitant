@@ -1,6 +1,6 @@
 {
 	"name": "carbonio-ai-assistant-ui",
-	"version": "0.0.3-rc.7",
+	"version": "0.0.3-rc.8",
 	"description": "Standalone AI assistant microfrontend for Carbonio",
 	"license": "MIT",
 	"main": "src/app.tsx",

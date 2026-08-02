@@ -20,8 +20,11 @@ assert.match(assistantSource, /@media \(max-width: 38rem\)/);
 assert.match(assistantSource, /grid-template-columns: minmax\(0, 1fr\)/);
 assert.match(assistantSource, /@media \(prefers-reduced-motion: reduce\)/);
 assert.equal(assistantSource.includes('dangerouslySetInnerHTML'), false);
+assert.equal(assistantSource.includes("import { Button } from '@zextras/carbonio-design-system'"), false);
+assert.match(assistantSource, /<PrimaryActionButton[\s\S]*Save to Drafts/);
+assert.match(assistantSource, /<SecondaryActionButton[\s\S]*Regenerate/);
 assert.deepEqual(flattenKeys(english).sort(), flattenKeys(indonesian).sort());
 
 console.log(
-	'carbonio_theme_tokens=ok responsive_breakpoints=ok reduced_motion=ok safe_text=ok i18n_parity=ok'
+	'carbonio_theme_tokens=ok responsive_breakpoints=ok reduced_motion=ok safe_text=ok accessible_actions=ok i18n_parity=ok'
 );

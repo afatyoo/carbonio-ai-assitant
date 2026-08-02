@@ -1,7 +1,6 @@
 import React, { FormEvent, useEffect, useRef, useState } from 'react';
 
 import styled from '@emotion/styled';
-import { Button } from '@zextras/carbonio-design-system';
 
 import { AgentEvent, readAgentEvents } from '../api/agent-stream';
 import { apiFetch, parseJsonResponse } from '../api/response';
@@ -280,6 +279,48 @@ const ResponseActions = styled.div`
 	display: flex;
 	gap: 0.5rem;
 	margin: -0.35rem 0 1rem;
+`;
+
+const SecondaryActionButton = styled.button`
+	min-height: 2.25rem;
+	padding: 0.45rem 0.85rem;
+	border: 0.0625rem solid ${({ theme }): string => theme.palette.gray2.regular};
+	border-radius: 0.5rem;
+	background: transparent;
+	color: ${({ theme }): string => theme.palette.text.regular};
+	font: inherit;
+	cursor: pointer;
+
+	&:hover:not(:disabled),
+	&:focus-visible {
+		border-color: ${({ theme }): string => theme.palette.primary.regular};
+	}
+
+	&:focus-visible {
+		outline: 0.125rem solid ${({ theme }): string => theme.palette.primary.regular};
+		outline-offset: 0.125rem;
+	}
+
+	&:disabled {
+		cursor: not-allowed;
+		opacity: 0.55;
+	}
+`;
+
+const PrimaryActionButton = styled(SecondaryActionButton)`
+	border-color: ${({ theme }): string => theme.palette.primary.regular};
+	background: ${({ theme }): string => theme.palette.primary.regular};
+	color: ${({ theme }): string => theme.palette.gray6.regular};
+`;
+
+const ComposerActionButton = styled(PrimaryActionButton)`
+	width: 2.75rem;
+	height: 2.75rem;
+	min-height: 2.75rem;
+	padding: 0;
+	display: grid;
+	place-content: center;
+	font-size: 1.1rem;
 `;
 
 const Composer = styled.form`
@@ -825,17 +866,15 @@ export const AiAssistantView = (): React.JSX.Element => {
 								{pendingConfirmation.preview.body}
 							</DraftField>
 							<ConfirmationActions>
-								<Button
-									type="outlined"
-									color="secondary"
+								<SecondaryActionButton
+									type="button"
 									onClick={(): void => setPendingConfirmation(null)}
 									disabled={isConfirming}
 								>
 									{t('chat.cancel', 'Cancel')}
-								</Button>
-								<Button
-									type="default"
-									color="primary"
+								</SecondaryActionButton>
+								<PrimaryActionButton
+									type="button"
 									onClick={(): void => void confirmDraft()}
 									disabled={isConfirming}
 								>
@@ -844,7 +883,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 										: pendingConfirmation.tool === 'create_appointment'
 											? t('chat.create_appointment', 'Create appointment')
 											: t('chat.save_draft', 'Save to Drafts')}
-								</Button>
+								</PrimaryActionButton>
 							</ConfirmationActions>
 						</ConfirmationCard>
 					)}
@@ -852,15 +891,14 @@ export const AiAssistantView = (): React.JSX.Element => {
 						!pendingConfirmation &&
 						messages.some((message) => message.role === 'user') && (
 							<ResponseActions>
-								<Button
-									type="outlined"
-									color="secondary"
+								<SecondaryActionButton
+									type="button"
 									onClick={regenerateLastAnswer}
 								>
 									{lastRequestFailed
 										? t('chat.retry', 'Retry')
 										: t('chat.regenerate', 'Regenerate')}
-								</Button>
+								</SecondaryActionButton>
 							</ResponseActions>
 						)}
 				</Messages>
@@ -872,23 +910,21 @@ export const AiAssistantView = (): React.JSX.Element => {
 						onChange={(event): void => setInput(event.target.value)}
 					/>
 					{isSending ? (
-						<Button
-							type="outlined"
-							color="secondary"
+						<SecondaryActionButton
+							type="button"
 							onClick={(): void => requestControllerRef.current?.abort()}
 							aria-label={t('chat.stop', 'Stop generating')}
 						>
 							{t('chat.stop', 'Stop')}
-						</Button>
+						</SecondaryActionButton>
 					) : (
-						<Button
-							type="default"
-							color="primary"
-							icon="PaperPlaneOutline"
-							onClick={(): void => void send(input)}
+						<ComposerActionButton
+							type="submit"
 							disabled={!input.trim()}
 							aria-label={t('chat.send', 'Send message')}
-						/>
+						>
+							➤
+						</ComposerActionButton>
 					)}
 				</Composer>
 			</Conversation>
