@@ -8,7 +8,7 @@ headers_file="$(mktemp /tmp/carbonio-ai-headers.XXXXXX)"
 trap 'rm -f "$health_file" "$headers_file"' EXIT
 
 curl -fsS -D "$headers_file" -o "$health_file" "$base_url/api/ai/health"
-jq -e '.status == "ok" and .enabled == true and (.historyBackend == "postgresql" or .historyBackend == "sqlite")' "$health_file" >/dev/null
+jq -e '.status == "ok" and .enabled == true and .historyBackend == "postgresql"' "$health_file" >/dev/null
 grep -Eiq '^x-content-type-options: nosniff' "$headers_file"
 grep -Eiq '^x-frame-options: SAMEORIGIN' "$headers_file"
 grep -Eiq '^cache-control: no-store' "$headers_file"
@@ -31,4 +31,4 @@ cross_origin_status="$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
 	--data '{}' "$base_url/api/ai/chat")"
 [[ "$cross_origin_status" == "403" ]]
 
-echo "smoke_health=ok headers=ok loopback=ok admin_auth=ok csrf=ok"
+echo "smoke_health=ok headers=ok loopback=ok admin_auth=ok csrf=ok history=postgresql"

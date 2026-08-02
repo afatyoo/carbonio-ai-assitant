@@ -2,6 +2,15 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [0.0.3-rc.17] - 2026-08-02
+
+### Security
+
+- Production deployment smoke checks now fail closed unless the health endpoint reports
+  PostgreSQL-backed history; SQLite is development-only.
+- Tag releases now enforce the same deployment smoke, gateway regression and PostgreSQL
+  reconnect coverage, dependency audits, and secret scan gates as pull-request CI.
+
 ## [0.0.3-rc.16] - 2026-08-02
 
 ### Fixed
