@@ -299,12 +299,22 @@ for (const toolName of [
 	}
 }
 const {
+	buildAppointmentSearchRequest,
 	buildAppointmentRequest,
 	buildCancelAppointmentRequest,
 	buildModifyAppointmentRequest,
 	normalizeAppointmentDetails,
 	normalizeAutocompleteMatches
 } = await import('../src/calendar.js');
+assert.equal(
+	buildAppointmentSearchRequest({
+		start: '2026-08-02T00:00:00.000Z',
+		end: '2026-08-06T00:00:00.000Z',
+		query: '',
+		limit: 10
+	}).query,
+	'inid:10'
+);
 const appointmentFixture = {
 	organizer: 'owner@example.test',
 	attendees: 'guest@example.test',

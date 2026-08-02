@@ -134,22 +134,28 @@ const normalizeAppointment = (appointment, instance = appointment) => ({
 	allDay: isTrue(instance.allDay ?? appointment.allDay)
 });
 
-export const searchAppointments = async ({ cookie, start, end, query = '', limit = 20 }) => {
+export const buildAppointmentSearchRequest = ({ start, end, query = '', limit = 20 }) => {
 	const { startMs, endMs } = parseRange(start, end);
 	const boundedLimit = Math.min(Math.max(Number(limit) || 20, 1), 50);
+	return {
+		types: 'appointment',
+		calExpandInstStart: startMs,
+		calExpandInstEnd: endMs,
+		limit: boundedLimit,
+		offset: 0,
+		sortBy: 'dateAsc',
+		query: query.trim() || 'inid:10'
+	};
+};
+
+export const searchAppointments = async ({ cookie, start, end, query = '', limit = 20 }) => {
+	const request = buildAppointmentSearchRequest({ start, end, query, limit });
 	const result = await soapRequest(
 		'Search',
-		{
-			types: 'appointment',
-			calExpandInstStart: startMs,
-			calExpandInstEnd: endMs,
-			limit: boundedLimit,
-			offset: 0,
-			sortBy: 'dateAsc',
-			query: query.trim()
-		},
+		request,
 		cookie
 	);
+	const boundedLimit = request.limit;
 	const normalized = [];
 	for (const appointment of asArray(result.appt)) {
 		const instances = asArray(appointment.inst);
