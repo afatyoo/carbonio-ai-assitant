@@ -61,6 +61,8 @@ All notable changes to Carbonio AI Assistant are documented in this file.
   audit/status panel in AI settings.
 - GitHub Actions CI/release workflows, dependency updates, project linting,
   read-only production smoke tests, atomic UI/gateway rollback, and a pilot UAT runbook.
+- Patched transitive build dependencies through pinned pnpm overrides; local UI and
+  gateway audits report zero known vulnerabilities.
 
 ### Changed
 
