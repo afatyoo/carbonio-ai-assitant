@@ -2,6 +2,13 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [0.0.3-rc.6] - 2026-08-02
+
+### Fixed
+
+- The encrypted credential helper can migrate API keys saved by the legacy Settings
+  UI and removes the plaintext config field only after encryption succeeds.
+
 ## [0.0.3-rc.5] - 2026-08-02
 
 ### Fixed
@@ -157,6 +164,7 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 [0.0.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.2
 [0.0.3-rc.4]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.4
 [0.0.3-rc.5]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.5
+[0.0.3-rc.6]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.6
 [0.0.3-rc.3]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.3
 [0.0.3-rc.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.2
 [0.0.3-rc.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.1

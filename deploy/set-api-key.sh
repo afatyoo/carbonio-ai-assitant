@@ -12,13 +12,15 @@ if ! command -v systemd-creds >/dev/null 2>&1; then
 fi
 
 config_file="/etc/carbonio-ai-assistant/gateway.env"
+runtime_config="/var/lib/carbonio-ai-assistant/.runtime/config.json"
 credential_root="/etc/credstore.encrypted"
 credential_file="$credential_root/carbonio-ai-agent-api-key.cred"
 dropin_root="/etc/systemd/system/carbonio-ai-gateway.service.d"
 dropin_file="$dropin_root/20-agent-api-key.conf"
 
 api_key=""
-if [[ "${1:-}" == "--migrate-env" ]]; then
+migration_source="${1:-}"
+if [[ "$migration_source" == "--migrate-env" ]]; then
 	if [[ ! -f "$config_file" ]]; then
 		echo "Gateway environment file was not found." >&2
 		exit 1
@@ -28,6 +30,12 @@ if [[ "${1:-}" == "--migrate-env" ]]; then
 	source "$config_file"
 	set +a
 	api_key="${AI_AGENT_API_KEY:-}"
+elif [[ "$migration_source" == "--migrate-config" ]]; then
+	if [[ ! -f "$runtime_config" ]] || ! command -v jq >/dev/null 2>&1; then
+		echo "Legacy runtime config or jq was not found." >&2
+		exit 1
+	fi
+	api_key="$(jq -r '.apiKey // empty' "$runtime_config")"
 else
 	read -r -s -p "AI provider API key: " api_key
 	echo
@@ -58,6 +66,10 @@ chmod 0644 "$dropin_file"
 if [[ -f "$config_file" ]]; then
 	awk '!/^AI_AGENT_API_KEY=/' "$config_file" >"$env_tmp"
 	install -o root -g root -m 0600 "$env_tmp" "$config_file"
+fi
+if [[ "$migration_source" == "--migrate-config" ]]; then
+	jq 'del(.apiKey)' "$runtime_config" >"$env_tmp"
+	install -o carbonio-ai -g carbonio-ai -m 0600 "$env_tmp" "$runtime_config"
 fi
 
 unset api_key AI_AGENT_API_KEY

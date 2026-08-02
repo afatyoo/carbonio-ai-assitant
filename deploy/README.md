@@ -79,6 +79,13 @@ printing the key and remove the old environment entry:
 sudo /opt/carbonio-ai-assistant/bin/set-api-key.sh --migrate-env
 ```
 
+Installations configured through the older Settings UI can migrate the legacy runtime
+config in place. The helper removes the plaintext field only after encryption succeeds:
+
+```bash
+sudo /opt/carbonio-ai-assistant/bin/set-api-key.sh --migrate-config
+```
+
 ## Uninstall
 
 Interactive uninstall that preserves history and saved configuration:
