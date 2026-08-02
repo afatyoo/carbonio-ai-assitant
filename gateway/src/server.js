@@ -29,6 +29,7 @@ import {
 	getSecurityPolicy,
 	isAdminAccount,
 	isAiEnabled,
+	requireAiAccess,
 	requireAdminAccount
 } from './security.js';
 
@@ -53,7 +54,11 @@ const readJson = async (request) => {
 	return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 };
 
-const authenticate = (request) => getCurrentAccount(request.headers.cookie ?? '');
+const authenticate = async (request) => {
+	const account = await getCurrentAccount(request.headers.cookie ?? '');
+	requireAiAccess(account);
+	return account;
+};
 
 const errorStatus = (error, fallback = 400) =>
 	Number(error?.statusCode) ||
@@ -171,7 +176,7 @@ const handleRequest = async (request, response) => {
 			await consumeAccountQuota(account.id);
 			const payload = await readJson(request);
 			const permissions = ['mail.read', 'calendar.read'];
-			if (areWriteToolsEnabled()) permissions.push('mail.draft', 'calendar.write');
+			if (areWriteToolsEnabled(account)) permissions.push('mail.draft', 'calendar.write');
 			const execution = await executeTool({
 				name: toolExecuteMatch[1],
 				input: payload.input,

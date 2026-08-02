@@ -29,6 +29,8 @@ di `AI_ADMIN_ACCOUNTS`. Batasi provider/model melalui `AI_PROVIDER_ALLOWLIST` da
 `AI_MODEL_ALLOWLIST`. Custom endpoint ditolak kecuali
 `AI_ALLOW_CUSTOM_ENDPOINT=true` dan hostname HTTPS-nya ada di
 `AI_CUSTOM_ENDPOINT_HOSTS`.
+Pilot per-account dapat dibatasi dengan `AI_ENABLED_ACCOUNTS`, sedangkan mutation
+draft/appointment dapat dibatasi terpisah melalui `AI_WRITE_TOOL_ACCOUNTS`.
 
 Self-test database dan reliability dapat dijalankan dari working directory service:
 

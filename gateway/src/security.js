@@ -6,12 +6,31 @@ const normalizeList = (value) =>
 
 const adminAccounts = new Set(normalizeList(process.env.AI_ADMIN_ACCOUNTS));
 const allowedOrigins = new Set(normalizeList(process.env.AI_ALLOWED_ORIGINS));
+const enabledAccounts = new Set(normalizeList(process.env.AI_ENABLED_ACCOUNTS));
+const writeToolAccounts = new Set(normalizeList(process.env.AI_WRITE_TOOL_ACCOUNTS));
 const minuteLimit = Math.min(Math.max(Number(process.env.AI_REQUESTS_PER_MINUTE ?? 30), 1), 10_000);
 const dailyLimit = Math.min(Math.max(Number(process.env.AI_REQUESTS_PER_DAY ?? 500), 1), 1_000_000);
 const usage = new Map();
 
 export const isAiEnabled = () => process.env.AI_ENABLED !== 'false';
-export const areWriteToolsEnabled = () => process.env.AI_WRITE_TOOLS_ENABLED !== 'false';
+const matchesAccount = (allowlist, account) =>
+	allowlist.has(String(account?.id ?? '').toLowerCase()) ||
+	allowlist.has(String(account?.name ?? '').toLowerCase());
+
+export const isAccountEnabled = (account) =>
+	enabledAccounts.size === 0 || matchesAccount(enabledAccounts, account);
+
+export const requireAiAccess = (account) => {
+	if (!isAccountEnabled(account)) {
+		const error = new Error('AI Assistant is not enabled for this account');
+		error.statusCode = 403;
+		throw error;
+	}
+};
+
+export const areWriteToolsEnabled = (account) =>
+	process.env.AI_WRITE_TOOLS_ENABLED !== 'false' &&
+	(writeToolAccounts.size === 0 || matchesAccount(writeToolAccounts, account));
 
 export const isAdminAccount = (account) =>
 	Boolean(
@@ -97,6 +116,8 @@ export const getSecurityPolicy = () => ({
 	requestsPerMinute: minuteLimit,
 	requestsPerDay: dailyLimit,
 	aiEnabled: isAiEnabled(),
-	writeToolsEnabled: areWriteToolsEnabled()
+	writeToolsEnabled: process.env.AI_WRITE_TOOLS_ENABLED !== 'false',
+	enabledAccountPolicyConfigured: enabledAccounts.size > 0,
+	writeToolAccountPolicyConfigured: writeToolAccounts.size > 0
 });
 import { consumeDailyRequest } from './history.js';
