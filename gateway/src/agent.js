@@ -39,13 +39,13 @@ const isDocumentationOnlyQuery = (message) =>
 		message
 	);
 
-const isDraftActionRequest = (message) =>
-	/(draft\s+(a\s+)?reply|compose\s+(an?\s+)?email|buatkan?\s+(draft|balasan|email)|siapkan\s+(draft|balasan|email)|balas\s+email)/i.test(
+export const isDraftActionRequest = (message) =>
+	/(draft\s+(a\s+)?reply|compose\s+(an?\s+)?email|buat(?:kan)?\s+(draft|balasan|email)|siapkan\s+(draft|balasan|email)|balas\s+email)/i.test(
 		message
 	);
 
-const isMeetingActionRequest = (message) =>
-	/(schedule\s+(a\s+)?meeting|create\s+(an?\s+)?appointment|buatkan?\s+(jadwal|meeting|rapat|janji)|jadwalkan\s+(meeting|rapat)|buat.*(acara|kalender))/i.test(
+export const isMeetingActionRequest = (message) =>
+	/(schedule\s+(a\s+)?meeting|create\s+(an?\s+)?appointment|buat(?:kan)?\s+(jadwal|meeting|rapat|janji)|jadwalkan\s+(meeting|rapat)|buat.*(acara|kalender))/i.test(
 		message
 	);
 

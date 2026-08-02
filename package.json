@@ -1,6 +1,6 @@
 {
 	"name": "carbonio-ai-assistant-ui",
-	"version": "0.0.3-rc.6",
+	"version": "0.0.3-rc.7",
 	"description": "Standalone AI assistant microfrontend for Carbonio",
 	"license": "MIT",
 	"main": "src/app.tsx",
@@ -19,6 +19,7 @@
 		"build": "sdk build",
 		"lint": "eslint --ext .ts,.tsx src",
 		"package:release": "bash deploy/package-release.sh",
+		"self-test:ui": "node scripts/self-test-ui-contract.mjs",
 		"start": "sdk watch",
 		"type-check": "tsc --noEmit"
 	},

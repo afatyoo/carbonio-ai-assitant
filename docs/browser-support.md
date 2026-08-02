@@ -4,7 +4,9 @@ Carbonio AI Assistant is built as a Carbonio Shell UI microfrontend and inherits
 active Carbonio light or dark theme. The release build targets the latest two major
 versions of Chrome, Firefox, Edge, and Safari.
 
-The layout has explicit narrow-pane behavior at 48 rem and 38 rem: header controls
+Carbonio Shell currently keeps its application canvas at a minimum width of 960 px.
+At that supported minimum, the history panel, chat response, and composer remain fully
+visible. The addon also has narrow-pane behavior at 48 rem and 38 rem: header controls
 wrap, suggestions switch to one column, message bubbles widen safely, and the composer
 keeps a bounded margin. `prefers-reduced-motion` disables the shimmer animation and
 slows the progress spinner.

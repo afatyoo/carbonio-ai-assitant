@@ -2,6 +2,20 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [0.0.3-rc.7] - 2026-08-02
+
+### Added
+
+- CI regression contract for Carbonio theme tokens, narrow responsive breakpoints,
+  reduced motion, safe text rendering, and English/Indonesian translation parity.
+
+### Fixed
+
+- Indonesian `Buat ...` and `Buatkan ...` draft/meeting requests now both enter the
+  confirmation workflow instead of falling through to a normal chat response.
+- The production example aligns its default free OpenRouter model with an endpoint
+  verified through the authenticated ZDR catalog; availability must be rechecked at rollout.
+
 ## [0.0.3-rc.6] - 2026-08-02
 
 ### Fixed
@@ -165,6 +179,7 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 [0.0.3-rc.4]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.4
 [0.0.3-rc.5]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.5
 [0.0.3-rc.6]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.6
+[0.0.3-rc.7]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.7
 [0.0.3-rc.3]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.3
 [0.0.3-rc.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.2
 [0.0.3-rc.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.1

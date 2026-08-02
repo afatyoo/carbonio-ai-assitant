@@ -266,10 +266,20 @@ try {
 	invalidAttendeeRejected = error.message.includes('Invalid attendee email');
 }
 if (!invalidAttendeeRejected) throw new Error('Invalid attendee address was accepted');
-const { zonedLocalToIso } = await import('../src/agent.js');
+const { isDraftActionRequest, isMeetingActionRequest, zonedLocalToIso } = await import(
+	'../src/agent.js'
+);
 const { findAvailableMeetingSlots } = await import('../src/calendar.js');
 if (zonedLocalToIso('2026-08-03T10:00:00', 'Asia/Jakarta') !== '2026-08-03T03:00:00.000Z') {
 	throw new Error('Appointment timezone conversion failed');
+}
+if (
+	!isDraftActionRequest('Buat draft balasan untuk email terbaru') ||
+	!isDraftActionRequest('Buatkan balasan untuk email terbaru') ||
+	!isMeetingActionRequest('Buat jadwal meeting besok') ||
+	!isMeetingActionRequest('Buatkan rapat besok')
+) {
+	throw new Error('Indonesian draft or meeting intent matching failed');
 }
 const proposedSlots = findAvailableMeetingSlots({
 	availability: [
@@ -292,5 +302,5 @@ if (
 }
 
 console.log(
-	'tool_registry=ok schema_validation=ok permission=ok confirmation=ok owner_isolation=ok idempotency=ok audit=ok admin_audit=ok audit_reference=ok mail_tools=ok html_safety=ok attachment_metadata=ok draft_preview=ok calendar_tools=ok meeting_slots=ok appointment_preview=ok appointment_validation=ok timezone_conversion=ok'
+	'tool_registry=ok schema_validation=ok permission=ok confirmation=ok owner_isolation=ok idempotency=ok audit=ok admin_audit=ok audit_reference=ok mail_tools=ok html_safety=ok attachment_metadata=ok draft_preview=ok calendar_tools=ok meeting_slots=ok appointment_preview=ok appointment_validation=ok timezone_conversion=ok indonesian_intents=ok'
 );

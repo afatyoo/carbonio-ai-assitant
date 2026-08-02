@@ -31,6 +31,8 @@ jobs:
         run: pnpm run lint
       - name: Type-check UI
         run: pnpm run type-check
+      - name: Test UI contracts
+        run: pnpm run self-test:ui
       - name: Check and test gateway
         run: |
           npm --prefix gateway run check
@@ -45,4 +47,3 @@ jobs:
         uses: gitleaks/gitleaks-action@v2.3.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
