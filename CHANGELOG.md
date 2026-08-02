@@ -4,6 +4,20 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 
 ## [Unreleased]
 
+## [0.0.3-rc.2] - 2026-08-02
+
+### Added
+
+- Tagged release artifacts are now published as GitHub Releases with generated notes,
+  SHA-256 checksums, and automatic prerelease classification for release candidates.
+
+### Verified
+
+- The exact release-candidate artifact passed all gateway regression tests on the
+  Carbonio production-pilot server.
+- PostgreSQL history, Carbonio reverse proxy routing, security smoke checks, provider
+  timeout/retry handling, and the systemd gateway service remained healthy.
+
 ## [0.0.3-rc.1] - 2026-08-02
 
 ### Added
@@ -102,5 +116,6 @@ All notable changes to Carbonio AI Assistant are documented in this file.
   mailbox tools, server-side SQLite history, and systemd-based deployment tooling.
 
 [0.0.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.2
+[0.0.3-rc.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.2
 [0.0.3-rc.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.1
 [0.0.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.1
