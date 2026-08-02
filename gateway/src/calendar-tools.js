@@ -31,7 +31,19 @@ const appointmentVersionProperties = {
 	inviteId: { type: 'string', minLength: 1, maxLength: 100 },
 	componentNum: { type: 'integer', minimum: 0, maximum: 10_000 },
 	modifiedSequence: { type: 'integer', minimum: 0 },
-	revision: { type: 'integer', minimum: 0 }
+	revision: { type: 'integer', minimum: 0 },
+	recurring: { type: 'boolean' }
+};
+
+const validateNonRecurring = (input) => {
+	if (input.recurring) {
+		throw new Error('Recurring appointment mutations are not supported in the core release');
+	}
+};
+
+const validateAppointmentMutation = (input) => {
+	validateNonRecurring(input);
+	validateAppointmentInput(input);
 };
 
 const currentAppointmentProperties = {
@@ -270,6 +282,7 @@ registerTool(
 				'componentNum',
 				'modifiedSequence',
 				'revision',
+				'recurring',
 				'currentSubject',
 				'currentStart',
 				'currentEnd',
@@ -290,7 +303,7 @@ registerTool(
 		permission: 'calendar.write',
 		risk: TOOL_RISK.DRAFT,
 		confirmation: 'required',
-		validate: validateAppointmentInput,
+		validate: validateAppointmentMutation,
 		timeoutMs: 30_000,
 		maxResultBytes: 8_000,
 		resultReference: (result) => String(result.id ?? '').slice(0, 200),
@@ -321,6 +334,7 @@ registerTool(
 				'componentNum',
 				'modifiedSequence',
 				'revision',
+				'recurring',
 				'subject',
 				'start',
 				'end',
@@ -331,7 +345,7 @@ registerTool(
 		permission: 'calendar.write',
 		risk: TOOL_RISK.WRITE,
 		confirmation: 'required',
-		validate: validateAppointmentInput,
+		validate: validateAppointmentMutation,
 		timeoutMs: 30_000,
 		maxResultBytes: 8_000,
 		resultReference: (result) => String(result.id ?? '').slice(0, 200),
@@ -358,7 +372,8 @@ registerTool(
 				'inviteId',
 				'componentNum',
 				'modifiedSequence',
-				'revision'
+				'revision',
+				'recurring'
 			],
 			properties: {
 				...appointmentVersionProperties,
@@ -371,6 +386,7 @@ registerTool(
 		permission: 'calendar.write',
 		risk: TOOL_RISK.DESTRUCTIVE,
 		confirmation: 'required',
+		validate: validateNonRecurring,
 		timeoutMs: 30_000,
 		maxResultBytes: 8_000,
 		resultReference: (result) => String(result.id ?? '').slice(0, 200),

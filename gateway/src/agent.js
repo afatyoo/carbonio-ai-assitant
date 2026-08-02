@@ -743,7 +743,8 @@ const prepareExistingAppointmentAction = async ({
 		inviteId: String(current.inviteId),
 		componentNum: Number(current.componentNum),
 		modifiedSequence: Number(current.modifiedSequence),
-		revision: Number(current.revision)
+		revision: Number(current.revision),
+		recurring: Boolean(current.recurring)
 	};
 	if (!version.inviteId) throw new Error('Carbonio did not return the appointment invite ID');
 	let input;

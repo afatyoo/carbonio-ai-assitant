@@ -386,6 +386,7 @@ assert.deepEqual(
 		componentNum: 0,
 		modifiedSequence: 9,
 		revision: 2,
+		recurring: false,
 		subject: 'UAT Meeting',
 		start: '2026-08-05T03:00:00.000Z',
 		end: '2026-08-05T03:30:00.000Z',
@@ -467,14 +468,13 @@ if (
 ) {
 	throw new Error('Appointment preview and confirmation flow failed');
 }
-const updatePending = await executeTool({
-	name: 'update_appointment',
-	input: {
+const updateInput = {
 		appointmentId: '438',
 		inviteId: '439',
 		componentNum: 0,
 		modifiedSequence: 9,
 		revision: 2,
+		recurring: false,
 		currentSubject: 'UAT Meeting',
 		currentStart: '2026-08-05T03:00:00.000Z',
 		currentEnd: '2026-08-05T03:30:00.000Z',
@@ -489,7 +489,10 @@ const updatePending = await executeTool({
 		attendees: '',
 		location: 'Room 1',
 		body: 'Agenda'
-	},
+};
+const updatePending = await executeTool({
+	name: 'update_appointment',
+	input: updateInput,
 	context: { ownerId: 'owner-a', permissions: ['calendar.write'] }
 });
 assert.equal(updatePending.confirmation?.preview?.kind, 'appointment_update');
@@ -501,6 +504,14 @@ assert.deepEqual(updatePending.confirmation?.preview?.changes, [
 		after: '2026-08-05T04:00:00.000Z'
 	}
 ]);
+await assert.rejects(
+	executeTool({
+		name: 'update_appointment',
+		input: { ...updateInput, recurring: true },
+		context: { ownerId: 'owner-a', permissions: ['calendar.write'] }
+	}),
+	/Recurring appointment mutations are not supported/
+);
 let invalidAppointmentRejected = false;
 try {
 	await executeTool({

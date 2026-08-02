@@ -2,6 +2,13 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [0.0.3-rc.13] - 2026-08-02
+
+### Security
+
+- Appointment update, invitation, and cancellation tools now reject recurring events at
+  schema validation time, including direct tool API calls outside natural-language routing.
+
 ## [0.0.3-rc.12] - 2026-08-02
 
 ### Fixed
@@ -232,6 +239,7 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 [0.0.3-rc.10]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.10
 [0.0.3-rc.11]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.11
 [0.0.3-rc.12]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.12
+[0.0.3-rc.13]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.13
 [0.0.3-rc.3]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.3
 [0.0.3-rc.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.2
 [0.0.3-rc.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.1
