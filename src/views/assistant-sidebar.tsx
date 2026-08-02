@@ -418,7 +418,7 @@ export const AssistantSidebar = ({
 
 	const onRenameKeyDown = (
 		event: KeyboardEvent<HTMLInputElement>,
-		conversation: StoredConversationSummary
+		_conversation: StoredConversationSummary
 	): void => {
 		if (event.key === 'Enter') {
 			event.preventDefault();

@@ -1,0 +1,40 @@
+name: Release artifact
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.22.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile
+      - run: npm --prefix gateway ci --omit=dev --ignore-scripts
+      - name: Verify tag matches package version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: test "${GITHUB_REF_NAME#v}" = "$(node -p "require('./package.json').version")"
+      - run: pnpm run lint
+      - run: pnpm run type-check
+      - run: npm --prefix gateway run check
+      - run: pnpm run package:release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: carbonio-ai-assistant-${{ github.ref_name }}
+          path: |
+            release/*.tar.gz
+            release/*.sha256
+          if-no-files-found: error
+

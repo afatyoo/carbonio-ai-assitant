@@ -18,7 +18,7 @@ const {
 	requireAdminAccount
 } = await import('../src/security.js');
 const { assertModelAllowed, getModelAllowlist } = await import('../src/config.js');
-const { purgeDailyUsage } = await import('../src/history.js');
+const { closeHistoryDatabase, purgeDailyUsage } = await import('../src/history.js');
 const { redactSensitiveText } = await import('../src/redaction.js');
 const { sanitizeModelOutput } = await import('../src/output-safety.js');
 
@@ -83,3 +83,4 @@ if (fs.existsSync(assistantViewPath)) {
 }
 
 console.log('admin_auth=ok account_policy=ok csrf=ok quota=ok model_allowlist=ok redaction=ok safe_rendering=ok');
+await closeHistoryDatabase();

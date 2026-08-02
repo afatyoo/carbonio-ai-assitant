@@ -63,6 +63,10 @@ install -o root -g root -m 0755 \
 	"$release_dir/backup-postgres.sh" "$app_bin/backup-postgres.sh"
 install -o root -g root -m 0755 \
 	"$release_dir/restore-postgres.sh" "$app_bin/restore-postgres.sh"
+install -o root -g root -m 0755 \
+	"$release_dir/rollback.sh" "$app_bin/rollback.sh"
+install -o root -g root -m 0755 \
+	"$release_dir/smoke-test.sh" "$app_bin/smoke-test.sh"
 
 if ! getent passwd carbonio-ai >/dev/null; then
 	useradd --system \

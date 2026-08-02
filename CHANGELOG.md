@@ -59,6 +59,8 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 - Bounded/sanitized model output, safe plain-text UI rendering verification,
   success/error/latency metrics, provider health gauges, and an administrator
   audit/status panel in AI settings.
+- GitHub Actions CI/release workflows, dependency updates, project linting,
+  read-only production smoke tests, atomic UI/gateway rollback, and a pilot UAT runbook.
 
 ### Changed
 

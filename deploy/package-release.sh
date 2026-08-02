@@ -63,7 +63,8 @@ cp -a gateway/package.json gateway/package-lock.json gateway/node_modules \
 	gateway/src gateway/scripts gateway/deploy gateway/knowledge \
 	gateway/README.md gateway/.env.example "$package_dir/gateway/"
 cp deploy/install.sh deploy/uninstall.sh deploy/setup-postgres.sh \
-	deploy/backup-postgres.sh deploy/restore-postgres.sh \
+	deploy/backup-postgres.sh deploy/restore-postgres.sh deploy/rollback.sh \
+	deploy/smoke-test.sh \
 	CHANGELOG.md LICENSE README.md "$package_dir/"
 
 cat >"$package_dir/release.env" <<EOF
@@ -74,7 +75,8 @@ EOF
 
 chmod 0755 "$package_dir/install.sh" "$package_dir/uninstall.sh" \
 	"$package_dir/setup-postgres.sh" "$package_dir/backup-postgres.sh" \
-	"$package_dir/restore-postgres.sh"
+	"$package_dir/restore-postgres.sh" "$package_dir/rollback.sh" \
+	"$package_dir/smoke-test.sh"
 mkdir -p "$output_dir"
 COPYFILE_DISABLE=1 tar -C "$workspace" -czf "$archive" "$package_name"
 

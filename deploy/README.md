@@ -39,6 +39,20 @@ The installer is idempotent for an existing managed installation. It:
 6. Rebuilds `components.json` and keeps a backup.
 7. Validates Nginx and waits for gateway readiness.
 
+Run the read-only post-deployment smoke test:
+
+```bash
+sudo /opt/carbonio-ai-assistant/bin/smoke-test.sh
+```
+
+Rollback to an already installed commit (gateway and UI together):
+
+```bash
+sudo /opt/carbonio-ai-assistant/bin/rollback.sh <40-character-commit> --yes
+```
+
+Database migrations are forward-only; application rollback never downgrades the schema.
+
 ## Service operations
 
 ```bash

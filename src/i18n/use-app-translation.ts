@@ -23,8 +23,10 @@ export const useAppTranslation = (): {
 	}, [i18n]);
 
 	const t = useCallback(
-		(key: string, fallback: string, options: TranslationOptions = {}): string =>
-			String(i18n.t(key, { defaultValue: fallback, ...options })),
+		(key: string, fallback: string, options: TranslationOptions = {}): string => {
+			void revision;
+			return String(i18n.t(key, { defaultValue: fallback, ...options }));
+		},
 		[i18n, revision]
 	);
 

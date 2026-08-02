@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 
 import { addRoute, addSettingsView, upsertApp } from '@zextras/carbonio-shell-ui';
 
