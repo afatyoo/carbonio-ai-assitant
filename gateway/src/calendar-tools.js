@@ -77,6 +77,12 @@ const appointmentPreview = (kind, input) => ({
 	kind,
 	appointmentId: input.appointmentId ?? '',
 	inviteId: input.inviteId ?? '',
+	...(input.appointmentId
+		? {
+				modifiedSequence: input.modifiedSequence,
+				revision: input.revision
+			}
+		: {}),
 	subject: input.subject,
 	start: input.start,
 	end: input.end,
@@ -393,6 +399,9 @@ registerTool(
 		preview: (input) => ({
 			kind: 'appointment_cancel',
 			appointmentId: input.appointmentId,
+			inviteId: input.inviteId,
+			modifiedSequence: input.modifiedSequence,
+			revision: input.revision,
 			subject: input.subject ?? '',
 			start: input.start ?? '',
 			end: input.end ?? '',

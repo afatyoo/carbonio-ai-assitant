@@ -438,6 +438,99 @@ const emitConfirmation = ({ emit, tool, pending, input }) => {
 	});
 };
 
+const normalizeTargetText = (value) =>
+	String(value ?? '')
+		.trim()
+		.replace(/\s+/g, ' ')
+		.toLocaleLowerCase('en-US');
+
+const quoteSearchValue = (value) => `"${String(value).replace(/[\\"]/g, '\\$&')}"`;
+
+const datePartInTimezone = (value, timeZone) => {
+	const milliseconds = Number(value);
+	const date = new Date(Number.isFinite(milliseconds) ? milliseconds : value);
+	if (!Number.isFinite(date.getTime())) return '';
+	const parts = Object.fromEntries(
+		new Intl.DateTimeFormat('en-US', {
+			timeZone,
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit'
+		})
+			.formatToParts(date)
+			.filter(({ type }) => type !== 'literal')
+			.map(({ type, value: partValue }) => [type, partValue])
+	);
+	return `${parts.year}-${parts.month}-${parts.day}`;
+};
+
+const timePartInTimezone = (value, timeZone) => {
+	const milliseconds = Number(value);
+	const date = new Date(Number.isFinite(milliseconds) ? milliseconds : value);
+	if (!Number.isFinite(date.getTime())) return '';
+	const parts = Object.fromEntries(
+		new Intl.DateTimeFormat('en-US', {
+			timeZone,
+			hour: '2-digit',
+			minute: '2-digit',
+			hourCycle: 'h23'
+		})
+			.formatToParts(date)
+			.filter(({ type }) => type !== 'literal')
+			.map(({ type, value: partValue }) => [type, partValue])
+	);
+	return `${parts.hour}:${parts.minute}`;
+};
+
+const extractMailTargetCriteria = (message) => {
+	const sender =
+		message.match(
+			/(?:\bfrom|\bdari)\s+<?([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})>?/i
+		)?.[1]?.toLowerCase() ?? '';
+	const quotedSubject = message.match(
+		/(?:\bsubject|\bsubjek)\s*(?:is|adalah|berjudul)?\s*["“']([^"”']+)["”']/i
+	)?.[1];
+	const unquotedSubject = message.match(
+		/(?:\bsubject|\bsubjek)\s*(?:is|adalah|berjudul)?\s+(.+?)(?=\s+(?:to|into|ke|from|dari|dated|on|tanggal)\b|$)/i
+	)?.[1];
+	const subject = String(quotedSubject ?? unquotedSubject ?? '').trim();
+	const date = message.match(/\b(\d{4}-\d{2}-\d{2})\b/)?.[1] ?? '';
+	return { sender, subject, date };
+};
+
+const hasTargetCriteria = (criteria) => Object.values(criteria).some(Boolean);
+
+const shiftIsoDate = (date, days) => {
+	const shifted = new Date(`${date}T00:00:00.000Z`);
+	shifted.setUTCDate(shifted.getUTCDate() + days);
+	return shifted.toISOString().slice(0, 10);
+};
+
+const buildMailTargetQuery = ({ sender, subject, date }) => {
+	const terms = ['in:inbox'];
+	if (sender) terms.push(`from:${quoteSearchValue(sender)}`);
+	if (subject) terms.push(`subject:${quoteSearchValue(subject)}`);
+	if (date) {
+		terms.push(`after:${shiftIsoDate(date, -1).replaceAll('-', '/')}`);
+		terms.push(`before:${shiftIsoDate(date, 1).replaceAll('-', '/')}`);
+	}
+	return terms.join(' ');
+};
+
+const mailMatchesCriteria = (target, criteria, timeZone) =>
+	(!criteria.sender || normalizeTargetText(target.from) === normalizeTargetText(criteria.sender)) &&
+	(!criteria.subject ||
+		normalizeTargetText(target.subject) === normalizeTargetText(criteria.subject)) &&
+	(!criteria.date || datePartInTimezone(target.timestamp, timeZone) === criteria.date);
+
+const withoutQuotedTargetText = (message) =>
+	String(message).replace(/["“'][^"”']*["”']/g, ' ');
+
+const isExplicitLatestMailRequest = (message) =>
+	/(?:\b(?:the\s+)?(?:latest|newest)\s+(?:email|message)\b|\b(?:email|message|pesan)\s+(?:terakhir|terbaru)\b|\b(?:terakhir|terbaru)\s+(?:email|message|pesan)\b)/i.test(
+		withoutQuotedTargetText(message)
+	);
+
 const prepareDraft = async ({
 	message,
 	model,
@@ -547,7 +640,12 @@ const prepareDraft = async ({
 };
 
 const prepareLatestEmailMutation = async ({ action, cookie, account, permissions, emit }) => {
-	const explicitId = action.message.match(/(?:email\s+)?id\s*[:#]?\s*(\d+)/i)?.[1];
+	const explicitId = action.message.match(
+		/\b(?:email|message)\s+id\s*[:#]?\s*([A-Z0-9][A-Z0-9._:-]{0,99})/i
+	)?.[1];
+	const latestRequested = isExplicitLatestMailRequest(action.message);
+	const criteria = extractMailTargetCriteria(action.message);
+	const timeZone = process.env.AI_DEFAULT_TIMEZONE ?? 'Asia/Jakarta';
 	let target;
 	if (explicitId) {
 		emit('tool', { name: 'get_email', status: 'running' });
@@ -558,15 +656,36 @@ const prepareLatestEmailMutation = async ({ action, cookie, account, permissions
 		});
 		target = read.result;
 		emit('tool', { name: 'get_email', status: 'completed', count: 1 });
+		if (String(target?.id ?? '') !== explicitId) {
+			throw new Error('The matching email target changed; clarify the exact message ID');
+		}
 	} else {
+		if (!latestRequested && !hasTargetCriteria(criteria)) {
+			throw new Error(
+				'Clarify the email target with an exact message ID, latest/newest, sender, subject, or date'
+			);
+		}
 		emit('tool', { name: 'search_emails', status: 'running' });
 		const search = await executeTool({
 			name: 'search_emails',
-			input: { query: 'in:inbox', limit: 1 },
+			input: {
+				query: buildMailTargetQuery(criteria),
+				limit: latestRequested ? 1 : 2
+			},
 			context: { ownerId: account.id, cookie, permissions }
 		});
-		target = search.result?.[0] ?? null;
-		emit('tool', { name: 'search_emails', status: 'completed', count: target ? 1 : 0 });
+		const matches = (search.result ?? []).filter((item) =>
+			mailMatchesCriteria(item, criteria, timeZone)
+		);
+		target = latestRequested
+			? matches[0] ?? null
+			: search.result?.length === 1 && matches.length === 1
+				? matches[0]
+				: null;
+		emit('tool', { name: 'search_emails', status: 'completed', count: matches.length });
+		if (!target?.id) {
+			throw new Error('Could not resolve exactly one matching email; clarify the target');
+		}
 	}
 	if (!target?.id) throw new Error('No matching email was found');
 	const input = {
@@ -709,6 +828,80 @@ const prepareMeeting = async ({
 		: `Saya menemukan ${proposedSlots.length} slot yang tersedia dan menyiapkan slot paling awal. Periksa alternatifnya sebelum konfirmasi karena konfirmasi dapat mengirim undangan.`;
 };
 
+const extractCalendarSubject = (message) => {
+	const quoted = message.match(
+		/(?:\bsubject|\bsubjek|\bmeeting|\bappointment|\brapat|\bjadwal)\s+(?:named|titled|berjudul)?\s*["“']([^"”']+)["”']/i
+	)?.[1];
+	if (quoted) return quoted.trim();
+	const explicit = message.match(
+		/(?:\bsubject|\bsubjek)\s*(?:is|adalah|berjudul)?\s+(.+?)(?=\s+(?:on|at|with|to|pada|tanggal|jam|pukul|dengan|oleh)\b|$)/i
+	)?.[1];
+	if (explicit) return explicit.trim();
+	const tail = message.match(/\b(?:meeting|appointment|rapat|jadwal)\b\s+([\s\S]+)/i)?.[1] ?? '';
+	const candidate = tail
+		.replace(/^(?:named|titled|berjudul)\s+/i, '')
+		.split(
+			/\s+\b(?:on|at|with|organized|organised|hosted|to|pada|tanggal|jam|pukul|dengan|oleh|menjadi)\b/i
+		)[0]
+		.trim()
+		.replace(/^["“']|["”']$/g, '');
+	return /^(?:next|upcoming|berikutnya|terdekat|with\s+appointment\s+id)$/i.test(candidate)
+		? ''
+		: candidate;
+};
+
+const extractCalendarTargetCriteria = (message) => {
+	const subject = extractCalendarSubject(message);
+	const date = message.match(/\b(\d{4}-\d{2}-\d{2})\b/)?.[1] ?? '';
+	const organizer =
+		message.match(
+			/(?:organized|organised|hosted)\s+by\s+<?([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})>?/i
+		)?.[1]?.toLowerCase() ??
+		message.match(
+			/(?:diorganisir|diselenggarakan)\s+oleh\s+<?([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})>?/i
+		)?.[1]?.toLowerCase() ??
+		'';
+	const attendee =
+		message.match(
+			/(?:\bwith|\battendee|\bparticipant|\bdengan|\bpeserta)\s+<?([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})>?/i
+		)?.[1]?.toLowerCase() ?? '';
+	const eventDescription = message.match(
+		/\b(?:meeting|appointment|rapat|jadwal)\b([\s\S]*)/i
+	)?.[1];
+	const targetDescription = String(eventDescription ?? '').split(
+		/\b(?:to\s+start|to\s+end|rescheduled?\s+to|moved?\s+to|menjadi|diubah\s+ke)\b/i
+	)[0];
+	const rawTime = targetDescription.match(/\b(?:at|pukul|jam)\s*(\d{1,2}(?::|\.)\d{2})\b/i)?.[1];
+	const time = rawTime ? rawTime.replace('.', ':').padStart(5, '0') : '';
+	return { subject, date, time, organizer, attendee };
+};
+
+const buildCalendarTargetQuery = ({ subject, organizer, attendee }) => {
+	const terms = ['inid:10'];
+	if (subject) terms.push(`subject:${quoteSearchValue(subject)}`);
+	if (organizer) terms.push(`organizer:${quoteSearchValue(organizer)}`);
+	if (attendee) terms.push(quoteSearchValue(attendee));
+	return terms.join(' ');
+};
+
+const calendarMatchesCriteria = (appointment, criteria, timeZone) =>
+	(!criteria.subject ||
+		normalizeTargetText(appointment.subject ?? appointment.name) ===
+			normalizeTargetText(criteria.subject)) &&
+	(!criteria.date || datePartInTimezone(appointment.start, timeZone) === criteria.date) &&
+	(!criteria.time || timePartInTimezone(appointment.start, timeZone) === criteria.time) &&
+	(!criteria.organizer ||
+		normalizeTargetText(appointment.organizer) === normalizeTargetText(criteria.organizer)) &&
+	(!criteria.attendee ||
+		(appointment.attendees ?? []).some(
+			(address) => normalizeTargetText(address) === normalizeTargetText(criteria.attendee)
+		));
+
+const isExplicitFirstUpcomingRequest = (message) =>
+	/(?:\b(?:the\s+)?(?:next|upcoming)\s+(?:meeting|appointment)\b|\b(?:meeting|appointment)\s+(?:next|upcoming)\b|\b(?:meeting|appointment|rapat|jadwal)\s+(?:berikutnya|terdekat)\b|\b(?:berikutnya|terdekat)\s+(?:meeting|appointment|rapat|jadwal)\b)/i.test(
+		withoutQuotedTargetText(message)
+	);
+
 const prepareExistingAppointmentAction = async ({
 	action,
 	message,
@@ -721,23 +914,79 @@ const prepareExistingAppointmentAction = async ({
 }) => {
 	const now = new Date();
 	const windowEnd = new Date(now.getTime() + 90 * 86_400_000);
-	emit('tool', { name: 'search_appointments', status: 'running' });
-	const searched = await executeTool({
-		name: 'search_appointments',
-		input: { start: now.toISOString(), end: windowEnd.toISOString(), limit: 10 },
-		context: { ownerId: account.id, cookie, permissions }
-	});
-	const target = searched.result?.[0] ?? null;
-	emit('tool', { name: 'search_appointments', status: 'completed', count: target ? 1 : 0 });
-	if (!target?.id) throw new Error('No upcoming appointment was found');
-	emit('tool', { name: 'get_appointment', status: 'running' });
-	const fetched = await executeTool({
-		name: 'get_appointment',
-		input: { id: String(target.id) },
-		context: { ownerId: account.id, cookie, permissions }
-	});
-	const current = fetched.result;
-	emit('tool', { name: 'get_appointment', status: 'completed', count: 1 });
+	const explicitId = message.match(
+		/\b(?:appointment|meeting|rapat|jadwal)\s+id\s*[:#]?\s*([A-Z0-9][A-Z0-9._:-]{0,99})/i
+	)?.[1];
+	const firstUpcomingRequested = isExplicitFirstUpcomingRequest(message);
+	const criteria = extractCalendarTargetCriteria(message);
+	const timeZone = process.env.AI_DEFAULT_TIMEZONE ?? 'Asia/Jakarta';
+	const fetchAppointment = async (id) => {
+		emit('tool', { name: 'get_appointment', status: 'running' });
+		const fetched = await executeTool({
+			name: 'get_appointment',
+			input: { id: String(id) },
+			context: { ownerId: account.id, cookie, permissions }
+		});
+		emit('tool', { name: 'get_appointment', status: 'completed', count: 1 });
+		if (String(fetched.result?.id ?? '') !== String(id)) {
+			throw new Error('The matching appointment target changed; clarify the exact appointment ID');
+		}
+		return fetched.result;
+	};
+	let current;
+	if (explicitId) {
+		current = await fetchAppointment(explicitId);
+	} else {
+		if (!firstUpcomingRequested && !hasTargetCriteria(criteria)) {
+			throw new Error(
+				'Clarify the appointment target with an exact ID, next/upcoming, subject, date/time, organizer, or attendee'
+			);
+		}
+		const start = criteria.date
+			? zonedLocalToIso(`${criteria.date}T00:00:00`, timeZone)
+			: now.toISOString();
+		const end = criteria.date
+			? zonedLocalToIso(`${shiftIsoDate(criteria.date, 1)}T00:00:00`, timeZone)
+			: windowEnd.toISOString();
+		emit('tool', { name: 'search_appointments', status: 'running' });
+		const searched = await executeTool({
+			name: 'search_appointments',
+			input: {
+				start,
+				end,
+				query: buildCalendarTargetQuery(criteria),
+				limit: firstUpcomingRequested ? 1 : 2
+			},
+			context: { ownerId: account.id, cookie, permissions }
+		});
+		const searchResults = searched.result ?? [];
+		const searchableCriteria = { ...criteria, attendee: '' };
+		const candidates = searchResults.filter((appointment) =>
+			calendarMatchesCriteria(appointment, searchableCriteria, timeZone)
+		);
+		emit('tool', {
+			name: 'search_appointments',
+			status: 'completed',
+			count: candidates.length
+		});
+		if (
+			candidates.length === 0 ||
+			(!firstUpcomingRequested && (searchResults.length !== 1 || candidates.length !== 1))
+		) {
+			throw new Error('Could not resolve exactly one matching appointment; clarify the target');
+		}
+		const detailedCandidates = [];
+		for (const candidate of firstUpcomingRequested ? candidates.slice(0, 1) : candidates) {
+			detailedCandidates.push(await fetchAppointment(candidate.id));
+		}
+		const exactMatches = detailedCandidates.filter((appointment) =>
+			calendarMatchesCriteria(appointment, criteria, timeZone)
+		);
+		if ((!firstUpcomingRequested && exactMatches.length !== 1) || exactMatches.length === 0) {
+			throw new Error('Could not resolve exactly one matching appointment; clarify the target');
+		}
+		current = exactMatches[0];
+	}
 	if (current.recurring) {
 		throw new Error('Recurring appointment mutations are not supported in the core release');
 	}
@@ -766,7 +1015,11 @@ const prepareExistingAppointmentAction = async ({
 					([address]) => address.toLowerCase()
 				)
 			)
-		];
+		].filter(
+			(address) =>
+				address !== normalizeTargetText(criteria.organizer) &&
+				address !== normalizeTargetText(criteria.attendee)
+		);
 		if (requestedAttendees.length === 0) {
 			throw new Error('At least one attendee email address is required');
 		}

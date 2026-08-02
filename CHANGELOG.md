@@ -6,6 +6,9 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 
 ### Security
 
+- Mail and calendar mutations now fail closed unless an explicit ID, an explicit
+  latest/next request, or exactly one criteria-matching target is resolved; confirmation
+  tokens and previews bind the exact message or versioned appointment target.
 - Production deployment smoke checks now fail closed unless the health endpoint reports
   PostgreSQL-backed history; SQLite is development-only.
 - Tag releases now enforce the same deployment smoke, gateway regression and PostgreSQL
@@ -277,6 +280,7 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 [0.0.3-rc.14]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.14
 [0.0.3-rc.15]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.15
 [0.0.3-rc.16]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.16
+[0.0.3-rc.17]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.17
 [0.0.3-rc.3]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.3
 [0.0.3-rc.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.2
 [0.0.3-rc.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.1
