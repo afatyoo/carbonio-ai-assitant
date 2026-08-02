@@ -317,5 +317,29 @@ export const purgeConversation = async (ownerId, id) => {
 	return result.rowCount > 0;
 };
 
+export const importConversation = async (ownerId, conversation) => {
+	const existing = await getConversationRow(ownerId, conversation.id, true);
+	if (existing?.deleted_at != null) {
+		await pool.query(
+			'UPDATE conversations SET deleted_at = NULL WHERE owner_id = $1 AND id = $2',
+			[ownerId, conversation.id]
+		);
+	}
+	const saved = await saveConversation(ownerId, conversation);
+	const deletedAt = Number(conversation.deletedAt);
+	await pool.query(
+		`UPDATE conversations SET created_at = $1, updated_at = $2, deleted_at = $3
+		 WHERE owner_id = $4 AND id = $5`,
+		[
+			Number(conversation.createdAt) || saved.createdAt,
+			Number(conversation.updatedAt) || saved.updatedAt,
+			Number.isSafeInteger(deletedAt) && deletedAt > 0 ? deletedAt : null,
+			ownerId,
+			conversation.id
+		]
+	);
+	return { id: conversation.id, messageCount: saved.messageCount };
+};
+
 export const closeHistoryDatabase = async () => pool.end();
 export const historyBackend = 'postgresql';

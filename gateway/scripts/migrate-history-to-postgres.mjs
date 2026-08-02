@@ -13,12 +13,12 @@ if (!fs.existsSync(sqlitePath)) throw new Error(`SQLite history not found: ${sql
 const sqlite = new DatabaseSync(sqlitePath, { readOnly: true });
 const rows = sqlite
 	.prepare(
-		`SELECT owner_id, id, title, model, messages_json, created_at, updated_at
-		 FROM conversations WHERE deleted_at IS NULL ORDER BY created_at, id`
+		`SELECT owner_id, id, title, model, messages_json, created_at, updated_at, deleted_at
+		 FROM conversations ORDER BY created_at, id`
 	)
 	.all();
 
-const { closeHistoryDatabase, getConversation, saveConversation } = await import('../src/history.js');
+const { closeHistoryDatabase, importConversation } = await import('../src/history.js');
 let migrated = 0;
 for (const row of rows) {
 	let messages;
@@ -27,20 +27,20 @@ for (const row of rows) {
 	} catch {
 		throw new Error(`Conversation ${row.id} contains invalid message JSON`);
 	}
-	await saveConversation(row.owner_id, {
+	const verified = await importConversation(row.owner_id, {
 		id: row.id,
 		title: row.title,
 		model: row.model,
 		messages,
 		createdAt: Number(row.created_at),
-		updatedAt: Number(row.updated_at)
+		updatedAt: Number(row.updated_at),
+		deletedAt: row.deleted_at == null ? null : Number(row.deleted_at)
 	});
-	const verified = await getConversation(row.owner_id, row.id);
-	if (!verified || verified.messages.length !== messages.length) {
+	if (!verified || verified.messageCount !== messages.length) {
 		throw new Error(`PostgreSQL verification failed for conversation ${row.id}`);
 	}
 	migrated += 1;
 }
 sqlite.close();
 await closeHistoryDatabase();
-console.log(`source=${sqlitePath} active_rows=${rows.length} migrated=${migrated} verified=ok`);
+console.log(`source=${sqlitePath} rows=${rows.length} migrated=${migrated} verified=ok`);

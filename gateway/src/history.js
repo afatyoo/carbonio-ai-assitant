@@ -11,4 +11,8 @@ export const renameConversation = (...args) => Promise.resolve(backend.renameCon
 export const deleteConversation = (...args) => Promise.resolve(backend.deleteConversation(...args));
 export const restoreConversation = (...args) => Promise.resolve(backend.restoreConversation(...args));
 export const purgeConversation = (...args) => Promise.resolve(backend.purgeConversation(...args));
+export const importConversation = (...args) => {
+	if (!backend.importConversation) throw new Error('History import requires PostgreSQL');
+	return Promise.resolve(backend.importConversation(...args));
+};
 export const closeHistoryDatabase = () => Promise.resolve(backend.closeHistoryDatabase?.());
