@@ -4,6 +4,8 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 
 ## [Unreleased]
 
+## [0.0.3-rc.1] - 2026-08-02
+
 ### Added
 
 - Soft-delete and restore endpoints for conversations.
@@ -100,4 +102,5 @@ All notable changes to Carbonio AI Assistant are documented in this file.
   mailbox tools, server-side SQLite history, and systemd-based deployment tooling.
 
 [0.0.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.2
+[0.0.3-rc.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.1
 [0.0.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.1
