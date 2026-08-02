@@ -30,10 +30,22 @@ database.exec(`
 		owner_id TEXT NOT NULL,
 		usage_date TEXT NOT NULL,
 		request_count INTEGER NOT NULL DEFAULT 0,
+		input_tokens INTEGER NOT NULL DEFAULT 0,
+		output_tokens INTEGER NOT NULL DEFAULT 0,
 		updated_at INTEGER NOT NULL,
 		PRIMARY KEY (owner_id, usage_date)
 	);
 `);
+
+const usageColumns = new Set(
+	database.prepare('PRAGMA table_info(daily_ai_usage)').all().map(({ name }) => name)
+);
+if (!usageColumns.has('input_tokens')) {
+	database.exec('ALTER TABLE daily_ai_usage ADD COLUMN input_tokens INTEGER NOT NULL DEFAULT 0');
+}
+if (!usageColumns.has('output_tokens')) {
+	database.exec('ALTER TABLE daily_ai_usage ADD COLUMN output_tokens INTEGER NOT NULL DEFAULT 0');
+}
 
 const columns = new Set(
 	database.prepare('PRAGMA table_info(conversations)').all().map(({ name }) => name)
@@ -97,6 +109,38 @@ export const consumeDailyRequest = (ownerId, usageDate, limit) => {
 		.run(ownerId, usageDate, Date.now());
 	database.prepare('DELETE FROM daily_ai_usage WHERE updated_at < ?').run(Date.now() - 90 * 86_400_000);
 	return Number(existing?.request_count ?? 0) + 1;
+};
+
+export const getDailyUsage = (ownerId, usageDate) => {
+	const row = database
+		.prepare(
+			`SELECT request_count, input_tokens, output_tokens
+			 FROM daily_ai_usage WHERE owner_id = ? AND usage_date = ?`
+		)
+		.get(ownerId, usageDate);
+	return {
+		requestCount: Number(row?.request_count ?? 0),
+		inputTokens: Number(row?.input_tokens ?? 0),
+		outputTokens: Number(row?.output_tokens ?? 0),
+		totalTokens: Number(row?.input_tokens ?? 0) + Number(row?.output_tokens ?? 0)
+	};
+};
+
+export const recordTokenUsage = (ownerId, usageDate, inputTokens, outputTokens) => {
+	const safeInput = Math.max(0, Math.trunc(Number(inputTokens) || 0));
+	const safeOutput = Math.max(0, Math.trunc(Number(outputTokens) || 0));
+	database
+		.prepare(
+			`INSERT INTO daily_ai_usage
+			 (owner_id, usage_date, request_count, input_tokens, output_tokens, updated_at)
+			 VALUES (?, ?, 0, ?, ?, ?)
+			 ON CONFLICT(owner_id, usage_date) DO UPDATE SET
+			 input_tokens = input_tokens + excluded.input_tokens,
+			 output_tokens = output_tokens + excluded.output_tokens,
+			 updated_at = excluded.updated_at`
+		)
+		.run(ownerId, usageDate, safeInput, safeOutput, Date.now());
+	return getDailyUsage(ownerId, usageDate);
 };
 
 export const purgeDailyUsage = (ownerId) => {

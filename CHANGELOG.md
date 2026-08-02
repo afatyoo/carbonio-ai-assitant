@@ -4,6 +4,14 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Per-provider circuit breakers with half-open recovery and administrator metrics.
+- End-to-end request cancellation from the chat UI through the gateway to provider fetches.
+- Retry/regenerate controls and localized stopped-generation feedback.
+- Persistent per-account input/output token accounting, daily token quota enforcement,
+  a self-service usage endpoint, and usage visibility in Settings.
+
 ## [0.0.3-rc.3] - 2026-08-02
 
 ### Fixed

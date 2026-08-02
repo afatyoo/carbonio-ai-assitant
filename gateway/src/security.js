@@ -1,3 +1,5 @@
+import { consumeDailyRequest, getDailyUsage } from './history.js';
+
 const normalizeList = (value) =>
 	String(value ?? '')
 		.split(',')
@@ -10,6 +12,10 @@ const enabledAccounts = new Set(normalizeList(process.env.AI_ENABLED_ACCOUNTS));
 const writeToolAccounts = new Set(normalizeList(process.env.AI_WRITE_TOOL_ACCOUNTS));
 const minuteLimit = Math.min(Math.max(Number(process.env.AI_REQUESTS_PER_MINUTE ?? 30), 1), 10_000);
 const dailyLimit = Math.min(Math.max(Number(process.env.AI_REQUESTS_PER_DAY ?? 500), 1), 1_000_000);
+const dailyTokenLimit = Math.min(
+	Math.max(Number(process.env.AI_TOKENS_PER_DAY ?? 250_000), 1_000),
+	100_000_000
+);
 const usage = new Map();
 
 export const isAiEnabled = () => process.env.AI_ENABLED !== 'false';
@@ -97,17 +103,37 @@ export const consumeAccountQuota = async (ownerId) => {
 		error.statusCode = 429;
 		throw error;
 	}
-	current.minuteCount += 1;
-	usage.set(key, current);
+	const tokenUsage = await getDailyUsage(key, day);
+	if (tokenUsage.totalTokens >= dailyTokenLimit) {
+		const error = new Error('AI daily token quota exceeded');
+		error.statusCode = 429;
+		throw error;
+	}
 	const dailyCount = await consumeDailyRequest(key, day, dailyLimit);
 	if (dailyCount === null) {
 		const error = new Error('AI daily request quota exceeded');
 		error.statusCode = 429;
 		throw error;
 	}
+	current.minuteCount += 1;
+	usage.set(key, current);
 	return {
 		minuteRemaining: Math.max(minuteLimit - current.minuteCount, 0),
-		dailyRemaining: Math.max(dailyLimit - dailyCount, 0)
+		dailyRemaining: Math.max(dailyLimit - dailyCount, 0),
+		tokenRemaining: Math.max(dailyTokenLimit - tokenUsage.totalTokens, 0)
+	};
+};
+
+export const getAccountUsage = async (ownerId) => {
+	const usageDate = new Date().toISOString().slice(0, 10);
+	const current = await getDailyUsage(String(ownerId), usageDate);
+	return {
+		date: usageDate,
+		...current,
+		requestLimit: dailyLimit,
+		tokenLimit: dailyTokenLimit,
+		requestRemaining: Math.max(dailyLimit - current.requestCount, 0),
+		tokenRemaining: Math.max(dailyTokenLimit - current.totalTokens, 0)
 	};
 };
 
@@ -115,9 +141,9 @@ export const getSecurityPolicy = () => ({
 	adminAccountsConfigured: adminAccounts.size > 0,
 	requestsPerMinute: minuteLimit,
 	requestsPerDay: dailyLimit,
+	tokensPerDay: dailyTokenLimit,
 	aiEnabled: isAiEnabled(),
 	writeToolsEnabled: process.env.AI_WRITE_TOOLS_ENABLED !== 'false',
 	enabledAccountPolicyConfigured: enabledAccounts.size > 0,
 	writeToolAccountPolicyConfigured: writeToolAccounts.size > 0
 });
-import { consumeDailyRequest } from './history.js';

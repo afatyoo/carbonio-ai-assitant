@@ -35,6 +35,10 @@
 		"placeholder": "Tanyakan sesuatu tentang email Anda...",
 		"model_label": "Model AI",
 		"send": "Kirim pesan",
+		"stop": "Hentikan jawaban",
+		"retry": "Coba lagi",
+		"regenerate": "Buat ulang jawaban",
+		"generation_stopped": "Pembuatan jawaban dihentikan.",
 		"draft_preview": "Pratinjau draf email",
 		"confirm_draft_title": "Konfirmasi penyimpanan draf ini",
 		"recipient": "Kepada",
@@ -109,6 +113,9 @@
 		"saved_remote": "Tersimpan — agent remote aktif",
 		"saved_local": "Tersimpan — mode lokal",
 		"save_error": "Tidak dapat menyimpan",
+		"usage_title": "Penggunaan AI Anda",
+		"usage_requests": "{{used}} dari {{limit}} permintaan hari ini",
+		"usage_tokens": "{{used}} dari {{limit}} token hari ini",
 		"custom_provider": "Endpoint kustom"
 	}
 }

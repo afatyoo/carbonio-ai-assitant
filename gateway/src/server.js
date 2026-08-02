@@ -18,6 +18,7 @@ import { getCurrentAccount } from './mailbox.js';
 import { logEvent } from './logger.js';
 import { getMetricsSnapshot, incrementMetric, observeMetric } from './metrics.js';
 import { listAvailableModels } from './models.js';
+import { getProviderCircuitSnapshot } from './provider-circuit-breaker.js';
 import { runWithRequestContext } from './request-context.js';
 import { listAllAuditEntries, listAuditEntries } from './tool-audit.js';
 import { listToolDefinitions } from './tool-registry.js';
@@ -26,6 +27,7 @@ import {
 	areWriteToolsEnabled,
 	assertSameOrigin,
 	consumeAccountQuota,
+	getAccountUsage,
 	getSecurityPolicy,
 	isAdminAccount,
 	isAiEnabled,
@@ -103,9 +105,23 @@ const handleRequest = async (request, response) => {
 		try {
 			const account = await authenticate(request);
 			requireAdminAccount(account);
-			sendJson(response, 200, { metrics: getMetricsSnapshot(), policy: getSecurityPolicy() });
+			sendJson(response, 200, {
+				metrics: getMetricsSnapshot(),
+				policy: getSecurityPolicy(),
+				providerCircuits: getProviderCircuitSnapshot()
+			});
 		} catch (error) {
 			sendJson(response, errorStatus(error, 403), { error: error.message });
+		}
+		return;
+	}
+
+	if (request.method === 'GET' && request.url === '/api/ai/usage') {
+		try {
+			const account = await authenticate(request);
+			sendJson(response, 200, { usage: await getAccountUsage(account.id) });
+		} catch (error) {
+			sendJson(response, errorStatus(error, 401), { error: error.message });
 		}
 		return;
 	}
@@ -343,14 +359,24 @@ const handleRequest = async (request, response) => {
 			}
 			events.push({ event, data });
 		};
+		const controller = new AbortController();
+		const cancel = () => controller.abort(new Error('Client disconnected'));
+		request.once('aborted', cancel);
+		response.once('close', cancel);
 
-		await runAgent({
-			message: payload.message.trim(),
-			model: typeof payload.model === 'string' ? payload.model.trim() : '',
-			cookie: request.headers.cookie ?? '',
-			account,
-			emit
-		});
+		try {
+			await runAgent({
+				message: payload.message.trim(),
+				model: typeof payload.model === 'string' ? payload.model.trim() : '',
+				cookie: request.headers.cookie ?? '',
+				account,
+				emit,
+				signal: controller.signal
+			});
+		} finally {
+			request.off('aborted', cancel);
+			response.off('close', cancel);
+		}
 		incrementMetric('chat_completed_total');
 		if (wantsEventStream) {
 			response.end();
@@ -358,6 +384,11 @@ const handleRequest = async (request, response) => {
 			sendJson(response, 200, { events });
 		}
 	} catch (error) {
+		if (error?.name === 'AbortError' || error?.statusCode === 499) {
+			incrementMetric('chat_cancelled_total');
+			if (!response.writableEnded && !response.destroyed) response.end();
+			return;
+		}
 		incrementMetric('chat_failed_total');
 		if (!response.headersSent) {
 			sendJson(

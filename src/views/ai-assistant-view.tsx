@@ -249,6 +249,12 @@ const ConfirmationActions = styled.div`
 	margin-top: 1rem;
 `;
 
+const ResponseActions = styled.div`
+	display: flex;
+	gap: 0.5rem;
+	margin: -0.35rem 0 1rem;
+`;
+
 const Composer = styled.form`
 	margin: 0 max(1.5rem, calc((100% - 48rem) / 2)) 1.5rem;
 	padding: 0.5rem 0.5rem 0.5rem 1rem;
@@ -284,11 +290,13 @@ export const AiAssistantView = (): React.JSX.Element => {
 		t('status.connecting', 'Connecting...')
 	);
 	const [isSending, setIsSending] = useState(false);
+	const [lastRequestFailed, setLastRequestFailed] = useState(false);
 	const [processLabel, setProcessLabel] = useState('');
 	const [pendingConfirmation, setPendingConfirmation] =
 		useState<PendingConfirmation | null>(null);
 	const [isConfirming, setIsConfirming] = useState(false);
 	const messagesRef = useRef<HTMLDivElement | null>(null);
+	const requestControllerRef = useRef<AbortController | null>(null);
 	const [models, setModels] = useState<ModelOption[]>([
 		{ id: 'openrouter/free', name: 'Auto — Free Models Router', free: true }
 	]);
@@ -433,7 +441,14 @@ export const AiAssistantView = (): React.JSX.Element => {
 			.catch(() => setAgentStatus(t('status.agent_unavailable', 'Agent unavailable')));
 	}, [t]);
 
-	const send = async (value: string): Promise<void> => {
+	useEffect(
+		() => (): void => {
+			requestControllerRef.current?.abort();
+		},
+		[]
+	);
+
+	const send = async (value: string, regenerate = false): Promise<void> => {
 		const prompt = value.trim();
 		if (!prompt || isSending) return;
 		if (!activeConversationId) {
@@ -442,15 +457,22 @@ export const AiAssistantView = (): React.JSX.Element => {
 		}
 		const userId = Date.now();
 		const assistantId = userId + 1;
-		setMessages((current) => [
-			...current,
-			{ id: userId, role: 'user', text: prompt },
-			{ id: assistantId, role: 'assistant', text: '' }
-		]);
+		setMessages((current) => {
+			const base = regenerate && current.at(-1)?.role === 'assistant' ? current.slice(0, -1) : current;
+			return [
+				...base,
+				...(regenerate ? [] : [{ id: userId, role: 'user' as const, text: prompt }]),
+				{ id: assistantId, role: 'assistant', text: '' }
+			];
+		});
 		setInput('');
 		setPendingConfirmation(null);
+		setLastRequestFailed(false);
 		setIsSending(true);
 		setProcessLabel(t('status.thinking', 'Thinking...'));
+		const controller = new AbortController();
+		requestControllerRef.current = controller;
+		let answer = '';
 
 		try {
 			const response = await apiFetch('/api/ai/chat', {
@@ -459,9 +481,9 @@ export const AiAssistantView = (): React.JSX.Element => {
 					Accept: 'text/event-stream',
 					'Content-Type': 'application/json'
 				},
-				body: JSON.stringify({ message: prompt, model: selectedModel })
-			});
-			let answer = '';
+					body: JSON.stringify({ message: prompt, model: selectedModel }),
+					signal: controller.signal
+				});
 			await readAgentEvents(response, (event) => {
 				if (event.event === 'tool') {
 					setProcessLabel(toolStatusLabel(event));
@@ -497,6 +519,18 @@ export const AiAssistantView = (): React.JSX.Element => {
 			if (!answer) throw new Error(t('status.empty_answer', 'The agent returned an empty answer'));
 			setAgentStatus(t('status.agent_connected', 'Agent connected'));
 		} catch (error) {
+			if (error instanceof Error && error.name === 'AbortError') {
+				setAgentStatus(t('status.agent_connected', 'Agent connected'));
+				setMessages((current) =>
+					current.map((message) =>
+						message.id === assistantId && !message.text
+							? { ...message, text: t('chat.generation_stopped', 'Generation stopped.') }
+							: message
+					)
+				);
+				return;
+			}
+			setLastRequestFailed(true);
 			setAgentStatus(t('status.agent_error', 'Agent error'));
 			setMessages((current) =>
 				current.map((message) =>
@@ -511,9 +545,15 @@ export const AiAssistantView = (): React.JSX.Element => {
 				)
 			);
 		} finally {
+			if (requestControllerRef.current === controller) requestControllerRef.current = null;
 			setIsSending(false);
 			setProcessLabel('');
 		}
+	};
+
+	const regenerateLastAnswer = (): void => {
+		const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user');
+		if (lastUserMessage) void send(lastUserMessage.text, true);
 	};
 
 	const confirmDraft = async (): Promise<void> => {
@@ -725,6 +765,21 @@ export const AiAssistantView = (): React.JSX.Element => {
 							</ConfirmationActions>
 						</ConfirmationCard>
 					)}
+					{!isSending &&
+						!pendingConfirmation &&
+						messages.some((message) => message.role === 'user') && (
+							<ResponseActions>
+								<Button
+									type="outlined"
+									color="secondary"
+									onClick={regenerateLastAnswer}
+								>
+									{lastRequestFailed
+										? t('chat.retry', 'Retry')
+										: t('chat.regenerate', 'Regenerate')}
+								</Button>
+							</ResponseActions>
+						)}
 				</Messages>
 				<Composer onSubmit={submit}>
 					<Input
@@ -733,14 +788,25 @@ export const AiAssistantView = (): React.JSX.Element => {
 						value={input}
 						onChange={(event): void => setInput(event.target.value)}
 					/>
-					<Button
-						type="default"
-						color="primary"
-						icon="PaperPlaneOutline"
-						onClick={(): void => void send(input)}
-						disabled={!input.trim() || isSending}
-						aria-label={t('chat.send', 'Send message')}
-					/>
+					{isSending ? (
+						<Button
+							type="outlined"
+							color="secondary"
+							onClick={(): void => requestControllerRef.current?.abort()}
+							aria-label={t('chat.stop', 'Stop generating')}
+						>
+							{t('chat.stop', 'Stop')}
+						</Button>
+					) : (
+						<Button
+							type="default"
+							color="primary"
+							icon="PaperPlaneOutline"
+							onClick={(): void => void send(input)}
+							disabled={!input.trim()}
+							aria-label={t('chat.send', 'Send message')}
+						/>
+					)}
 				</Composer>
 			</Conversation>
 		</Page>

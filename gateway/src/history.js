@@ -16,5 +16,7 @@ export const importConversation = (...args) => {
 	return Promise.resolve(backend.importConversation(...args));
 };
 export const consumeDailyRequest = (...args) => Promise.resolve(backend.consumeDailyRequest(...args));
+export const getDailyUsage = (...args) => Promise.resolve(backend.getDailyUsage(...args));
+export const recordTokenUsage = (...args) => Promise.resolve(backend.recordTokenUsage(...args));
 export const purgeDailyUsage = (...args) => Promise.resolve(backend.purgeDailyUsage(...args));
 export const closeHistoryDatabase = () => Promise.resolve(backend.closeHistoryDatabase?.());

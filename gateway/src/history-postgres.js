@@ -63,6 +63,15 @@ const migrations = [
 			CREATE INDEX IF NOT EXISTS daily_ai_usage_updated
 			ON daily_ai_usage(updated_at);
 		`
+	},
+	{
+		version: 3,
+		sql: `
+			ALTER TABLE daily_ai_usage
+			ADD COLUMN IF NOT EXISTS input_tokens BIGINT NOT NULL DEFAULT 0;
+			ALTER TABLE daily_ai_usage
+			ADD COLUMN IF NOT EXISTS output_tokens BIGINT NOT NULL DEFAULT 0;
+		`
 	}
 ];
 
@@ -371,6 +380,37 @@ export const consumeDailyRequest = async (ownerId, usageDate, limit) => {
 		Date.now() - 90 * 86_400_000
 	]);
 	return Number(result.rows[0].request_count);
+};
+
+export const getDailyUsage = async (ownerId, usageDate) => {
+	const result = await pool.query(
+		`SELECT request_count, input_tokens, output_tokens
+		 FROM daily_ai_usage WHERE owner_id = $1 AND usage_date = $2`,
+		[ownerId, usageDate]
+	);
+	const row = result.rows[0];
+	return {
+		requestCount: Number(row?.request_count ?? 0),
+		inputTokens: Number(row?.input_tokens ?? 0),
+		outputTokens: Number(row?.output_tokens ?? 0),
+		totalTokens: Number(row?.input_tokens ?? 0) + Number(row?.output_tokens ?? 0)
+	};
+};
+
+export const recordTokenUsage = async (ownerId, usageDate, inputTokens, outputTokens) => {
+	const safeInput = Math.max(0, Math.trunc(Number(inputTokens) || 0));
+	const safeOutput = Math.max(0, Math.trunc(Number(outputTokens) || 0));
+	await pool.query(
+		`INSERT INTO daily_ai_usage
+		 (owner_id, usage_date, request_count, input_tokens, output_tokens, updated_at)
+		 VALUES ($1, $2, 0, $3, $4, $5)
+		 ON CONFLICT(owner_id, usage_date) DO UPDATE SET
+		 input_tokens = daily_ai_usage.input_tokens + EXCLUDED.input_tokens,
+		 output_tokens = daily_ai_usage.output_tokens + EXCLUDED.output_tokens,
+		 updated_at = EXCLUDED.updated_at`,
+		[ownerId, usageDate, safeInput, safeOutput, Date.now()]
+	);
+	return getDailyUsage(ownerId, usageDate);
 };
 
 export const purgeDailyUsage = async (ownerId) => {

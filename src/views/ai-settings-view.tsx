@@ -21,6 +21,14 @@ type AdminMetrics = {
 	policy: Record<string, string | number | boolean>;
 };
 
+type AccountUsage = {
+	date: string;
+	requestCount: number;
+	requestLimit: number;
+	totalTokens: number;
+	tokenLimit: number;
+};
+
 type AuditEntry = {
 	id: string;
 	ownerId: string;
@@ -187,6 +195,16 @@ export const AiSettingsView = (): React.JSX.Element => {
 	const [processingDisclosure, setProcessingDisclosure] = useState('');
 	const [adminMetrics, setAdminMetrics] = useState<AdminMetrics | null>(null);
 	const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
+	const [accountUsage, setAccountUsage] = useState<AccountUsage | null>(null);
+
+	useEffect(() => {
+		apiFetch('/api/ai/usage')
+			.then((response) => parseJsonResponse<{ usage: AccountUsage }>(response))
+			.then(({ usage }) => setAccountUsage(usage))
+			.catch(() => {
+				// Usage remains hidden when the authenticated account cannot load it.
+			});
+	}, []);
 
 	useEffect(() => {
 		apiFetch('/api/ai/config')
@@ -388,6 +406,24 @@ export const AiSettingsView = (): React.JSX.Element => {
 				</Actions>
 				{processingDisclosure ? <Hint>{processingDisclosure}</Hint> : null}
 			</Card>
+			{accountUsage ? (
+				<AdminPanel>
+					<h2>{t('settings.usage_title', 'Your AI usage')}</h2>
+					<p>
+						{t('settings.usage_requests', '{{used}} of {{limit}} requests today', {
+							used: accountUsage.requestCount,
+							limit: accountUsage.requestLimit
+						})}
+					</p>
+					<p>
+						{t('settings.usage_tokens', '{{used}} of {{limit}} tokens today', {
+							used: accountUsage.totalTokens.toLocaleString(),
+							limit: accountUsage.tokenLimit.toLocaleString()
+						})}
+					</p>
+					<Hint>{accountUsage.date}</Hint>
+				</AdminPanel>
+			) : null}
 			{canManageSettings ? (
 				<AdminPanel>
 					<h2>{t('settings.admin_status', 'Administration status')}</h2>

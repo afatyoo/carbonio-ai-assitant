@@ -35,6 +35,10 @@
 		"placeholder": "Ask something about your email...",
 		"model_label": "AI model",
 		"send": "Send message",
+		"stop": "Stop generating",
+		"retry": "Retry",
+		"regenerate": "Regenerate",
+		"generation_stopped": "Generation stopped.",
 		"draft_preview": "Email draft preview",
 		"confirm_draft_title": "Confirm saving this draft",
 		"recipient": "To",
@@ -109,6 +113,9 @@
 		"saved_remote": "Saved — remote agent active",
 		"saved_local": "Saved — local mode",
 		"save_error": "Unable to save",
+		"usage_title": "Your AI usage",
+		"usage_requests": "{{used}} of {{limit}} requests today",
+		"usage_tokens": "{{used}} of {{limit}} tokens today",
 		"custom_provider": "Custom endpoint"
 	}
 }

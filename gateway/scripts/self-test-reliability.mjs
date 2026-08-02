@@ -1,6 +1,8 @@
 import http from 'node:http';
+import assert from 'node:assert/strict';
 
 import { fetchWithRetry } from '../src/fetch-with-retry.js';
+import { createProviderCircuitBreaker } from '../src/provider-circuit-breaker.js';
 
 let retryRequests = 0;
 const server = http.createServer((request, response) => {
@@ -43,7 +45,41 @@ try {
 	}
 	if (!timeoutRejected) throw new Error('Timeout policy did not abort the request');
 
-	console.log('provider_retry=ok provider_timeout=ok');
+	const controller = new AbortController();
+	setTimeout(() => controller.abort(), 10);
+	await assert.rejects(
+		() =>
+			fetchWithRetry(
+				`${baseUrl}/timeout`,
+				{ signal: controller.signal },
+				{ timeoutMs: 1_000, maxAttempts: 1 }
+			),
+		(error) => error.name === 'AbortError' && error.message.includes('cancelled')
+	);
+
+	let now = 0;
+	const breaker = createProviderCircuitBreaker({
+		failureThreshold: 2,
+		cooldownMs: 1_000,
+		now: () => now
+	});
+	breaker.beforeRequest('test');
+	breaker.recordFailure('test');
+	breaker.beforeRequest('test');
+	breaker.recordFailure('test');
+	assert.throws(() => breaker.beforeRequest('test'), /temporarily open/);
+	now = 1_001;
+	const probe = breaker.beforeRequest('test');
+	assert.equal(probe.halfOpenProbe, true);
+	assert.throws(() => breaker.beforeRequest('test'), /temporarily open/);
+	breaker.recordCancellation('test');
+	assert.equal(breaker.snapshot()[0].state, 'open');
+	now = 2_002;
+	assert.equal(breaker.beforeRequest('test').halfOpenProbe, true);
+	breaker.recordSuccess('test');
+	assert.equal(breaker.beforeRequest('test').halfOpenProbe, false);
+
+	console.log('provider_retry=ok provider_timeout=ok provider_cancel=ok provider_circuit=ok');
 } finally {
 	server.closeAllConnections();
 	await new Promise((resolve) => server.close(resolve));

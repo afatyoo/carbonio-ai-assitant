@@ -1,10 +1,12 @@
 import {
 	deleteConversation,
 	consumeDailyRequest,
+	getDailyUsage,
 	getConversation,
 	listConversationPage,
 	purgeConversation,
 	purgeDailyUsage,
+	recordTokenUsage,
 	renameConversation,
 	restoreConversation,
 	saveConversation
@@ -108,9 +110,20 @@ try {
 	if ((await consumeDailyRequest(ownerA, usageDate, 2)) !== null) {
 		throw new Error('Daily quota limit was not enforced');
 	}
+	await recordTokenUsage(ownerA, usageDate, 120, 30);
+	await recordTokenUsage(ownerA, usageDate, 20, 5);
+	const tokenUsage = await getDailyUsage(ownerA, usageDate);
+	if (
+		tokenUsage.requestCount !== 2 ||
+		tokenUsage.inputTokens !== 140 ||
+		tokenUsage.outputTokens !== 35 ||
+		tokenUsage.totalTokens !== 175
+	) {
+		throw new Error('Daily token usage was not accumulated per owner');
+	}
 
 	console.log(
-		`history_backend=${process.env.AI_DATABASE_URL ? 'postgresql' : 'sqlite'} owner_isolation=ok pagination=ok search=ok summary_privacy=ok soft_delete=ok restore=ok daily_quota=ok`
+		`history_backend=${process.env.AI_DATABASE_URL ? 'postgresql' : 'sqlite'} owner_isolation=ok pagination=ok search=ok summary_privacy=ok soft_delete=ok restore=ok daily_quota=ok token_usage=ok`
 	);
 } finally {
 	await purgeConversation(ownerA, firstId);
