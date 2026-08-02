@@ -11,6 +11,9 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 - Retry/regenerate controls and localized stopped-generation feedback.
 - Persistent per-account input/output token accounting, daily token quota enforcement,
   a self-service usage endpoint, and usage visibility in Settings.
+- Account-, Carbonio group-, and domain-scoped model/tool allowlists with precedence,
+  cached session-based group resolution, and write kill-switch enforcement.
+- Owner-scoped model preferences stored separately from administrator provider settings.
 
 ## [0.0.3-rc.3] - 2026-08-02
 

@@ -7,5 +7,6 @@ release/
 .env.*
 !.env.example
 gateway/.runtime/
+.runtime/
 gateway/node_modules/
 *.log

@@ -4,16 +4,16 @@ import { logEvent } from './logger.js';
 
 let cache = { key: '', expiresAt: 0, items: [] };
 
-const filterAllowed = (models) => {
-	const allowlist = getModelAllowlist();
+const filterAllowed = (models, account) => {
+	const allowlist = getModelAllowlist(account);
 	return allowlist.includes('*') ? models : models.filter(({ id }) => allowlist.includes(id));
 };
 
-export const listAvailableModels = async () => {
+export const listAvailableModels = async (account) => {
 	const config = getAgentConfig();
 	const cacheKey = `${config.provider}:${config.agentUrl}`;
 	if (cache.key === cacheKey && Date.now() < cache.expiresAt && cache.items.length) {
-		return filterAllowed(cache.items);
+		return filterAllowed(cache.items, account);
 	}
 
 	const predefined = {
@@ -36,7 +36,7 @@ export const listAvailableModels = async () => {
 		custom: [{ id: config.model, name: config.model }]
 	};
 	if (config.provider !== 'openrouter') {
-		return filterAllowed(predefined[config.provider] ?? predefined.custom).map((model) => ({
+		return filterAllowed(predefined[config.provider] ?? predefined.custom, account).map((model) => ({
 			...model,
 			free: false
 		}));
@@ -93,5 +93,5 @@ export const listAvailableModels = async () => {
 			...freeModels.filter((model) => model.id !== 'openrouter/free')
 		]
 	};
-	return filterAllowed(cache.items);
+	return filterAllowed(cache.items, account);
 };

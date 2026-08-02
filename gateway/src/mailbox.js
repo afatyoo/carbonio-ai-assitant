@@ -9,6 +9,14 @@ const soapTimeoutMs = Math.min(
 	Math.max(Number(process.env.CARBONIO_SOAP_TIMEOUT_MS ?? 20_000), 5_000),
 	30_000
 );
+const requiresGroupMembership = Boolean(
+	process.env.AI_MODEL_POLICY_JSON || process.env.AI_TOOL_PERMISSION_POLICY_JSON
+);
+const groupCacheTtlMs = Math.min(
+	Math.max(Number(process.env.AI_GROUP_CACHE_TTL_MS ?? 300_000), 30_000),
+	900_000
+);
+const groupCache = new Map();
 
 export const soapRequest = (operation, body, cookie, namespace = 'urn:zimbraMail') =>
 	new Promise((resolve, reject) => {
@@ -272,5 +280,19 @@ export const getCurrentAccount = async (cookie) => {
 	if (!cookie) throw new Error('Carbonio authentication is required');
 	const result = await soapRequest('GetInfo', {}, cookie, 'urn:zimbraAccount');
 	if (!result.id || !result.name) throw new Error('Unable to resolve Carbonio account');
-	return { id: result.id, name: result.name };
+	const account = { id: result.id, name: result.name, groups: [] };
+	if (!requiresGroupMembership) return account;
+	const cached = groupCache.get(account.id);
+	if (cached && cached.expiresAt > Date.now()) return { ...account, groups: cached.groups };
+	const memberships = await soapRequest(
+		'GetAccountDistributionLists',
+		{ memberOf: 'all', ownerOf: 0 },
+		cookie,
+		'urn:zimbraAccount'
+	);
+	const groups = [
+		...new Set((memberships.dl ?? []).map(({ name }) => String(name ?? '').toLowerCase()).filter(Boolean))
+	];
+	groupCache.set(account.id, { groups, expiresAt: Date.now() + groupCacheTtlMs });
+	return { ...account, groups };
 };

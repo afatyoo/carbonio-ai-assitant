@@ -72,6 +72,16 @@ const migrations = [
 			ALTER TABLE daily_ai_usage
 			ADD COLUMN IF NOT EXISTS output_tokens BIGINT NOT NULL DEFAULT 0;
 		`
+	},
+	{
+		version: 4,
+		sql: `
+			CREATE TABLE IF NOT EXISTS account_ai_preferences (
+				owner_id TEXT PRIMARY KEY,
+				preferred_model TEXT NOT NULL,
+				updated_at BIGINT NOT NULL
+			);
+		`
 	}
 ];
 
@@ -411,6 +421,35 @@ export const recordTokenUsage = async (ownerId, usageDate, inputTokens, outputTo
 		[ownerId, usageDate, safeInput, safeOutput, Date.now()]
 	);
 	return getDailyUsage(ownerId, usageDate);
+};
+
+export const getAccountPreferences = async (ownerId) => {
+	const result = await pool.query(
+		'SELECT preferred_model, updated_at FROM account_ai_preferences WHERE owner_id = $1',
+		[ownerId]
+	);
+	const row = result.rows[0];
+	return row
+		? { preferredModel: row.preferred_model, updatedAt: Number(row.updated_at) }
+		: null;
+};
+
+export const saveAccountPreferences = async (ownerId, { preferredModel }) => {
+	const normalizedModel = String(preferredModel ?? '').trim().slice(0, 200);
+	if (!normalizedModel) throw new Error('preferredModel is required');
+	const updatedAt = Date.now();
+	await pool.query(
+		`INSERT INTO account_ai_preferences(owner_id, preferred_model, updated_at)
+		 VALUES ($1, $2, $3)
+		 ON CONFLICT(owner_id) DO UPDATE SET
+		 preferred_model = EXCLUDED.preferred_model, updated_at = EXCLUDED.updated_at`,
+		[ownerId, normalizedModel, updatedAt]
+	);
+	return { preferredModel: normalizedModel, updatedAt };
+};
+
+export const purgeAccountPreferences = async (ownerId) => {
+	await pool.query('DELETE FROM account_ai_preferences WHERE owner_id = $1', [ownerId]);
 };
 
 export const purgeDailyUsage = async (ownerId) => {

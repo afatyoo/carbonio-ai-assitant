@@ -80,6 +80,7 @@
 		"agent_error": "Agent error",
 		"load_conversation_error": "Unable to load conversation",
 		"save_history_error": "Unable to save history",
+		"save_preference_error": "Unable to save model preference",
 		"empty_answer": "The agent returned an empty answer",
 		"thinking": "Thinking...",
 		"searching_docs": "Searching Carbonio documentation...",

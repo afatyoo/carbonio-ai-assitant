@@ -297,10 +297,12 @@ export const AiAssistantView = (): React.JSX.Element => {
 	const [isConfirming, setIsConfirming] = useState(false);
 	const messagesRef = useRef<HTMLDivElement | null>(null);
 	const requestControllerRef = useRef<AbortController | null>(null);
+	const conversationLoadedRef = useRef(false);
 	const [models, setModels] = useState<ModelOption[]>([
 		{ id: 'openrouter/free', name: 'Auto — Free Models Router', free: true }
 	]);
 	const [selectedModel, setSelectedModel] = useState('openrouter/free');
+	const [preferredModel, setPreferredModel] = useState('openrouter/free');
 	const prompts = [
 		t('chat.suggestion.unread', "Summarize today's unread email"),
 		t('chat.suggestion.important', 'Find important email from this week'),
@@ -344,8 +346,9 @@ export const AiAssistantView = (): React.JSX.Element => {
 				const latest = conversations[0];
 				return latest ? getConversation(latest.id) : null;
 			})
-			.then((latest) => {
-				if (!latest) return;
+				.then((latest) => {
+					if (!latest) return;
+					conversationLoadedRef.current = true;
 				setActiveConversationId(latest.id);
 				setConversationTitle(latest.title);
 				setMessages(latest.messages);
@@ -357,16 +360,19 @@ export const AiAssistantView = (): React.JSX.Element => {
 	}, []);
 
 	useEffect(() => {
-		const reset = (): void => {
+			const reset = (): void => {
+				conversationLoadedRef.current = false;
 			setActiveConversationId(null);
 			setConversationTitle(null);
 			setMessages([]);
-			setPendingConfirmation(null);
-		};
+				setPendingConfirmation(null);
+				setSelectedModel(preferredModel);
+			};
 		const open = (event: Event): void => {
 			const id = (event as CustomEvent<string>).detail;
-			getConversation(id)
-				.then((conversation) => {
+				getConversation(id)
+					.then((conversation) => {
+						conversationLoadedRef.current = true;
 					setActiveConversationId(conversation.id);
 					setConversationTitle(conversation.title);
 					setMessages(conversation.messages);
@@ -391,7 +397,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 			window.removeEventListener(OPEN_CHAT_EVENT, open);
 			window.removeEventListener(RENAME_CHAT_EVENT, rename);
 		};
-	}, [activeConversationId, t]);
+	}, [activeConversationId, preferredModel, t]);
 
 	useEffect(() => {
 		if (!activeConversationId || messages.length === 0) return;
@@ -427,6 +433,34 @@ export const AiAssistantView = (): React.JSX.Element => {
 				// Keep the free auto-router fallback.
 			});
 	}, []);
+
+	useEffect(() => {
+		apiFetch('/api/ai/preferences')
+			.then((response) =>
+				parseJsonResponse<{ preferences: { preferredModel: string } }>(response)
+			)
+			.then(({ preferences }) => {
+				setPreferredModel(preferences.preferredModel);
+				if (!conversationLoadedRef.current) setSelectedModel(preferences.preferredModel);
+			})
+			.catch(() => {
+				// The provider default remains usable if preferences cannot be loaded.
+			});
+	}, []);
+
+	const selectModel = (nextModel: string): void => {
+		setSelectedModel(nextModel);
+		setPreferredModel(nextModel);
+		void apiFetch('/api/ai/preferences', {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ preferredModel: nextModel })
+		})
+			.then((response) => parseJsonResponse(response))
+			.catch(() =>
+				setAgentStatus(t('status.save_preference_error', 'Unable to save model preference'))
+			);
+	};
 
 	useEffect(() => {
 		apiFetch('/api/ai/health')
@@ -621,7 +655,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 							aria-label={t('chat.model_label', 'AI model')}
 							value={selectedModel}
 							onChange={(event): void => {
-								setSelectedModel(event.target.value);
+								selectModel(event.target.value);
 							}}
 						>
 							{models.map((model) => (

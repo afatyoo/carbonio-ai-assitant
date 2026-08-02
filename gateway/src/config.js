@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { parseScopedPolicy, resolveScopedPolicy } from './account-policy.js';
+
 const configDirectory = path.resolve('.runtime');
 const configFile = path.join(configDirectory, 'config.json');
 
@@ -92,15 +94,17 @@ const providerAllowlist = new Set(
 		process.env.AI_PROVIDER_ALLOWLIST ?? 'openrouter,openai,anthropic,deepseek,gemini'
 	)
 );
+const modelPolicy = parseScopedPolicy(process.env.AI_MODEL_POLICY_JSON, 'AI_MODEL_POLICY_JSON');
 
-export const getModelAllowlist = () => {
+export const getModelAllowlist = (account) => {
 	const configured = parseAllowlist(process.env.AI_MODEL_ALLOWLIST);
-	return configured.length ? configured : [runtimeConfig.model].filter(Boolean);
+	const globalAllowlist = configured.length ? configured : [runtimeConfig.model].filter(Boolean);
+	return resolveScopedPolicy(modelPolicy, account, globalAllowlist);
 };
 
-export const assertModelAllowed = (model) => {
+export const assertModelAllowed = (model, account) => {
 	const normalized = String(model || runtimeConfig.model).trim();
-	const allowed = getModelAllowlist();
+	const allowed = getModelAllowlist(account);
 	if (!normalized || (!allowed.includes('*') && !allowed.includes(normalized))) {
 		throw new Error('Model is not allowed by administrator policy');
 	}
@@ -132,13 +136,13 @@ const persistConfig = () => {
 
 export const getAgentConfig = () => ({ ...runtimeConfig });
 
-export const getPublicAgentConfig = () => ({
+export const getPublicAgentConfig = (account) => ({
 	provider: runtimeConfig.provider,
 	agentUrl: runtimeConfig.agentUrl,
 	hasApiKey: Boolean(runtimeConfig.apiKey),
 	model: runtimeConfig.model,
 	mode: runtimeConfig.provider === 'custom' && !runtimeConfig.agentUrl ? 'local-agent' : 'remote-agent',
-	modelAllowlist: getModelAllowlist(),
+	modelAllowlist: getModelAllowlist(account),
 	processingDisclosure:
 		'Prompts and only the mailbox data needed for your request may be sent to the configured AI provider.'
 });

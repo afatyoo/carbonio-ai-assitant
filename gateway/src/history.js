@@ -18,5 +18,11 @@ export const importConversation = (...args) => {
 export const consumeDailyRequest = (...args) => Promise.resolve(backend.consumeDailyRequest(...args));
 export const getDailyUsage = (...args) => Promise.resolve(backend.getDailyUsage(...args));
 export const recordTokenUsage = (...args) => Promise.resolve(backend.recordTokenUsage(...args));
+export const getAccountPreferences = (...args) =>
+	Promise.resolve(backend.getAccountPreferences(...args));
+export const saveAccountPreferences = (...args) =>
+	Promise.resolve(backend.saveAccountPreferences(...args));
+export const purgeAccountPreferences = (...args) =>
+	Promise.resolve(backend.purgeAccountPreferences(...args));
 export const purgeDailyUsage = (...args) => Promise.resolve(backend.purgeDailyUsage(...args));
 export const closeHistoryDatabase = () => Promise.resolve(backend.closeHistoryDatabase?.());

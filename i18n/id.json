@@ -80,6 +80,7 @@
 		"agent_error": "Agent bermasalah",
 		"load_conversation_error": "Percakapan tidak dapat dimuat",
 		"save_history_error": "Riwayat tidak dapat disimpan",
+		"save_preference_error": "Preferensi model tidak dapat disimpan",
 		"empty_answer": "Agent tidak mengembalikan jawaban",
 		"thinking": "Sedang berpikir...",
 		"searching_docs": "Mencari dokumentasi Carbonio...",

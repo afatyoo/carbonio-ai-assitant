@@ -6,6 +6,17 @@ process.env.AI_ALLOWED_ORIGINS = 'https://trusted.example.test';
 process.env.AI_REQUESTS_PER_MINUTE = '2';
 process.env.AI_REQUESTS_PER_DAY = '3';
 process.env.AI_MODEL_ALLOWLIST = 'allowed-model';
+process.env.AI_MODEL_POLICY_JSON = JSON.stringify({
+	'account:special@example.test': ['special-model'],
+	'group:ai-premium@example.test': ['group-model'],
+	'domain:example.test': ['domain-model'],
+	'*': ['allowed-model']
+});
+process.env.AI_TOOL_PERMISSION_POLICY_JSON = JSON.stringify({
+	'group:ai-writers@example.test': ['mail.read', 'mail.draft'],
+	'domain:example.test': ['mail.read'],
+	'*': ['calendar.read']
+});
 process.env.AI_ENABLED_ACCOUNTS = 'enabled@example.test';
 process.env.AI_WRITE_TOOL_ACCOUNTS = 'writer@example.test';
 
@@ -15,6 +26,7 @@ const {
 	isAdminAccount,
 	isAccountEnabled,
 	areWriteToolsEnabled,
+	getToolPermissions,
 	requireAdminAccount
 } = await import('../src/security.js');
 const { assertModelAllowed, getModelAllowlist } = await import('../src/config.js');
@@ -29,6 +41,18 @@ assert.equal(isAccountEnabled({ id: 'user-id', name: 'enabled@example.test' }), 
 assert.equal(isAccountEnabled({ id: 'user-id', name: 'disabled@example.test' }), false);
 assert.equal(areWriteToolsEnabled({ id: 'user-id', name: 'writer@example.test' }), true);
 assert.equal(areWriteToolsEnabled({ id: 'user-id', name: 'enabled@example.test' }), false);
+assert.deepEqual(
+	getToolPermissions({
+		id: 'writer-id',
+		name: 'writer@example.test',
+		groups: ['ai-writers@example.test']
+	}),
+	['mail.read', 'mail.draft']
+);
+assert.deepEqual(
+	getToolPermissions({ id: 'reader-id', name: 'reader@example.test', groups: [] }),
+	['mail.read']
+);
 assert.throws(
 	() => requireAdminAccount({ id: 'user-id', name: 'user@example.test' }),
 	/Administrator permission/
@@ -69,6 +93,22 @@ await purgeDailyUsage(`${quotaOwner}-other`);
 
 assert.deepEqual(getModelAllowlist(), ['allowed-model']);
 assert.equal(assertModelAllowed('allowed-model'), 'allowed-model');
+assert.deepEqual(
+	getModelAllowlist({
+		id: 'group-user',
+		name: 'group-user@other.test',
+		groups: ['ai-premium@example.test']
+	}),
+	['group-model']
+);
+assert.deepEqual(getModelAllowlist({ name: 'reader@example.test', groups: [] }), ['domain-model']);
+assert.equal(
+	assertModelAllowed('special-model', {
+		name: 'special@example.test',
+		groups: ['ai-premium@example.test']
+	}),
+	'special-model'
+);
 assert.throws(() => assertModelAllowed('blocked-model'), /not allowed/);
 assert.equal(
 	redactSensitiveText('Authorization: Bearer abcdefghijklmnop password=hunter123'),
@@ -82,5 +122,5 @@ if (fs.existsSync(assistantViewPath)) {
 	assert.match(assistantView, /\{message\.text\}/);
 }
 
-console.log('admin_auth=ok account_policy=ok csrf=ok quota=ok model_allowlist=ok redaction=ok safe_rendering=ok');
+console.log('admin_auth=ok account_policy=ok group_policy=ok tool_policy=ok csrf=ok quota=ok model_allowlist=ok redaction=ok safe_rendering=ok');
 await closeHistoryDatabase();

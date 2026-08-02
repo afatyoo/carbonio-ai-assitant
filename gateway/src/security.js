@@ -1,4 +1,5 @@
 import { consumeDailyRequest, getDailyUsage } from './history.js';
+import { parseScopedPolicy, resolveScopedPolicy } from './account-policy.js';
 
 const normalizeList = (value) =>
 	String(value ?? '')
@@ -16,6 +17,17 @@ const dailyTokenLimit = Math.min(
 	Math.max(Number(process.env.AI_TOKENS_PER_DAY ?? 250_000), 1_000),
 	100_000_000
 );
+const toolPermissionPolicy = parseScopedPolicy(
+	process.env.AI_TOOL_PERMISSION_POLICY_JSON,
+	'AI_TOOL_PERMISSION_POLICY_JSON'
+);
+const knownToolPermissions = new Set([
+	'mail.read',
+	'mail.draft',
+	'mail.write',
+	'calendar.read',
+	'calendar.write'
+]);
 const usage = new Map();
 
 export const isAiEnabled = () => process.env.AI_ENABLED !== 'false';
@@ -37,6 +49,18 @@ export const requireAiAccess = (account) => {
 export const areWriteToolsEnabled = (account) =>
 	process.env.AI_WRITE_TOOLS_ENABLED !== 'false' &&
 	(writeToolAccounts.size === 0 || matchesAccount(writeToolAccounts, account));
+
+export const getToolPermissions = (account) => {
+	const defaults = ['mail.read', 'calendar.read'];
+	if (areWriteToolsEnabled(account)) defaults.push('mail.draft', 'calendar.write');
+	const resolved = resolveScopedPolicy(toolPermissionPolicy, account, defaults).filter((permission) =>
+		knownToolPermissions.has(permission)
+	);
+	if (!areWriteToolsEnabled(account)) {
+		return resolved.filter((permission) => !['mail.draft', 'mail.write', 'calendar.write'].includes(permission));
+	}
+	return resolved;
+};
 
 export const isAdminAccount = (account) =>
 	Boolean(
@@ -145,5 +169,6 @@ export const getSecurityPolicy = () => ({
 	aiEnabled: isAiEnabled(),
 	writeToolsEnabled: process.env.AI_WRITE_TOOLS_ENABLED !== 'false',
 	enabledAccountPolicyConfigured: enabledAccounts.size > 0,
-	writeToolAccountPolicyConfigured: writeToolAccounts.size > 0
+	writeToolAccountPolicyConfigured: writeToolAccounts.size > 0,
+	toolPermissionPolicyConfigured: toolPermissionPolicy.size > 0
 });

@@ -2,15 +2,23 @@ import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 
 import { runAgent } from './agent.js';
-import { getPublicAgentConfig, updateAgentConfig } from './config.js';
+import {
+	assertModelAllowed,
+	getAgentConfig,
+	getModelAllowlist,
+	getPublicAgentConfig,
+	updateAgentConfig
+} from './config.js';
 import {
 	deleteConversation,
 	closeHistoryDatabase,
+	getAccountPreferences,
 	getConversation,
 	historyBackend,
 	listConversationPage,
 	renameConversation,
 	restoreConversation,
+	saveAccountPreferences,
 	saveConversation
 } from './history.js';
 import { getKnowledgeMetadata, retrieveKnowledge } from './knowledge.js';
@@ -24,11 +32,11 @@ import { listAllAuditEntries, listAuditEntries } from './tool-audit.js';
 import { listToolDefinitions } from './tool-registry.js';
 import { executeTool } from './tool-runner.js';
 import {
-	areWriteToolsEnabled,
 	assertSameOrigin,
 	consumeAccountQuota,
 	getAccountUsage,
 	getSecurityPolicy,
+	getToolPermissions,
 	isAdminAccount,
 	isAiEnabled,
 	requireAiAccess,
@@ -92,7 +100,7 @@ const handleRequest = async (request, response) => {
 		try {
 			const account = await authenticate(request);
 			sendJson(response, 200, {
-				...getPublicAgentConfig(),
+				...getPublicAgentConfig(account),
 				canManageSettings: isAdminAccount(account)
 			});
 		} catch (error) {
@@ -126,6 +134,41 @@ const handleRequest = async (request, response) => {
 		return;
 	}
 
+	if (request.url === '/api/ai/preferences' && ['GET', 'PUT'].includes(request.method ?? '')) {
+		try {
+			const account = await authenticate(request);
+			if (request.method === 'PUT') {
+				const payload = await readJson(request);
+				const preferredModel = assertModelAllowed(payload.preferredModel, account);
+				sendJson(response, 200, {
+					preferences: await saveAccountPreferences(account.id, { preferredModel })
+				});
+				return;
+			}
+			const saved = await getAccountPreferences(account.id);
+			const allowed = getModelAllowlist(account);
+			const defaultModel = assertModelAllowed(
+				allowed.includes(getAgentConfig().model) || allowed.includes('*')
+					? getAgentConfig().model
+					: allowed[0],
+				account
+			);
+			const preferredModel =
+				saved && (allowed.includes('*') || allowed.includes(saved.preferredModel))
+					? saved.preferredModel
+					: defaultModel;
+			sendJson(response, 200, {
+				preferences: {
+					preferredModel,
+					updatedAt: saved?.updatedAt ?? null
+				}
+			});
+		} catch (error) {
+			sendJson(response, errorStatus(error), { error: error.message });
+		}
+		return;
+	}
+
 	if (requestUrl.pathname === '/api/ai/admin/audit' && request.method === 'GET') {
 		try {
 			const account = await authenticate(request);
@@ -141,8 +184,8 @@ const handleRequest = async (request, response) => {
 
 	if (request.method === 'GET' && request.url === '/api/ai/models') {
 		try {
-			await authenticate(request);
-			sendJson(response, 200, { models: await listAvailableModels() });
+			const account = await authenticate(request);
+			sendJson(response, 200, { models: await listAvailableModels(account) });
 		} catch (error) {
 			sendJson(response, error.message.includes('authentication') ? 401 : 502, {
 				error: error.message
@@ -204,8 +247,7 @@ const handleRequest = async (request, response) => {
 			const account = await authenticate(request);
 			await consumeAccountQuota(account.id);
 			const payload = await readJson(request);
-			const permissions = ['mail.read', 'calendar.read'];
-			if (areWriteToolsEnabled(account)) permissions.push('mail.draft', 'calendar.write');
+			const permissions = getToolPermissions(account);
 			const execution = await executeTool({
 				name: toolExecuteMatch[1],
 				input: payload.input,
@@ -370,6 +412,7 @@ const handleRequest = async (request, response) => {
 				model: typeof payload.model === 'string' ? payload.model.trim() : '',
 				cookie: request.headers.cookie ?? '',
 				account,
+				permissions: getToolPermissions(account),
 				emit,
 				signal: controller.signal
 			});

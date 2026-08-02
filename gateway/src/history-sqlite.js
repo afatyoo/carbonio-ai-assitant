@@ -35,6 +35,11 @@ database.exec(`
 		updated_at INTEGER NOT NULL,
 		PRIMARY KEY (owner_id, usage_date)
 	);
+	CREATE TABLE IF NOT EXISTS account_ai_preferences (
+		owner_id TEXT PRIMARY KEY,
+		preferred_model TEXT NOT NULL,
+		updated_at INTEGER NOT NULL
+	);
 `);
 
 const usageColumns = new Set(
@@ -141,6 +146,36 @@ export const recordTokenUsage = (ownerId, usageDate, inputTokens, outputTokens) 
 		)
 		.run(ownerId, usageDate, safeInput, safeOutput, Date.now());
 	return getDailyUsage(ownerId, usageDate);
+};
+
+export const getAccountPreferences = (ownerId) => {
+	const row = database
+		.prepare(
+			'SELECT preferred_model, updated_at FROM account_ai_preferences WHERE owner_id = ?'
+		)
+		.get(ownerId);
+	return row
+		? { preferredModel: row.preferred_model, updatedAt: Number(row.updated_at) }
+		: null;
+};
+
+export const saveAccountPreferences = (ownerId, { preferredModel }) => {
+	const normalizedModel = String(preferredModel ?? '').trim().slice(0, 200);
+	if (!normalizedModel) throw new Error('preferredModel is required');
+	const updatedAt = Date.now();
+	database
+		.prepare(
+			`INSERT INTO account_ai_preferences(owner_id, preferred_model, updated_at)
+			 VALUES (?, ?, ?)
+			 ON CONFLICT(owner_id) DO UPDATE SET
+			 preferred_model = excluded.preferred_model, updated_at = excluded.updated_at`
+		)
+		.run(ownerId, normalizedModel, updatedAt);
+	return { preferredModel: normalizedModel, updatedAt };
+};
+
+export const purgeAccountPreferences = (ownerId) => {
+	database.prepare('DELETE FROM account_ai_preferences WHERE owner_id = ?').run(ownerId);
 };
 
 export const purgeDailyUsage = (ownerId) => {

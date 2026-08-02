@@ -1,14 +1,17 @@
 import {
 	deleteConversation,
 	consumeDailyRequest,
+	getAccountPreferences,
 	getDailyUsage,
 	getConversation,
 	listConversationPage,
 	purgeConversation,
+	purgeAccountPreferences,
 	purgeDailyUsage,
 	recordTokenUsage,
 	renameConversation,
 	restoreConversation,
+	saveAccountPreferences,
 	saveConversation
 } from '../src/history.js';
 
@@ -121,13 +124,22 @@ try {
 	) {
 		throw new Error('Daily token usage was not accumulated per owner');
 	}
+	await saveAccountPreferences(ownerA, { preferredModel: 'allowed-model' });
+	if ((await getAccountPreferences(ownerA))?.preferredModel !== 'allowed-model') {
+		throw new Error('Owner-scoped AI preferences were not persisted');
+	}
+	if (await getAccountPreferences(ownerB)) {
+		throw new Error('AI preferences crossed the owner boundary');
+	}
 
 	console.log(
-		`history_backend=${process.env.AI_DATABASE_URL ? 'postgresql' : 'sqlite'} owner_isolation=ok pagination=ok search=ok summary_privacy=ok soft_delete=ok restore=ok daily_quota=ok token_usage=ok`
+		`history_backend=${process.env.AI_DATABASE_URL ? 'postgresql' : 'sqlite'} owner_isolation=ok pagination=ok search=ok summary_privacy=ok soft_delete=ok restore=ok daily_quota=ok token_usage=ok preferences=ok`
 	);
 } finally {
 	await purgeConversation(ownerA, firstId);
 	await purgeConversation(ownerA, secondId);
 	await purgeConversation(ownerB, firstId);
 	await purgeDailyUsage(ownerA);
+	await purgeAccountPreferences(ownerA);
+	await purgeAccountPreferences(ownerB);
 }
