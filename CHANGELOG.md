@@ -42,6 +42,11 @@ All notable changes to Carbonio AI Assistant are documented in this file.
   warnings, localized preview, one-time confirmation, and idempotent creation.
 - Deterministic IANA timezone conversion, attendee validation, complete appointment
   preview metadata, and mutation result IDs in owner-scoped audit records.
+- PostgreSQL production conversation storage with versioned schema migrations,
+  normalized message rows, encrypted message content, retention cleanup, and a
+  verified one-time SQLite migration.
+- PostgreSQL setup, backup, and guarded restore scripts with dedicated database
+  credentials and installer-managed operational commands.
 
 ### Changed
 

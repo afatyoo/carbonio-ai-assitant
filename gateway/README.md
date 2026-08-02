@@ -31,6 +31,20 @@ Self-test database dan reliability dapat dijalankan dari working directory servi
 npm run self-test
 ```
 
+Untuk production, set `AI_DATABASE_URL` dan `AI_HISTORY_ENCRYPTION_KEY` (32 byte,
+base64) agar conversation metadata tersimpan di PostgreSQL dan isi message dienkripsi
+dengan AES-256-GCM. SQLite tetap tersedia hanya sebagai fallback development dan sumber
+migrasi satu kali melalui `scripts/migrate-history-to-postgres.mjs`.
+
+Pada paket server, jalankan migrasi production satu kali sebagai root:
+
+```bash
+/opt/carbonio-ai-assistant/bin/setup-postgres.sh
+```
+
+Backup dan restore tersedia di direktori yang sama. Restore wajib memakai argumen
+`--yes` serta path absolut artifact backup.
+
 Gateway menulis structured JSON log ke stdout/journald. Setiap request memiliki
 `x-request-id` yang sama pada UI, response gateway, HTTP log, provider log, dan
 Carbonio SOAP log.

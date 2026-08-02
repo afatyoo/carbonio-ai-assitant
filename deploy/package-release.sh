@@ -16,6 +16,10 @@ if [[ ! -x node_modules/.bin/tsc || ! -x node_modules/.bin/sdk ]]; then
 	echo "Project dependencies are missing. Run pnpm install first." >&2
 	exit 1
 fi
+if [[ ! -f gateway/node_modules/pg/package.json ]]; then
+	echo "Gateway dependencies are missing. Run: npm --prefix gateway ci --omit=dev" >&2
+	exit 1
+fi
 
 if [[ -n "$(git status --short)" ]]; then
 	echo "Refusing to package a dirty worktree. Commit or stash changes first." >&2
@@ -55,9 +59,12 @@ jq -e --arg commit "$commit" \
 
 mkdir -p "$package_dir/ui" "$package_dir/gateway"
 cp -a dist/. "$package_dir/ui/"
-cp -a gateway/package.json gateway/src gateway/scripts gateway/deploy gateway/knowledge \
+cp -a gateway/package.json gateway/package-lock.json gateway/node_modules \
+	gateway/src gateway/scripts gateway/deploy gateway/knowledge \
 	gateway/README.md gateway/.env.example "$package_dir/gateway/"
-cp deploy/install.sh deploy/uninstall.sh CHANGELOG.md LICENSE README.md "$package_dir/"
+cp deploy/install.sh deploy/uninstall.sh deploy/setup-postgres.sh \
+	deploy/backup-postgres.sh deploy/restore-postgres.sh \
+	CHANGELOG.md LICENSE README.md "$package_dir/"
 
 cat >"$package_dir/release.env" <<EOF
 CARBONIO_AI_VERSION=$version
@@ -65,7 +72,9 @@ CARBONIO_AI_COMMIT=$commit
 CARBONIO_AI_NODE_VERSION=$node_version
 EOF
 
-chmod 0755 "$package_dir/install.sh" "$package_dir/uninstall.sh"
+chmod 0755 "$package_dir/install.sh" "$package_dir/uninstall.sh" \
+	"$package_dir/setup-postgres.sh" "$package_dir/backup-postgres.sh" \
+	"$package_dir/restore-postgres.sh"
 mkdir -p "$output_dir"
 COPYFILE_DISABLE=1 tar -C "$workspace" -czf "$archive" "$package_name"
 

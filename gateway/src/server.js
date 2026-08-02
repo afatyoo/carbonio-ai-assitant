@@ -6,6 +6,7 @@ import { getPublicAgentConfig, updateAgentConfig } from './config.js';
 import {
 	deleteConversation,
 	getConversation,
+	historyBackend,
 	listConversationPage,
 	renameConversation,
 	restoreConversation,
@@ -44,7 +45,8 @@ const handleRequest = async (request, response) => {
 	if (request.method === 'GET' && request.url === '/api/ai/health') {
 		sendJson(response, 200, {
 			status: 'ok',
-			mode: getPublicAgentConfig().mode
+			mode: getPublicAgentConfig().mode,
+			historyBackend
 		});
 		return;
 	}
@@ -150,7 +152,7 @@ const handleRequest = async (request, response) => {
 	if (requestUrl.pathname === '/api/ai/conversations' && request.method === 'GET') {
 		try {
 			const account = await getCurrentAccount(request.headers.cookie ?? '');
-			const page = listConversationPage(account.id, {
+			const page = await listConversationPage(account.id, {
 				cursor: requestUrl.searchParams.get('cursor') ?? '',
 				limit: requestUrl.searchParams.get('limit') ?? 20,
 				query: requestUrl.searchParams.get('q') ?? ''
@@ -170,7 +172,7 @@ const handleRequest = async (request, response) => {
 	if (restoreMatch && request.method === 'POST') {
 		try {
 			const account = await getCurrentAccount(request.headers.cookie ?? '');
-			const conversation = restoreConversation(account.id, restoreMatch[1]);
+			const conversation = await restoreConversation(account.id, restoreMatch[1]);
 			sendJson(
 				response,
 				conversation ? 200 : 404,
@@ -190,7 +192,7 @@ const handleRequest = async (request, response) => {
 			const account = await getCurrentAccount(request.headers.cookie ?? '');
 			const id = conversationMatch[1];
 			if (request.method === 'GET') {
-				const conversation = getConversation(account.id, id);
+				const conversation = await getConversation(account.id, id);
 				sendJson(
 					response,
 					conversation ? 200 : 404,
@@ -200,12 +202,12 @@ const handleRequest = async (request, response) => {
 			}
 			if (request.method === 'PUT') {
 				const payload = await readJson(request);
-				sendJson(response, 200, saveConversation(account.id, { ...payload, id }));
+				sendJson(response, 200, await saveConversation(account.id, { ...payload, id }));
 				return;
 			}
 			if (request.method === 'PATCH') {
 				const payload = await readJson(request);
-				const conversation = renameConversation(account.id, id, payload.title);
+				const conversation = await renameConversation(account.id, id, payload.title);
 				sendJson(
 					response,
 					conversation ? 200 : 404,
@@ -214,7 +216,7 @@ const handleRequest = async (request, response) => {
 				return;
 			}
 			if (request.method === 'DELETE') {
-				const conversation = deleteConversation(account.id, id);
+				const conversation = await deleteConversation(account.id, id);
 				sendJson(
 					response,
 					conversation ? 200 : 404,

@@ -89,6 +89,10 @@ install -o zextras -g zextras -m 0644 \
 rm -rf "$app_root"
 
 if [[ "$purge_data" == "1" ]]; then
+	if command -v runuser >/dev/null 2>&1 && getent passwd postgres >/dev/null; then
+		runuser -u postgres -- dropdb --if-exists carbonio_ai
+		runuser -u postgres -- dropuser --if-exists carbonio_ai
+	fi
 	rm -rf "$data_root" "$config_root"
 	if getent passwd carbonio-ai >/dev/null; then
 		userdel carbonio-ai

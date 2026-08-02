@@ -29,6 +29,7 @@ done
 iris_root="/opt/zextras/web/iris"
 nginx_root="/opt/zextras/conf/nginx"
 app_root="/opt/carbonio-ai-assistant"
+app_bin="$app_root/bin"
 app_release="$app_root/releases/$CARBONIO_AI_COMMIT"
 app_link="$app_root/gateway"
 runtime_name="node-${CARBONIO_AI_NODE_VERSION}-linux-x64"
@@ -53,9 +54,15 @@ if [[ ! -x /opt/zextras/common/sbin/nginx ]]; then
 fi
 
 install -d -o root -g root -m 0755 \
-	"$app_root" "$app_root/releases" "$app_root/runtime"
+	"$app_root" "$app_root/releases" "$app_root/runtime" "$app_bin"
 printf '%s\n' "carbonio-ai-assistant" >"$marker"
 chmod 0644 "$marker"
+install -o root -g root -m 0755 \
+	"$release_dir/setup-postgres.sh" "$app_bin/setup-postgres.sh"
+install -o root -g root -m 0755 \
+	"$release_dir/backup-postgres.sh" "$app_bin/backup-postgres.sh"
+install -o root -g root -m 0755 \
+	"$release_dir/restore-postgres.sh" "$app_bin/restore-postgres.sh"
 
 if ! getent passwd carbonio-ai >/dev/null; then
 	useradd --system \

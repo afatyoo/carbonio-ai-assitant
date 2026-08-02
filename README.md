@@ -19,7 +19,7 @@ module.
 - ChatGPT-style history rows with hover actions, rename, and delete
 - Soft-delete with Undo, title search, and cursor-based conversation pagination
 - History isolation using the authenticated Carbonio account ID
-- Persistent SQLite storage
+- PostgreSQL production history with normalized messages and AES-256-GCM content encryption
 - Carbonio SOAP tools for searching and reading email
 - Bounded single-message and conversation reads using Carbonio `GetMsg` and `GetConv`
 - AI-generated email draft preview with explicit one-time confirmation before `SaveDraft`
@@ -60,8 +60,9 @@ The gateway binds to `127.0.0.1:8787` by default. Carbonio Shell should proxy
 ## Security notes
 
 - Provider API keys are never returned to the browser.
-- Runtime configuration and SQLite history are stored under
-  `gateway/.runtime/` and excluded from Git.
+- Runtime configuration, audit data, and local-development SQLite history are stored
+  under `gateway/.runtime/` and excluded from Git. Production conversation history uses
+  a dedicated PostgreSQL database.
 - Conversation access is scoped with the active Carbonio session and account
   ID.
 - Read tools never mark email as read. Draft creation is the only enabled mailbox
