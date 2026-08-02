@@ -1,4 +1,5 @@
 import './mail-tools.js';
+import './calendar-tools.js';
 
 import { randomUUID } from 'node:crypto';
 
@@ -30,6 +31,11 @@ const isDocumentationOnlyQuery = (message) =>
 
 const isDraftActionRequest = (message) =>
 	/(draft\s+(a\s+)?reply|compose\s+(an?\s+)?email|buatkan?\s+(draft|balasan|email)|siapkan\s+(draft|balasan|email)|balas\s+email)/i.test(
+		message
+	);
+
+const isMeetingActionRequest = (message) =>
+	/(schedule\s+(a\s+)?meeting|create\s+(an?\s+)?appointment|buatkan?\s+(jadwal|meeting|rapat|janji)|jadwalkan\s+(meeting|rapat)|buat.*(acara|kalender))/i.test(
 		message
 	);
 
@@ -294,6 +300,82 @@ const prepareDraft = async ({ message, model, cookie, account, emit }) => {
 		: 'Draf sudah saya siapkan. Periksa penerima, subjek, dan isi pada kartu konfirmasi sebelum menyimpannya ke folder Draf.';
 };
 
+const prepareMeeting = async ({ message, model, cookie, account, emit }) => {
+	const explicitAttendees = [
+		...new Set(
+			[...message.matchAll(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)].map(
+				([address]) => address.toLowerCase()
+			)
+		)
+	].slice(0, 50);
+	const config = getAgentConfig();
+	let generated;
+	if (config.agentUrl) {
+		const raw = await remoteCompletion({
+			requestedModel: model,
+			json: true,
+			systemPrompt:
+				'Prepare a calendar appointment from the user request. Return JSON only with string fields subject, start, end, location, and body. start and end must be ISO 8601 date-times with an explicit UTC offset. Use a 30-minute duration if omitted. Never add attendees and never claim the appointment was created.',
+			userPrompt: `<current_time>${new Date().toISOString()}</current_time>\n<default_timezone>${
+				process.env.AI_DEFAULT_TIMEZONE ?? 'Asia/Jakarta'
+			}</default_timezone>\n<user_request>${message}</user_request>`
+		});
+		generated = extractJsonObject(raw);
+	} else {
+		throw new Error('A configured AI provider is required to understand meeting date and time');
+	}
+	const appointmentInput = {
+		subject: String(generated.subject ?? '').trim().slice(0, 300),
+		start: String(generated.start ?? '').trim(),
+		end: String(generated.end ?? '').trim(),
+		attendees: explicitAttendees.join(','),
+		location: String(generated.location ?? '').trim().slice(0, 500),
+		body: String(generated.body ?? '').trim().slice(0, 20_000)
+	};
+	let conflicts = 0;
+	if (explicitAttendees.length > 0) {
+		emit('tool', { name: 'check_free_busy', status: 'running' });
+		const availability = await executeTool({
+			name: 'check_free_busy',
+			input: {
+				attendees: appointmentInput.attendees,
+				start: appointmentInput.start,
+				end: appointmentInput.end
+			},
+			context: { ownerId: account.id, cookie, permissions: ['calendar.read'] }
+		});
+		conflicts = availability.result.filter(({ slots }) => slots.length > 0).length;
+		emit('tool', {
+			name: 'check_free_busy',
+			status: 'completed',
+			count: availability.result.length
+		});
+	}
+	const pending = await executeTool({
+		name: 'create_appointment',
+		input: appointmentInput,
+		context: {
+			ownerId: account.id,
+			accountName: account.name,
+			cookie,
+			permissions: ['calendar.write']
+		}
+	});
+	emit('confirmation', {
+		tool: 'create_appointment',
+		token: pending.confirmation.token,
+		expiresAt: pending.confirmation.expiresAt,
+		preview: { ...pending.confirmation.preview, conflicts },
+		input: appointmentInput,
+		idempotencyKey: randomUUID()
+	});
+	const english = /\b(schedule|meeting|appointment|calendar)\b/i.test(message) &&
+		!/(buat|jadwal|rapat|kalender)/i.test(message);
+	return english
+		? `I prepared the appointment${conflicts ? `; ${conflicts} attendee(s) have a conflicting slot` : ''}. Review it before confirming; confirmation can send invitations.`
+		: `Jadwal sudah disiapkan${conflicts ? `; ${conflicts} peserta memiliki jadwal yang bentrok` : ''}. Periksa sebelum konfirmasi karena konfirmasi dapat mengirim undangan.`;
+};
+
 export const runAgent = async ({ message, model, cookie, account, emit }) => {
 	const config = getAgentConfig();
 	const knowledgeStartedAt = Date.now();
@@ -315,6 +397,14 @@ export const runAgent = async ({ message, model, cookie, account, emit }) => {
 	}
 	if (!isDocumentationOnlyQuery(message) && isDraftActionRequest(message)) {
 		const answer = await prepareDraft({ message, model, cookie, account, emit });
+		for (const chunk of answer.match(/[\s\S]{1,42}/g) ?? [answer]) {
+			emit('message', { text: chunk });
+		}
+		emit('done', {});
+		return;
+	}
+	if (isMeetingActionRequest(message)) {
+		const answer = await prepareMeeting({ message, model, cookie, account, emit });
 		for (const chunk of answer.match(/[\s\S]{1,42}/g) ?? [answer]) {
 			emit('message', { text: chunk });
 		}

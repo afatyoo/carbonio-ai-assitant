@@ -37,6 +37,7 @@ export const executeTool = async ({ name, input, context }) => {
 	if (!registered) throw new Error(`Unknown tool: ${name}`);
 	const { definition, handler } = registered;
 	validateToolInput(definition, input);
+	definition.validate?.(input);
 	if (!context?.ownerId || !context?.permissions?.includes(definition.permission)) {
 		throw new Error(`Permission denied for tool: ${name}`);
 	}

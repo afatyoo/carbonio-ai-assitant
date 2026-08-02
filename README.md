@@ -23,6 +23,7 @@ module.
 - Carbonio SOAP tools for searching and reading email
 - Bounded single-message and conversation reads using Carbonio `GetMsg` and `GetConv`
 - AI-generated email draft preview with explicit one-time confirmation before `SaveDraft`
+- Calendar search, attendee free/busy checks, and confirmed appointment creation
 - Schema-based tool permissions, audit records, result limits, and idempotency protection
 - Provider presets for OpenRouter, OpenAI, Anthropic, DeepSeek, and Gemini
 - Custom agent endpoint support
@@ -65,6 +66,8 @@ The gateway binds to `127.0.0.1:8787` by default. Carbonio Shell should proxy
   ID.
 - Read tools never mark email as read. Draft creation is the only enabled mailbox
   mutation and requires a one-time, account-bound confirmation token; it never sends email.
+- Appointment creation is treated as a write action because it can send attendee invitations;
+  the UI shows the schedule, attendees, and conflicts before confirmation.
 - Production deployments should use an external secret manager and a supported
   production database.
 

@@ -19,6 +19,11 @@ export type AgentEvent = {
 			bcc?: string;
 			subject?: string;
 			body?: string;
+			attendees?: string;
+			start?: string;
+			end?: string;
+			location?: string;
+			conflicts?: number;
 		};
 		input?: Record<string, string>;
 	};

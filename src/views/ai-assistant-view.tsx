@@ -36,6 +36,12 @@ type PendingConfirmation = {
 		bcc?: string;
 		subject?: string;
 		body?: string;
+		kind?: string;
+		attendees?: string;
+		start?: string;
+		end?: string;
+		location?: string;
+		conflicts?: number;
 	};
 };
 
@@ -266,7 +272,7 @@ const Input = styled.textarea`
 `;
 
 export const AiAssistantView = (): React.JSX.Element => {
-	const { t } = useAppTranslation();
+	const { t, locale } = useAppTranslation();
 	const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
 	const [conversationTitle, setConversationTitle] = useState<string | null>(null);
 	const [input, setInput] = useState('');
@@ -306,6 +312,10 @@ export const AiAssistantView = (): React.JSX.Element => {
 			case 'get_email':
 			case 'get_email_thread':
 				return t('status.reading_email', 'Reading email content...');
+			case 'search_appointments':
+				return t('status.reading_calendar', 'Reading calendar...');
+			case 'check_free_busy':
+				return t('status.checking_availability', 'Checking availability...');
 			default:
 				return t('status.running_tool', 'Running Carbonio tool...');
 		}
@@ -522,22 +532,29 @@ export const AiAssistantView = (): React.JSX.Element => {
 			const execution = await parseJsonResponse<{
 				result?: { id?: string; status?: string };
 			}>(response);
+			const isAppointment = pendingConfirmation.tool === 'create_appointment';
 			setMessages((current) => [
 				...current,
 				{
 					id: Date.now(),
 					role: 'assistant',
-					text: t(
-						'chat.draft_saved',
-						'Draft saved to Carbonio Drafts (ID: {{id}}). It has not been sent.',
-						{ id: execution.result?.id ?? '-' }
-					)
+					text: isAppointment
+						? t(
+								'chat.appointment_created',
+								'Appointment created in Carbonio Calendar (ID: {{id}}). Invitations were sent to listed attendees.',
+								{ id: execution.result?.id ?? '-' }
+							)
+						: t(
+								'chat.draft_saved',
+								'Draft saved to Carbonio Drafts (ID: {{id}}). It has not been sent.',
+								{ id: execution.result?.id ?? '-' }
+							)
 				}
 			]);
 			setPendingConfirmation(null);
 		} catch (error) {
 			setAgentStatus(
-				t('chat.draft_save_error', 'Unable to save draft: {{message}}', {
+				t('chat.action_error', 'Unable to complete action: {{message}}', {
 					message: error instanceof Error ? error.message : 'Unknown error'
 				})
 			);
@@ -610,14 +627,57 @@ export const AiAssistantView = (): React.JSX.Element => {
 						</ProcessMarker>
 					)}
 					{pendingConfirmation && (
-						<ConfirmationCard aria-label={t('chat.draft_preview', 'Email draft preview')}>
+						<ConfirmationCard
+							aria-label={
+								pendingConfirmation.tool === 'create_appointment'
+									? t('chat.appointment_preview', 'Appointment preview')
+									: t('chat.draft_preview', 'Email draft preview')
+							}
+						>
 							<ConfirmationTitle>
-								{t('chat.confirm_draft_title', 'Confirm saving this draft')}
+								{pendingConfirmation.tool === 'create_appointment'
+									? t('chat.confirm_appointment_title', 'Confirm creating this appointment')
+									: t('chat.confirm_draft_title', 'Confirm saving this draft')}
 							</ConfirmationTitle>
-							<DraftField>
-								<span>{t('chat.recipient', 'To')}</span>
-								{pendingConfirmation.preview.to}
-							</DraftField>
+							{pendingConfirmation.tool === 'create_appointment' ? (
+								<>
+									<DraftField>
+										<span>{t('chat.start', 'Start')}</span>
+										{pendingConfirmation.preview.start
+											? new Date(pendingConfirmation.preview.start).toLocaleString(locale)
+											: '-'}
+									</DraftField>
+									<DraftField>
+										<span>{t('chat.end', 'End')}</span>
+										{pendingConfirmation.preview.end
+											? new Date(pendingConfirmation.preview.end).toLocaleString(locale)
+											: '-'}
+									</DraftField>
+									<DraftField>
+										<span>{t('chat.attendees', 'Attendees')}</span>
+										{pendingConfirmation.preview.attendees || t('chat.no_attendees', 'None')}
+									</DraftField>
+									{pendingConfirmation.preview.location && (
+										<DraftField>
+											<span>{t('chat.location', 'Location')}</span>
+											{pendingConfirmation.preview.location}
+										</DraftField>
+									)}
+									{Boolean(pendingConfirmation.preview.conflicts) && (
+										<DraftField>
+											<span>{t('chat.availability_warning', 'Availability warning')}</span>
+											{t('chat.conflict_count', '{{count}} attendee(s) have conflicts', {
+												count: pendingConfirmation.preview.conflicts ?? 0
+											})}
+										</DraftField>
+									)}
+								</>
+							) : (
+								<DraftField>
+									<span>{t('chat.recipient', 'To')}</span>
+									{pendingConfirmation.preview.to}
+								</DraftField>
+							)}
 							<DraftField>
 								<span>{t('chat.subject', 'Subject')}</span>
 								{pendingConfirmation.preview.subject}
@@ -642,8 +702,10 @@ export const AiAssistantView = (): React.JSX.Element => {
 									disabled={isConfirming}
 								>
 									{isConfirming
-										? t('chat.saving_draft', 'Saving...')
-										: t('chat.save_draft', 'Save to Drafts')}
+										? t('chat.confirming_action', 'Confirming...')
+										: pendingConfirmation.tool === 'create_appointment'
+											? t('chat.create_appointment', 'Create appointment')
+											: t('chat.save_draft', 'Save to Drafts')}
 								</Button>
 							</ConfirmationActions>
 						</ConfirmationCard>

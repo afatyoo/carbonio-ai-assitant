@@ -10,7 +10,7 @@ const soapTimeoutMs = Math.min(
 	30_000
 );
 
-const soapRequest = (operation, body, cookie, namespace = 'urn:zimbraMail') =>
+export const soapRequest = (operation, body, cookie, namespace = 'urn:zimbraMail') =>
 	new Promise((resolve, reject) => {
 		const startedAt = Date.now();
 		const payload = JSON.stringify({

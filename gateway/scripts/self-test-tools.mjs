@@ -139,6 +139,7 @@ if (listAuditEntries('owner-b', 20).some(({ status }) => status === 'completed')
 }
 
 await import('../src/mail-tools.js');
+await import('../src/calendar-tools.js');
 const mailDefinitions = listToolDefinitions();
 for (const toolName of [
 	'search_emails',
@@ -149,6 +150,11 @@ for (const toolName of [
 ]) {
 	if (!mailDefinitions.some(({ name }) => name === toolName)) {
 		throw new Error(`Missing registered mail tool: ${toolName}`);
+	}
+}
+for (const toolName of ['search_appointments', 'check_free_busy', 'create_appointment']) {
+	if (!mailDefinitions.some(({ name }) => name === toolName)) {
+		throw new Error(`Missing registered calendar tool: ${toolName}`);
 	}
 }
 const draftPending = await executeTool({
@@ -166,7 +172,37 @@ if (
 ) {
 	throw new Error('Email draft preview and confirmation flow failed');
 }
+const appointmentPending = await executeTool({
+	name: 'create_appointment',
+	input: {
+		subject: 'Confirmation test',
+		start: '2026-08-03T02:00:00.000Z',
+		end: '2026-08-03T03:00:00.000Z'
+	},
+	context: { ownerId: 'owner-a', permissions: ['calendar.write'] }
+});
+if (
+	appointmentPending.status !== 'confirmation_required' ||
+	appointmentPending.confirmation?.preview?.kind !== 'appointment'
+) {
+	throw new Error('Appointment preview and confirmation flow failed');
+}
+let invalidAppointmentRejected = false;
+try {
+	await executeTool({
+		name: 'create_appointment',
+		input: {
+			subject: 'Invalid range',
+			start: '2026-08-03T03:00:00.000Z',
+			end: '2026-08-03T02:00:00.000Z'
+		},
+		context: { ownerId: 'owner-a', permissions: ['calendar.write'] }
+	});
+} catch (error) {
+	invalidAppointmentRejected = error.message.includes('end must be after start');
+}
+if (!invalidAppointmentRejected) throw new Error('Invalid appointment range was accepted');
 
 console.log(
-	'tool_registry=ok schema_validation=ok permission=ok confirmation=ok owner_isolation=ok idempotency=ok audit=ok mail_tools=ok draft_preview=ok'
+	'tool_registry=ok schema_validation=ok permission=ok confirmation=ok owner_isolation=ok idempotency=ok audit=ok mail_tools=ok draft_preview=ok calendar_tools=ok appointment_preview=ok appointment_validation=ok'
 );

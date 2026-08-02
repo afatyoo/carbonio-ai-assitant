@@ -94,7 +94,9 @@ const handleRequest = async (request, response) => {
 		try {
 			await authenticate(request);
 			sendJson(response, 200, {
-				tools: listToolDefinitions().map(({ preview, ...definition }) => definition)
+				tools: listToolDefinitions().map(
+					({ preview, validate, ...definition }) => definition
+				)
 			});
 		} catch (error) {
 			sendJson(response, 401, { error: error.message });
@@ -128,7 +130,7 @@ const handleRequest = async (request, response) => {
 					ownerId: account.id,
 					accountName: account.name,
 					cookie: request.headers.cookie ?? '',
-					permissions: ['mail.read', 'mail.draft'],
+					permissions: ['mail.read', 'mail.draft', 'calendar.read', 'calendar.write'],
 					confirmationToken: payload.confirmationToken,
 					idempotencyKey: payload.idempotencyKey
 				}

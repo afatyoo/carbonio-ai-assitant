@@ -37,6 +37,9 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 - A confirmed `create_email_draft` tool backed by Carbonio `SaveDraft`, with
   recipient/subject/body preview, one-time tokens, and idempotent execution.
 - A localized in-chat draft confirmation card for reply and compose requests.
+- Calendar search and free/busy tools backed by the official Carbonio SOAP APIs.
+- Natural-language appointment planning with explicit attendee extraction, conflict
+  warnings, localized preview, one-time confirmation, and idempotent creation.
 
 ### Changed
 
