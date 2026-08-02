@@ -4,6 +4,8 @@ Standalone AI assistant add-on for Carbonio Webmail. The project keeps the
 Carbonio microfrontend and the AI Agent Gateway separate from the existing Mail
 module.
 
+![Carbonio AI Assistant interface](docs/assets/carbonio-ai-assistant-overview.png)
+
 ## Repository structure
 
 - `src/` — React/TypeScript Carbonio microfrontend
