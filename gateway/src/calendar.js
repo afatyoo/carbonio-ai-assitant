@@ -13,8 +13,14 @@ const parseRange = (start, end, maxDays = 93) => {
 	return { startMs, endMs };
 };
 
-export const validateAppointmentInput = ({ start, end }) => {
+export const validateAppointmentInput = ({ start, end, attendees = '', timezone = '' }) => {
 	parseRange(start, end, 7);
+	for (const address of parseAddresses(attendees)) {
+		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
+			throw new Error(`Invalid attendee email address: ${address.slice(0, 100)}`);
+		}
+	}
+	if (timezone) new Intl.DateTimeFormat('en', { timeZone: timezone });
 };
 
 const toCarbonioUtc = (milliseconds) =>

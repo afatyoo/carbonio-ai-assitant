@@ -56,7 +56,11 @@ export const executeTool = async ({ name, input, context }) => {
 			inputHash: audit.inputHash
 		});
 		if (cached !== null) {
-			completeAuditEntry(audit.id, { status: 'idempotent_replay', resultCount: countResult(cached) });
+			completeAuditEntry(audit.id, {
+				status: 'idempotent_replay',
+				resultCount: countResult(cached),
+				resultReference: definition.resultReference?.(cached) ?? null
+			});
 			return { status: 'completed', tool: name, result: cached, replayed: true };
 		}
 		if (definition.confirmation === 'required') {
@@ -104,7 +108,11 @@ export const executeTool = async ({ name, input, context }) => {
 			result
 		});
 		const resultCount = countResult(result);
-		completeAuditEntry(audit.id, { status: 'completed', resultCount });
+		completeAuditEntry(audit.id, {
+			status: 'completed',
+			resultCount,
+			resultReference: definition.resultReference?.(result) ?? null
+		});
 		logEvent('info', 'tool_completed', {
 			tool: name,
 			risk: definition.risk,

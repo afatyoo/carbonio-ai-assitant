@@ -92,6 +92,7 @@ registerTool(
 		confirmation: 'required',
 		timeoutMs: 25_000,
 		maxResultBytes: 8_000,
+		resultReference: (result) => String(result.id ?? '').slice(0, 200),
 		preview: (input) => ({
 			kind: 'email_draft',
 			to: input.to,

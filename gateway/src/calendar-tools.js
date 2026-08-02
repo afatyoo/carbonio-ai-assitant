@@ -69,6 +69,7 @@ registerTool(
 				attendees: { type: 'string', maxLength: 5_000 },
 				location: { type: 'string', maxLength: 500 },
 				body: { type: 'string', maxLength: 20_000 },
+				timezone: { type: 'string', maxLength: 100 },
 				...rangeProperties
 			}
 		},
@@ -78,7 +79,14 @@ registerTool(
 		validate: validateAppointmentInput,
 		timeoutMs: 30_000,
 		maxResultBytes: 8_000,
-		preview: (input) => ({ kind: 'appointment', ...input })
+		resultReference: (result) => String(result.id ?? '').slice(0, 200),
+		preview: (input) => ({
+			kind: 'appointment',
+			...input,
+			timezone: input.timezone || process.env.AI_DEFAULT_TIMEZONE || 'Asia/Jakarta',
+			calendar: 'Calendar',
+			reminder: 'None'
+		})
 	},
 	(input, context) =>
 		createAppointment({ cookie: context.cookie, organizer: context.accountName, ...input })

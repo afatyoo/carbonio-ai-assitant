@@ -95,7 +95,7 @@ const handleRequest = async (request, response) => {
 			await authenticate(request);
 			sendJson(response, 200, {
 				tools: listToolDefinitions().map(
-					({ preview, validate, ...definition }) => definition
+					({ preview, validate, resultReference, ...definition }) => definition
 				)
 			});
 		} catch (error) {

@@ -48,6 +48,9 @@ database.exec(`
 		PRIMARY KEY (owner_id, tool_name, idempotency_key)
 	);
 `);
+if (!database.prepare('PRAGMA table_info(tool_audit)').all().some(({ name }) => name === 'result_ref')) {
+	database.exec('ALTER TABLE tool_audit ADD COLUMN result_ref TEXT');
+}
 fs.chmodSync(databasePath, 0o600);
 
 export const hashToolInput = (input) =>
@@ -87,14 +90,17 @@ export const createAuditEntry = ({ ownerId, toolName, risk, input }) => {
 	return { id, inputHash };
 };
 
-export const completeAuditEntry = (id, { status, resultCount = null, errorCode = null }) => {
+export const completeAuditEntry = (
+	id,
+	{ status, resultCount = null, resultReference = null, errorCode = null }
+) => {
 	database
 		.prepare(
 			`UPDATE tool_audit
-			 SET status = ?, result_count = ?, error_code = ?, completed_at = ?
+			 SET status = ?, result_count = ?, result_ref = ?, error_code = ?, completed_at = ?
 			 WHERE id = ?`
 		)
-		.run(status, resultCount, errorCode, Date.now(), id);
+		.run(status, resultCount, resultReference, errorCode, Date.now(), id);
 };
 
 export const createConfirmation = ({ ownerId, toolName, inputHash, ttlMs = 300_000 }) => {
@@ -157,7 +163,7 @@ export const saveIdempotentResult = ({
 export const listAuditEntries = (ownerId, limit = 50) =>
 	database
 		.prepare(
-			`SELECT id, request_id, tool_name, risk, status, result_count,
+			`SELECT id, request_id, tool_name, risk, status, result_count, result_ref,
 			        error_code, created_at, completed_at
 			 FROM tool_audit WHERE owner_id = ?
 			 ORDER BY created_at DESC, id DESC LIMIT ?`
@@ -170,6 +176,7 @@ export const listAuditEntries = (ownerId, limit = 50) =>
 			risk: row.risk,
 			status: row.status,
 			resultCount: row.result_count,
+			resultReference: row.result_ref,
 			errorCode: row.error_code,
 			createdAt: row.created_at,
 			completedAt: row.completed_at

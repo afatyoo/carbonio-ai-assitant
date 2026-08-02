@@ -376,6 +376,7 @@ const prepareMeeting = async ({ message, model, cookie, account, emit }) => {
 			String(generated.endLocal ?? '').trim(),
 			String(generated.timezone ?? defaultTimezone).trim()
 		),
+		timezone: String(generated.timezone ?? defaultTimezone).trim(),
 		attendees: explicitAttendees.join(','),
 		location: String(generated.location ?? '').trim().slice(0, 500),
 		body: String(generated.body ?? '').trim().slice(0, 20_000)

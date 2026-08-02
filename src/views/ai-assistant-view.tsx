@@ -42,6 +42,9 @@ type PendingConfirmation = {
 		end?: string;
 		location?: string;
 		conflicts?: number;
+		timezone?: string;
+		calendar?: string;
+		reminder?: string;
 	};
 };
 
@@ -656,6 +659,18 @@ export const AiAssistantView = (): React.JSX.Element => {
 									<DraftField>
 										<span>{t('chat.attendees', 'Attendees')}</span>
 										{pendingConfirmation.preview.attendees || t('chat.no_attendees', 'None')}
+									</DraftField>
+									<DraftField>
+										<span>{t('chat.timezone', 'Timezone')}</span>
+										{pendingConfirmation.preview.timezone}
+									</DraftField>
+									<DraftField>
+										<span>{t('chat.calendar', 'Calendar')}</span>
+										{pendingConfirmation.preview.calendar}
+									</DraftField>
+									<DraftField>
+										<span>{t('chat.reminder', 'Reminder')}</span>
+										{pendingConfirmation.preview.reminder}
 									</DraftField>
 									{pendingConfirmation.preview.location && (
 										<DraftField>

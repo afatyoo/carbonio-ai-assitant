@@ -40,6 +40,8 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 - Calendar search and free/busy tools backed by the official Carbonio SOAP APIs.
 - Natural-language appointment planning with explicit attendee extraction, conflict
   warnings, localized preview, one-time confirmation, and idempotent creation.
+- Deterministic IANA timezone conversion, attendee validation, complete appointment
+  preview metadata, and mutation result IDs in owner-scoped audit records.
 
 ### Changed
 

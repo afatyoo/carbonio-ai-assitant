@@ -39,6 +39,7 @@ registerTool(
 		risk: TOOL_RISK.WRITE,
 		timeoutMs: 1_000,
 		maxResultBytes: 2_000,
+		resultReference: (result) => String(result.execution),
 		preview: (input) => ({ valueLength: input.value.length })
 	},
 	(input) => {
@@ -134,6 +135,9 @@ const audit = listAuditEntries('owner-a', 20);
 if (!audit.some(({ tool, status }) => tool === 'test_write_tool' && status === 'completed')) {
 	throw new Error('Completed write audit record is missing');
 }
+if (!audit.some(({ tool, resultReference }) => tool === 'test_write_tool' && resultReference === '1')) {
+	throw new Error('Write result reference is missing from audit');
+}
 if (listAuditEntries('owner-b', 20).some(({ status }) => status === 'completed')) {
 	throw new Error('Audit owner isolation failed');
 }
@@ -202,11 +206,27 @@ try {
 	invalidAppointmentRejected = error.message.includes('end must be after start');
 }
 if (!invalidAppointmentRejected) throw new Error('Invalid appointment range was accepted');
+let invalidAttendeeRejected = false;
+try {
+	await executeTool({
+		name: 'create_appointment',
+		input: {
+			subject: 'Invalid attendee',
+			start: '2026-08-03T02:00:00.000Z',
+			end: '2026-08-03T03:00:00.000Z',
+			attendees: 'not-an-email'
+		},
+		context: { ownerId: 'owner-a', permissions: ['calendar.write'] }
+	});
+} catch (error) {
+	invalidAttendeeRejected = error.message.includes('Invalid attendee email');
+}
+if (!invalidAttendeeRejected) throw new Error('Invalid attendee address was accepted');
 const { zonedLocalToIso } = await import('../src/agent.js');
 if (zonedLocalToIso('2026-08-03T10:00:00', 'Asia/Jakarta') !== '2026-08-03T03:00:00.000Z') {
 	throw new Error('Appointment timezone conversion failed');
 }
 
 console.log(
-	'tool_registry=ok schema_validation=ok permission=ok confirmation=ok owner_isolation=ok idempotency=ok audit=ok mail_tools=ok draft_preview=ok calendar_tools=ok appointment_preview=ok appointment_validation=ok timezone_conversion=ok'
+	'tool_registry=ok schema_validation=ok permission=ok confirmation=ok owner_isolation=ok idempotency=ok audit=ok audit_reference=ok mail_tools=ok draft_preview=ok calendar_tools=ok appointment_preview=ok appointment_validation=ok timezone_conversion=ok'
 );

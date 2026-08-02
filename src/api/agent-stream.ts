@@ -24,6 +24,9 @@ export type AgentEvent = {
 			end?: string;
 			location?: string;
 			conflicts?: number;
+			timezone?: string;
+			calendar?: string;
+			reminder?: string;
 		};
 		input?: Record<string, string>;
 	};
