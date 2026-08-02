@@ -23,6 +23,12 @@ assert.equal(assistantSource.includes('dangerouslySetInnerHTML'), false);
 assert.equal(assistantSource.includes("import { Button } from '@zextras/carbonio-design-system'"), false);
 assert.match(assistantSource, /<PrimaryActionButton[\s\S]*confirmationPresentation/);
 assert.match(assistantSource, /getConfirmationPresentation/);
+const emailMutationFields = assistantSource.slice(
+	assistantSource.indexOf("chat.message_id"),
+	assistantSource.indexOf('pendingConfirmation.preview.subject &&')
+);
+assert.match(emailMutationFields, /chat\.sender/);
+assert.match(emailMutationFields, /chat\.date/);
 assert.match(assistantSource, /<SecondaryActionButton[\s\S]*Regenerate/);
 assert.deepEqual(flattenKeys(english).sort(), flattenKeys(indonesian).sort());
 

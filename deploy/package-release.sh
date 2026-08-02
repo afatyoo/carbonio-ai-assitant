@@ -78,7 +78,7 @@ chmod 0755 "$package_dir/install.sh" "$package_dir/uninstall.sh" \
 	"$package_dir/restore-postgres.sh" "$package_dir/rollback.sh" \
 	"$package_dir/smoke-test.sh" "$package_dir/set-api-key.sh"
 mkdir -p "$output_dir"
-COPYFILE_DISABLE=1 tar -C "$workspace" -czf "$archive" "$package_name"
+	COPYFILE_DISABLE=1 tar --no-xattrs -C "$workspace" -czf "$archive" "$package_name"
 
 (
 	cd "$output_dir"

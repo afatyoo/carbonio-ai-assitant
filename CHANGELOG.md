@@ -2,6 +2,14 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [0.0.3-rc.10] - 2026-08-02
+
+### Fixed
+
+- Email action previews now render sender and date in the email card instead of the
+  calendar branch; the UI contract guards the field placement.
+- Release archives omit macOS extended attributes to avoid extraction warnings on Linux.
+
 ## [0.0.3-rc.9] - 2026-08-02
 
 ### Added
@@ -207,6 +215,7 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 [0.0.3-rc.7]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.7
 [0.0.3-rc.8]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.8
 [0.0.3-rc.9]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.9
+[0.0.3-rc.10]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.10
 [0.0.3-rc.3]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.3
 [0.0.3-rc.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.2
 [0.0.3-rc.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.1

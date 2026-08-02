@@ -822,12 +822,6 @@ export const AiAssistantView = (): React.JSX.Element => {
 											? new Date(pendingConfirmation.preview.start).toLocaleString(locale)
 											: '-'}
 									</DraftField>
-									{pendingConfirmation.preview.sender && (
-										<DraftField><span>{t('chat.sender', 'Sender')}</span>{pendingConfirmation.preview.sender}</DraftField>
-									)}
-									{pendingConfirmation.preview.date && (
-										<DraftField><span>{t('chat.date', 'Date')}</span>{new Date(/^\d+$/.test(pendingConfirmation.preview.date) ? Number(pendingConfirmation.preview.date) : pendingConfirmation.preview.date).toLocaleString(locale)}</DraftField>
-									)}
 									<DraftField>
 										<span>{t('chat.end', 'End')}</span>
 										{pendingConfirmation.preview.end
@@ -891,6 +885,22 @@ export const AiAssistantView = (): React.JSX.Element => {
 										<span>{t('chat.message_id', 'Message ID')}</span>
 										{pendingConfirmation.preview.id ?? '-'}
 									</DraftField>
+									{pendingConfirmation.preview.sender && (
+										<DraftField>
+											<span>{t('chat.sender', 'Sender')}</span>
+											{pendingConfirmation.preview.sender}
+										</DraftField>
+									)}
+									{pendingConfirmation.preview.date && (
+										<DraftField>
+											<span>{t('chat.date', 'Date')}</span>
+											{new Date(
+												/^\d+$/.test(pendingConfirmation.preview.date)
+													? Number(pendingConfirmation.preview.date)
+													: pendingConfirmation.preview.date
+											).toLocaleString(locale)}
+										</DraftField>
+									)}
 									{pendingConfirmation.preview.tagName && (
 										<DraftField><span>{t('chat.tag', 'Tag')}</span>{pendingConfirmation.preview.tagName}</DraftField>
 									)}
