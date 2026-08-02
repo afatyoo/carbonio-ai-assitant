@@ -25,11 +25,25 @@ Runtime production menggunakan Node.js 22 dan data persisten berada di
 `/var/lib/carbonio-ai-assistant/.runtime/`. Endpoint config, model, history,
 dan chat memerlukan cookie sesi Carbonio yang valid.
 
-Self-test database dapat dijalankan dari working directory service:
+Self-test database dan reliability dapat dijalankan dari working directory service:
 
 ```bash
-node /opt/carbonio-ai-assistant/gateway/scripts/self-test-history.mjs
+npm run self-test
 ```
+
+Gateway menulis structured JSON log ke stdout/journald. Setiap request memiliki
+`x-request-id` yang sama pada UI, response gateway, HTTP log, provider log, dan
+Carbonio SOAP log.
+
+Default timeout:
+
+- AI provider: `75000` ms, dibatasi maksimum `90000` ms.
+- Carbonio SOAP: `20000` ms, dibatasi maksimum `30000` ms.
+- Daftar model: `15000` ms.
+
+Provider request melakukan retry terkontrol untuk HTTP `429`, `502`, `503`, dan
+network error dengan exponential backoff serta jitter. Seluruh percobaan tetap
+berada dalam deadline provider.
 
 ## Menghubungkan AI Agent eksternal
 
@@ -64,10 +78,20 @@ Agent eksternal dapat mengembalikan salah satu field berikut:
 ## Endpoint
 
 - `GET /api/ai/health`
+- `GET /api/ai/config`
+- `PUT /api/ai/config`
+- `GET /api/ai/models`
+- `GET /api/ai/conversations?cursor=...&q=...`
+- `GET /api/ai/conversations/:id`
+- `PUT /api/ai/conversations/:id`
+- `PATCH /api/ai/conversations/:id`
+- `DELETE /api/ai/conversations/:id`
+- `POST /api/ai/conversations/:id/restore`
 - `POST /api/ai/chat`
 
-`POST /api/ai/chat` mengembalikan Server-Sent Events: `tool`, `message`, `done`,
-atau `error`.
+`POST /api/ai/chat` mengembalikan event `tool`, `message`, dan `done` dalam JSON.
+Server-Sent Events tetap tersedia bagi client yang secara eksplisit mengirim
+`Accept: text/event-stream`.
 
 API key hanya berada di gateway. Cookie session Carbonio diteruskan oleh Shell
 ke gateway dan digunakan hanya untuk SOAP request milik user aktif.

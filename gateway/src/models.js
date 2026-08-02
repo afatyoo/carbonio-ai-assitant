@@ -1,4 +1,6 @@
 import { getAgentConfig } from './config.js';
+import { fetchWithRetry } from './fetch-with-retry.js';
+import { logEvent } from './logger.js';
 
 let cache = { key: '', expiresAt: 0, items: [] };
 
@@ -35,12 +37,29 @@ export const listAvailableModels = async () => {
 		}));
 	}
 
-	const response = await fetch(
+	const startedAt = Date.now();
+	const response = await fetchWithRetry(
 		`${config.agentUrl.replace(/\/$/, '')}/models`,
 		{
 			headers: config.apiKey ? { authorization: `Bearer ${config.apiKey}` } : {}
+		},
+		{
+			timeoutMs: 15_000,
+			onRetry: ({ attempt, delayMs, status, error }) =>
+				logEvent('warn', 'models_retry', {
+					provider: config.provider,
+					attempt,
+					delay_ms: delayMs,
+					status,
+					error
+				})
 		}
 	);
+	logEvent('info', 'models_response', {
+		provider: config.provider,
+		status: response.status,
+		duration_ms: Date.now() - startedAt
+	});
 	if (!response.ok) throw new Error(`Unable to load models: HTTP ${response.status}`);
 	const data = await response.json();
 	const freeModels = (data.data ?? [])

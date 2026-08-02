@@ -15,12 +15,14 @@ module.
 - Chat interface with server-side conversation history
 - Carbonio-aware English and Indonesian localization
 - ChatGPT-style history rows with hover actions, rename, and delete
+- Soft-delete with Undo, title search, and cursor-based conversation pagination
 - History isolation using the authenticated Carbonio account ID
 - Persistent SQLite storage
 - Carbonio SOAP tools for searching and reading email
 - Provider presets for OpenRouter, OpenAI, Anthropic, DeepSeek, and Gemini
 - Custom agent endpoint support
 - Per-conversation model selection
+- Correlated request IDs, structured JSON logs, provider retry, and bounded timeouts
 - Server-Sent Events for streamed UI responses
 
 ## Requirements

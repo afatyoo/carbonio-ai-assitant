@@ -10,10 +10,20 @@
 		"rename": "Ubah nama",
 		"delete": "Hapus",
 		"rename_prompt": "Ubah nama percakapan",
-		"delete_confirm": "Hapus \"{{title}}\"? Tindakan ini tidak dapat dibatalkan.",
+		"delete_confirm": "Hapus \"{{title}}\"?",
 		"load_error": "Riwayat percakapan tidak dapat dimuat",
+		"load_more_error": "Percakapan lainnya tidak dapat dimuat",
 		"rename_error": "Nama percakapan tidak dapat diubah",
-		"delete_error": "Percakapan tidak dapat dihapus"
+		"delete_error": "Percakapan tidak dapat dihapus",
+		"restore_error": "Percakapan tidak dapat dipulihkan",
+		"loading": "Memuat percakapan",
+		"loading_more": "Memuat...",
+		"load_more": "Muat lainnya",
+		"deleted": "Percakapan dihapus",
+		"undo": "Urungkan",
+		"search": "Cari percakapan",
+		"search_placeholder": "Cari riwayat",
+		"no_results": "Percakapan tidak ditemukan"
 	},
 	"chat": {
 		"product_name": "Carbonio AI",

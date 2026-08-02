@@ -2,6 +2,32 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Soft-delete and restore endpoints for conversations.
+- Undo notification after deleting a conversation.
+- Cursor-based history pagination with a localized `Load more` control.
+- Owner-scoped conversation title search with a localized empty state.
+- Loading skeletons and pagination error states.
+- SQLite migration for `deleted_at`, `message_count`, and the paginated owner index.
+- Self-tests for owner isolation, rename, pagination, summary privacy, soft-delete,
+  and restore.
+- End-to-end request IDs from the UI through gateway responses and structured logs.
+- Structured JSON logs for HTTP requests, provider calls, mailbox tools, and SOAP calls.
+- Bounded provider and SOAP timeouts.
+- Provider retry for HTTP `429`, `502`, `503`, and network errors with exponential
+  backoff and jitter.
+- Reliability self-tests for retry and timeout behavior.
+
+### Changed
+
+- Conversation rename now uses the dedicated `PATCH` endpoint.
+- Conversation list responses contain metadata only; full message bodies are loaded
+  only when a conversation is opened.
+- Email search no longer requests full message content when only list metadata is needed.
+
 ## [0.0.2] - 2026-07-31
 
 ### Added

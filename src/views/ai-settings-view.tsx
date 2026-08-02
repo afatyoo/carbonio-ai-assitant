@@ -2,7 +2,7 @@ import React, { FormEvent, useEffect, useState } from 'react';
 
 import styled from '@emotion/styled';
 
-import { parseJsonResponse } from '../api/response';
+import { apiFetch, parseJsonResponse } from '../api/response';
 import { useAppTranslation } from '../i18n/use-app-translation';
 
 type PublicConfig = {
@@ -145,7 +145,7 @@ export const AiSettingsView = (): React.JSX.Element => {
 	const [saving, setSaving] = useState(false);
 
 	useEffect(() => {
-		fetch('/api/ai/config')
+		apiFetch('/api/ai/config')
 			.then((response) => parseJsonResponse<PublicConfig>(response))
 			.then((config) => {
 				setProvider((config.provider as keyof typeof providers) || 'custom');
@@ -170,7 +170,7 @@ export const AiSettingsView = (): React.JSX.Element => {
 		setError(false);
 		setStatus(t('settings.saving', 'Saving...'));
 		try {
-			const response = await fetch('/api/ai/config', {
+			const response = await apiFetch('/api/ai/config', {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({

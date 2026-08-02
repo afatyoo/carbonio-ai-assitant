@@ -3,7 +3,7 @@ import React, { FormEvent, useEffect, useState } from 'react';
 import styled from '@emotion/styled';
 import { Button } from '@zextras/carbonio-design-system';
 
-import { parseJsonResponse } from '../api/response';
+import { apiFetch, parseJsonResponse } from '../api/response';
 import { RobotMark } from '../components/robot-icon';
 import {
 	ChatMessage,
@@ -192,6 +192,9 @@ export const AiAssistantView = (): React.JSX.Element => {
 		getConversations()
 			.then((conversations) => {
 				const latest = conversations[0];
+				return latest ? getConversation(latest.id) : null;
+			})
+			.then((latest) => {
 				if (!latest) return;
 				setActiveConversationId(latest.id);
 				setConversationTitle(latest.title);
@@ -261,7 +264,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 	}, [activeConversationId, conversationTitle, messages, selectedModel, t]);
 
 	useEffect(() => {
-		fetch('/api/ai/models')
+		apiFetch('/api/ai/models')
 			.then((response) =>
 				parseJsonResponse<{ models: ModelOption[] }>(response)
 			)
@@ -274,7 +277,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 	}, []);
 
 	useEffect(() => {
-		fetch('/api/ai/health')
+		apiFetch('/api/ai/health')
 			.then((response) => parseJsonResponse<{ mode?: string }>(response))
 			.then((data: { mode?: string }) =>
 				setAgentStatus(
@@ -304,7 +307,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 		setIsSending(true);
 
 		try {
-			const response = await fetch('/api/ai/chat', {
+			const response = await apiFetch('/api/ai/chat', {
 				method: 'POST',
 				headers: {
 					Accept: 'application/json',

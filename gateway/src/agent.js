@@ -1,5 +1,12 @@
 import { searchEmails } from './mailbox.js';
 import { getAgentConfig } from './config.js';
+import { fetchWithRetry } from './fetch-with-retry.js';
+import { logEvent } from './logger.js';
+
+const providerTimeoutMs = Math.min(
+	Math.max(Number(process.env.AI_PROVIDER_TIMEOUT_MS ?? 75_000), 5_000),
+	90_000
+);
 
 const selectTool = (message) => {
 	const value = message.toLowerCase();
@@ -84,11 +91,44 @@ const remoteAnswer = async ({ message, toolResult, requestedModel }) => {
 							context: { toolResult },
 							model
 						};
-	const response = await fetch(endpoint, {
-		method: 'POST',
-		headers,
-		body: JSON.stringify(body)
-	});
+	const startedAt = Date.now();
+	let response;
+	try {
+		response = await fetchWithRetry(
+			endpoint,
+			{
+				method: 'POST',
+				headers,
+				body: JSON.stringify(body)
+			},
+			{
+				timeoutMs: providerTimeoutMs,
+				onRetry: ({ attempt, delayMs, status, error }) =>
+					logEvent('warn', 'provider_retry', {
+						provider: config.provider,
+						model,
+						attempt,
+						delay_ms: delayMs,
+						status,
+						error
+					})
+			}
+		);
+		logEvent('info', 'provider_response', {
+			provider: config.provider,
+			model,
+			status: response.status,
+			duration_ms: Date.now() - startedAt
+		});
+	} catch (error) {
+		logEvent('error', 'provider_error', {
+			provider: config.provider,
+			model,
+			duration_ms: Date.now() - startedAt,
+			error
+		});
+		throw error;
+	}
 	if (!response.ok) {
 		const errorText = await response.text();
 		let detail = errorText.slice(0, 240);
@@ -119,13 +159,28 @@ export const runAgent = async ({ message, model, cookie, emit }) => {
 
 	if (tool) {
 		emit('tool', { name: tool.name, status: 'running' });
-		const items = await searchEmails({
-			cookie,
-			query: tool.query,
-			limit: tool.limit
-		});
-		toolResult = { name: tool.name, items };
-		emit('tool', { name: tool.name, status: 'completed', count: items.length });
+		const toolStartedAt = Date.now();
+		try {
+			const items = await searchEmails({
+				cookie,
+				query: tool.query,
+				limit: tool.limit
+			});
+			toolResult = { name: tool.name, items };
+			emit('tool', { name: tool.name, status: 'completed', count: items.length });
+			logEvent('info', 'tool_completed', {
+				tool: tool.name,
+				result_count: items.length,
+				duration_ms: Date.now() - toolStartedAt
+			});
+		} catch (error) {
+			logEvent('error', 'tool_failed', {
+				tool: tool.name,
+				duration_ms: Date.now() - toolStartedAt,
+				error
+			});
+			throw error;
+		}
 	}
 
 	const answer = config.agentUrl

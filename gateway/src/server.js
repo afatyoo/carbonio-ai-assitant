@@ -1,15 +1,20 @@
 import http from 'node:http';
+import { randomUUID } from 'node:crypto';
 
 import { runAgent } from './agent.js';
 import { getPublicAgentConfig, updateAgentConfig } from './config.js';
 import {
 	deleteConversation,
 	getConversation,
-	listConversations,
+	listConversationPage,
+	renameConversation,
+	restoreConversation,
 	saveConversation
 } from './history.js';
 import { getCurrentAccount } from './mailbox.js';
+import { logEvent } from './logger.js';
 import { listAvailableModels } from './models.js';
+import { runWithRequestContext } from './request-context.js';
 
 const port = Number(process.env.PORT ?? 8787);
 
@@ -29,7 +34,7 @@ const readJson = async (request) => {
 
 const authenticate = (request) => getCurrentAccount(request.headers.cookie ?? '');
 
-const server = http.createServer(async (request, response) => {
+const handleRequest = async (request, response) => {
 	const requestUrl = new URL(request.url, 'http://127.0.0.1');
 
 	if (request.method === 'GET' && request.url === '/api/ai/health') {
@@ -65,9 +70,34 @@ const server = http.createServer(async (request, response) => {
 	if (requestUrl.pathname === '/api/ai/conversations' && request.method === 'GET') {
 		try {
 			const account = await getCurrentAccount(request.headers.cookie ?? '');
-			sendJson(response, 200, { conversations: listConversations(account.id) });
+			const page = listConversationPage(account.id, {
+				cursor: requestUrl.searchParams.get('cursor') ?? '',
+				limit: requestUrl.searchParams.get('limit') ?? 20,
+				query: requestUrl.searchParams.get('q') ?? ''
+			});
+			sendJson(response, 200, page);
 		} catch (error) {
-			sendJson(response, 401, { error: error.message });
+			sendJson(response, error.message.includes('cursor') ? 400 : 401, {
+				error: error.message
+			});
+		}
+		return;
+	}
+
+	const restoreMatch = requestUrl.pathname.match(
+		/^\/api\/ai\/conversations\/([A-Za-z0-9_-]{1,100})\/restore$/
+	);
+	if (restoreMatch && request.method === 'POST') {
+		try {
+			const account = await getCurrentAccount(request.headers.cookie ?? '');
+			const conversation = restoreConversation(account.id, restoreMatch[1]);
+			sendJson(
+				response,
+				conversation ? 200 : 404,
+				conversation ?? { error: 'Deleted conversation not found' }
+			);
+		} catch (error) {
+			sendJson(response, 400, { error: error.message });
 		}
 		return;
 	}
@@ -93,8 +123,23 @@ const server = http.createServer(async (request, response) => {
 				sendJson(response, 200, saveConversation(account.id, { ...payload, id }));
 				return;
 			}
+			if (request.method === 'PATCH') {
+				const payload = await readJson(request);
+				const conversation = renameConversation(account.id, id, payload.title);
+				sendJson(
+					response,
+					conversation ? 200 : 404,
+					conversation ?? { error: 'Conversation not found' }
+				);
+				return;
+			}
 			if (request.method === 'DELETE') {
-				sendJson(response, deleteConversation(account.id, id) ? 204 : 404, {});
+				const conversation = deleteConversation(account.id, id);
+				sendJson(
+					response,
+					conversation ? 200 : 404,
+					conversation ?? { error: 'Conversation not found' }
+				);
 				return;
 			}
 		} catch (error) {
@@ -174,12 +219,41 @@ const server = http.createServer(async (request, response) => {
 		response.write(`event: error\ndata: ${JSON.stringify({ message: error.message })}\n\n`);
 		response.end();
 	}
+};
+
+const server = http.createServer((request, response) => {
+	const incomingRequestId = request.headers['x-request-id'];
+	const requestId =
+		typeof incomingRequestId === 'string' && /^[A-Za-z0-9._-]{8,100}$/.test(incomingRequestId)
+			? incomingRequestId
+			: randomUUID();
+	response.setHeader('x-request-id', requestId);
+	const startedAt = Date.now();
+	void runWithRequestContext({ requestId }, async () => {
+		response.once('finish', () => {
+			logEvent('info', 'http_request', {
+				method: request.method,
+				path: new URL(request.url, 'http://127.0.0.1').pathname,
+				status: response.statusCode,
+				duration_ms: Date.now() - startedAt
+			});
+		});
+		try {
+			await handleRequest(request, response);
+		} catch (error) {
+			logEvent('error', 'unhandled_request_error', { error });
+			if (!response.headersSent) {
+				sendJson(response, 500, { error: 'Internal gateway error' });
+			} else if (!response.writableEnded) {
+				response.end();
+			}
+		}
+	});
 });
 
 server.listen(port, '127.0.0.1', () => {
-	console.log(
-		`Carbonio AI Agent Gateway listening on http://127.0.0.1:${port} (${
-			getPublicAgentConfig().mode
-		})`
-	);
+	logEvent('info', 'gateway_started', {
+		address: `127.0.0.1:${port}`,
+		mode: getPublicAgentConfig().mode
+	});
 });

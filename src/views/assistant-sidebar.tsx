@@ -10,9 +10,11 @@ import {
 	NEW_CHAT_EVENT,
 	OPEN_CHAT_EVENT,
 	StoredConversation,
+	StoredConversationSummary,
 	deleteConversation,
-	getConversations,
-	renameConversation
+	getConversationPage,
+	renameConversation,
+	restoreConversation
 } from '../history/chat-history';
 import { useAppTranslation } from '../i18n/use-app-translation';
 
@@ -71,6 +73,25 @@ const HistoryLabel = styled.div`
 	font-size: 0.75rem;
 	font-weight: 700;
 	color: ${({ theme }): string => theme.palette.secondary.regular};
+`;
+
+const HistorySearch = styled.input`
+	box-sizing: border-box;
+	width: calc(100% - 0.75rem);
+	height: 2rem;
+	margin: 0 0.375rem 0.5rem;
+	border: 0.0625rem solid ${({ theme }): string => theme.palette.gray3.regular};
+	border-radius: 0.625rem;
+	padding: 0 0.625rem;
+	background: ${({ theme }): string => theme.palette.gray5.regular};
+	color: inherit;
+	font: inherit;
+	font-size: 0.8rem;
+	outline: none;
+
+	&:focus {
+		border-color: ${({ theme }): string => theme.palette.primary.regular};
+	}
 `;
 
 const HistoryList = styled.div`
@@ -159,6 +180,70 @@ const EmptyHistory = styled.p`
 	color: ${({ theme }): string => theme.palette.secondary.regular};
 `;
 
+const SkeletonRow = styled.div`
+	height: 2.5rem;
+	margin-bottom: 0.125rem;
+	border-radius: 0.75rem;
+	background: ${({ theme }): string => theme.palette.gray4.regular};
+	animation: history-pulse 1.2s ease-in-out infinite alternate;
+
+	@keyframes history-pulse {
+		from {
+			opacity: 0.45;
+		}
+		to {
+			opacity: 0.85;
+		}
+	}
+`;
+
+const LoadMore = styled.button`
+	margin: 0.5rem 0.375rem;
+	border: 0;
+	border-radius: 0.5rem;
+	padding: 0.5rem;
+	background: transparent;
+	color: ${({ theme }): string => theme.palette.primary.regular};
+	font: inherit;
+	font-size: 0.8rem;
+	cursor: pointer;
+
+	&:hover,
+	&:focus-visible {
+		background: ${({ theme }): string => theme.palette.gray4.regular};
+		outline: none;
+	}
+
+	&:disabled {
+		opacity: 0.55;
+		cursor: default;
+	}
+`;
+
+const UndoNotice = styled.div`
+	margin: 0.625rem 0.25rem 0;
+	padding: 0.625rem 0.75rem;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	border-radius: 0.625rem;
+	background: ${({ theme }): string => theme.palette.gray1.regular};
+	color: ${({ theme }): string => theme.palette.gray6.regular};
+	font-size: 0.75rem;
+`;
+
+const UndoButton = styled.button`
+	border: 0;
+	padding: 0.25rem;
+	background: transparent;
+	color: ${({ theme }): string => theme.palette.primary.regular};
+	font: inherit;
+	font-size: 0.75rem;
+	font-weight: 700;
+	cursor: pointer;
+`;
+
 const ErrorMessage = styled.p`
 	margin: 0.5rem 0.625rem 0;
 	font-size: 0.75rem;
@@ -177,26 +262,36 @@ export const AssistantSidebar = ({
 	expanded
 }: SecondaryBarComponentProps): React.JSX.Element => {
 	const { t } = useAppTranslation();
-	const [conversations, setConversations] = useState<StoredConversation[]>([]);
+	const [conversations, setConversations] = useState<StoredConversationSummary[]>([]);
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [renameValue, setRenameValue] = useState('');
 	const [busyId, setBusyId] = useState<string | null>(null);
 	const [error, setError] = useState('');
+	const [nextCursor, setNextCursor] = useState<string | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [loadingMore, setLoadingMore] = useState(false);
+	const [deletedNotice, setDeletedNotice] = useState<StoredConversation | null>(null);
+	const [searchInput, setSearchInput] = useState('');
+	const [searchQuery, setSearchQuery] = useState('');
 
 	const refresh = useCallback((): void => {
-		void getConversations()
-			.then((items) => {
-				setConversations(items);
-				setActiveId((current) => current ?? items[0]?.id ?? null);
+		setLoading(true);
+		void getConversationPage('', 20, searchQuery)
+			.then((page) => {
+				setConversations(page.conversations);
+				setNextCursor(page.nextCursor);
+				setActiveId((current) => current ?? page.conversations[0]?.id ?? null);
 				setError('');
 			})
 			.catch(() => {
 				setConversations([]);
+				setNextCursor(null);
 				setError(t('sidebar.load_error', 'Unable to load conversation history'));
-			});
-	}, [t]);
+			})
+			.finally(() => setLoading(false));
+	}, [searchQuery, t]);
 
 	useEffect(() => {
 		const reset = (): void => setActiveId(null);
@@ -209,12 +304,41 @@ export const AssistantSidebar = ({
 		};
 	}, [refresh]);
 
+	useEffect(() => {
+		const timeout = window.setTimeout(() => setSearchQuery(searchInput.trim()), 250);
+		return (): void => window.clearTimeout(timeout);
+	}, [searchInput]);
+
+	useEffect(() => {
+		if (!deletedNotice) return;
+		const timeout = window.setTimeout(() => setDeletedNotice(null), 8000);
+		return (): void => window.clearTimeout(timeout);
+	}, [deletedNotice]);
+
+	const loadMore = async (): Promise<void> => {
+		if (!nextCursor || loadingMore) return;
+		setLoadingMore(true);
+		try {
+			const page = await getConversationPage(nextCursor, 20, searchQuery);
+			setConversations((current) => {
+				const known = new Set(current.map(({ id }) => id));
+				return [...current, ...page.conversations.filter(({ id }) => !known.has(id))];
+			});
+			setNextCursor(page.nextCursor);
+			setError('');
+		} catch {
+			setError(t('sidebar.load_more_error', 'Unable to load more conversations'));
+		} finally {
+			setLoadingMore(false);
+		}
+	};
+
 	const openConversation = (id: string): void => {
 		setActiveId(id);
 		window.dispatchEvent(new CustomEvent(OPEN_CHAT_EVENT, { detail: id }));
 	};
 
-	const startRename = (conversation: StoredConversation): void => {
+	const startRename = (conversation: StoredConversationSummary): void => {
 		setEditingId(conversation.id);
 		setRenameValue(conversation.title);
 		setMenuOpenId(null);
@@ -226,7 +350,7 @@ export const AssistantSidebar = ({
 		setRenameValue('');
 	};
 
-	const commitRename = async (conversation: StoredConversation): Promise<void> => {
+	const commitRename = async (conversation: StoredConversationSummary): Promise<void> => {
 		const title = renameValue.trim();
 		if (!title || title === conversation.title) {
 			cancelRename();
@@ -248,7 +372,7 @@ export const AssistantSidebar = ({
 		}
 	};
 
-	const removeConversation = async (conversation: StoredConversation): Promise<void> => {
+	const removeConversation = async (conversation: StoredConversationSummary): Promise<void> => {
 		const confirmed = window.confirm(
 			t('sidebar.delete_confirm', 'Delete "{{title}}"? This action cannot be undone.', {
 				title: conversation.title
@@ -258,8 +382,9 @@ export const AssistantSidebar = ({
 		setMenuOpenId(null);
 		setBusyId(conversation.id);
 		try {
-			await deleteConversation(conversation.id);
+			const deleted = await deleteConversation(conversation.id);
 			setConversations((current) => current.filter((item) => item.id !== conversation.id));
+			setDeletedNotice(deleted);
 			if (activeId === conversation.id) {
 				setActiveId(null);
 				window.dispatchEvent(new Event(NEW_CHAT_EVENT));
@@ -272,9 +397,25 @@ export const AssistantSidebar = ({
 		}
 	};
 
+	const undoDelete = async (): Promise<void> => {
+		if (!deletedNotice) return;
+		const conversation = deletedNotice;
+		setBusyId(conversation.id);
+		try {
+			await restoreConversation(conversation.id);
+			setDeletedNotice(null);
+			refresh();
+			setError('');
+		} catch {
+			setError(t('sidebar.restore_error', 'Unable to restore the conversation'));
+		} finally {
+			setBusyId(null);
+		}
+	};
+
 	const onRenameKeyDown = (
 		event: KeyboardEvent<HTMLInputElement>,
-		conversation: StoredConversation
+		conversation: StoredConversationSummary
 	): void => {
 		if (event.key === 'Enter') {
 			event.preventDefault();
@@ -310,8 +451,25 @@ export const AssistantSidebar = ({
 			</NewChat>
 			<HistorySection>
 				<HistoryLabel>{t('sidebar.recent', 'Recent')}</HistoryLabel>
-				{conversations.length === 0 ? (
-					<EmptyHistory>{t('sidebar.empty', 'Your conversations will appear here')}</EmptyHistory>
+				<HistorySearch
+					type="search"
+					aria-label={t('sidebar.search', 'Search conversations')}
+					placeholder={t('sidebar.search_placeholder', 'Search history')}
+					value={searchInput}
+					onChange={(event): void => setSearchInput(event.target.value)}
+				/>
+				{loading ? (
+					<HistoryList aria-label={t('sidebar.loading', 'Loading conversations')}>
+						<SkeletonRow />
+						<SkeletonRow />
+						<SkeletonRow />
+					</HistoryList>
+				) : conversations.length === 0 ? (
+					<EmptyHistory>
+						{searchQuery
+							? t('sidebar.no_results', 'No conversations found')
+							: t('sidebar.empty', 'Your conversations will appear here')}
+					</EmptyHistory>
 				) : (
 					<HistoryList>
 						{conversations.map((conversation) => {
@@ -387,9 +545,28 @@ export const AssistantSidebar = ({
 								</HistoryRow>
 							);
 						})}
+						{nextCursor && (
+							<LoadMore
+								type="button"
+								disabled={loadingMore}
+								onClick={(): void => void loadMore()}
+							>
+								{loadingMore
+									? t('sidebar.loading_more', 'Loading...')
+									: t('sidebar.load_more', 'Load more')}
+							</LoadMore>
+						)}
 					</HistoryList>
 				)}
 				{error && <ErrorMessage role="alert">{error}</ErrorMessage>}
+				{deletedNotice && (
+					<UndoNotice role="status">
+						<span>{t('sidebar.deleted', 'Conversation deleted')}</span>
+						<UndoButton type="button" onClick={(): void => void undoDelete()}>
+							{t('sidebar.undo', 'Undo')}
+						</UndoButton>
+					</UndoNotice>
+				)}
 			</HistorySection>
 		</Sidebar>
 	);

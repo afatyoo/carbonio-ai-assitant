@@ -10,10 +10,20 @@
 		"rename": "Rename",
 		"delete": "Delete",
 		"rename_prompt": "Rename conversation",
-		"delete_confirm": "Delete \"{{title}}\"? This action cannot be undone.",
+		"delete_confirm": "Delete \"{{title}}\"?",
 		"load_error": "Unable to load conversation history",
+		"load_more_error": "Unable to load more conversations",
 		"rename_error": "Unable to rename the conversation",
-		"delete_error": "Unable to delete the conversation"
+		"delete_error": "Unable to delete the conversation",
+		"restore_error": "Unable to restore the conversation",
+		"loading": "Loading conversations",
+		"loading_more": "Loading...",
+		"load_more": "Load more",
+		"deleted": "Conversation deleted",
+		"undo": "Undo",
+		"search": "Search conversations",
+		"search_placeholder": "Search history",
+		"no_results": "No conversations found"
 	},
 	"chat": {
 		"product_name": "Carbonio AI",
