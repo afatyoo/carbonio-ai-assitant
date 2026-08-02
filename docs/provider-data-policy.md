@@ -30,6 +30,8 @@ Operational requirements:
 - Use a dedicated organization/API key with its own budget and guardrail.
 - Do not disable `AI_OPENROUTER_DENY_DATA_COLLECTION` or `AI_OPENROUTER_ZDR`
   without a documented privacy review.
+- Production mode locks both routing controls to `data_collection: "deny"` and
+  `zdr: true`; environment overrides can relax them only outside production.
 - The free router is suitable for functional testing, not for an SLA-backed rollout.
   Move production users to an explicitly selected approved model/provider or a
   self-hosted OpenAI-compatible endpoint.

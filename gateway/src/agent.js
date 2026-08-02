@@ -239,10 +239,13 @@ const remoteCompletion = async ({
 								? {
 										provider: {
 											data_collection:
+												process.env.NODE_ENV !== 'production' &&
 												process.env.AI_OPENROUTER_DENY_DATA_COLLECTION === 'false'
 													? 'allow'
 													: 'deny',
-											zdr: process.env.AI_OPENROUTER_ZDR !== 'false'
+											zdr:
+												process.env.NODE_ENV === 'production' ||
+												process.env.AI_OPENROUTER_ZDR !== 'false'
 										}
 									}
 								: {}),

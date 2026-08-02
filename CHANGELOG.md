@@ -2,6 +2,15 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [0.0.3-rc.15] - 2026-08-02
+
+### Security
+
+- OpenRouter production requests now enforce Zero Data Retention and deny provider
+  data collection even if an environment override is accidentally set to disable them.
+- An integration regression test captures the real outbound provider request and guards
+  the production privacy routing contract.
+
 ## [0.0.3-rc.14] - 2026-08-02
 
 ### Fixed
@@ -248,6 +257,7 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 [0.0.3-rc.12]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.12
 [0.0.3-rc.13]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.13
 [0.0.3-rc.14]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.14
+[0.0.3-rc.15]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.15
 [0.0.3-rc.3]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.3
 [0.0.3-rc.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.2
 [0.0.3-rc.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.1
