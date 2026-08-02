@@ -1,0 +1,62 @@
+name: Deploy approved environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub environment with approval and SSH secrets
+        required: true
+        type: choice
+        options: [staging, production]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: carbonio-ai-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.22.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile
+      - run: npm --prefix gateway ci --omit=dev --ignore-scripts
+      - run: pnpm run lint
+      - run: pnpm run type-check
+      - run: npm --prefix gateway run check
+      - run: pnpm run package:release
+      - name: Configure deployment SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          install -m 0700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 0600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${DEPLOY_PORT:-22}" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+      - name: Backup, deploy, and verify
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          archive="carbonio-ai-assistant-v${version}.tar.gz"
+          remote="${DEPLOY_USER:-root}@${DEPLOY_HOST}"
+          ssh -p "${DEPLOY_PORT:-22}" "$remote" /opt/carbonio-ai-assistant/bin/backup-postgres.sh
+          scp -P "${DEPLOY_PORT:-22}" "release/$archive" "release/$archive.sha256" "$remote:/tmp/"
+          ssh -p "${DEPLOY_PORT:-22}" "$remote" \
+            "cd /tmp && expected=\$(cut -d' ' -f1 '$archive.sha256') && actual=\$(sha256sum '$archive' | cut -d' ' -f1) && test \"\$expected\" = \"\$actual\" && work=\$(mktemp -d /tmp/carbonio-ai-ci.XXXXXX) && tar -xzf '$archive' -C \"\$work\" && \"\$work/carbonio-ai-assistant-v${version}/install.sh\" && /opt/carbonio-ai-assistant/bin/smoke-test.sh"
+
