@@ -9,4 +9,5 @@ release/
 gateway/.runtime/
 .runtime/
 gateway/node_modules/
+.worktrees/
 *.log
