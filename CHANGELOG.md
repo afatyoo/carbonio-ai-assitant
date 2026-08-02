@@ -2,7 +2,7 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
-## [Unreleased]
+## [0.0.3-rc.4] - 2026-08-02
 
 ### Added
 
@@ -14,6 +14,19 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 - Account-, Carbonio group-, and domain-scoped model/tool allowlists with precedence,
   cached session-based group resolution, and write kill-switch enforcement.
 - Owner-scoped model preferences stored separately from administrator provider settings.
+- Safe HTML-to-plain-text email normalization and bounded attachment metadata retrieval
+  without downloading attachment content.
+- Bounded full-message and thread retrieval for email-summary requests.
+- Reliability coverage proving invalid provider credentials are not retried.
+- Conflict-aware meeting-slot proposals with up to three alternatives before the
+  confirmed Carbonio appointment mutation.
+- Encrypted systemd credential storage and in-place migration for provider API keys;
+  secrets are no longer persisted in the gateway application config.
+
+### Changed
+
+- Chat content, suggestions, model controls, and the composer now adapt to narrow
+  Carbonio panes without forcing a two-column layout.
 
 ## [0.0.3-rc.3] - 2026-08-02
 
@@ -134,6 +147,7 @@ All notable changes to Carbonio AI Assistant are documented in this file.
   mailbox tools, server-side SQLite history, and systemd-based deployment tooling.
 
 [0.0.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.2
+[0.0.3-rc.4]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.4
 [0.0.3-rc.3]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.3
 [0.0.3-rc.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.2
 [0.0.3-rc.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.1

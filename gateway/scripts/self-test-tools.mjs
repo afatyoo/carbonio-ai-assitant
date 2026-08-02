@@ -152,6 +152,7 @@ for (const toolName of [
 	'search_emails',
 	'list_unread_emails',
 	'get_email',
+	'list_attachments',
 	'get_email_thread',
 	'create_email_draft'
 ]) {
@@ -159,7 +160,47 @@ for (const toolName of [
 		throw new Error(`Missing registered mail tool: ${toolName}`);
 	}
 }
-for (const toolName of ['search_appointments', 'check_free_busy', 'create_appointment']) {
+const { normalizeMessageForAgent } = await import('../src/mailbox.js');
+const normalizedHtmlMessage = normalizeMessageForAgent(
+	{
+		id: 'html-1',
+		su: 'HTML with attachment',
+		e: [{ t: 'f', a: 'sender@example.test' }],
+		mp: [
+			{
+				body: true,
+				ct: 'text/html',
+				content: {
+					_content:
+						'<style>.hidden{display:none}</style><p>Hello &amp; welcome</p><script>steal()</script>'
+				}
+			},
+			{
+				part: '2',
+				ct: 'application/pdf',
+				filename: 'invoice.pdf',
+				s: 1234,
+				cd: 'attachment'
+			}
+		]
+	},
+	10_000
+);
+if (
+	normalizedHtmlMessage.body !== 'Hello & welcome' ||
+	normalizedHtmlMessage.sourceBodyType !== 'text/html' ||
+	normalizedHtmlMessage.attachments.length !== 1 ||
+	normalizedHtmlMessage.attachments[0].filename !== 'invoice.pdf' ||
+	'content' in normalizedHtmlMessage.attachments[0]
+) {
+	throw new Error('HTML normalization or attachment metadata boundary failed');
+}
+for (const toolName of [
+	'search_appointments',
+	'check_free_busy',
+	'propose_meeting_slots',
+	'create_appointment'
+]) {
 	if (!mailDefinitions.some(({ name }) => name === toolName)) {
 		throw new Error(`Missing registered calendar tool: ${toolName}`);
 	}
@@ -226,10 +267,30 @@ try {
 }
 if (!invalidAttendeeRejected) throw new Error('Invalid attendee address was accepted');
 const { zonedLocalToIso } = await import('../src/agent.js');
+const { findAvailableMeetingSlots } = await import('../src/calendar.js');
 if (zonedLocalToIso('2026-08-03T10:00:00', 'Asia/Jakarta') !== '2026-08-03T03:00:00.000Z') {
 	throw new Error('Appointment timezone conversion failed');
 }
+const proposedSlots = findAvailableMeetingSlots({
+	availability: [
+		{
+			address: 'guest@example.com',
+			slots: [{ start: Date.parse('2026-08-03T02:30:00.000Z'), end: Date.parse('2026-08-03T03:30:00.000Z'), status: 'busy' }]
+		}
+	],
+	start: '2026-08-03T02:00:00.000Z',
+	end: '2026-08-03T06:00:00.000Z',
+	durationMinutes: 30,
+	count: 3
+});
+if (
+	proposedSlots.length !== 3 ||
+	proposedSlots[0].start !== '2026-08-03T02:00:00.000Z' ||
+	proposedSlots[1].start !== '2026-08-03T03:30:00.000Z'
+) {
+	throw new Error('Meeting slot proposal did not exclude attendee conflicts');
+}
 
 console.log(
-	'tool_registry=ok schema_validation=ok permission=ok confirmation=ok owner_isolation=ok idempotency=ok audit=ok admin_audit=ok audit_reference=ok mail_tools=ok draft_preview=ok calendar_tools=ok appointment_preview=ok appointment_validation=ok timezone_conversion=ok'
+	'tool_registry=ok schema_validation=ok permission=ok confirmation=ok owner_isolation=ok idempotency=ok audit=ok admin_audit=ok audit_reference=ok mail_tools=ok html_safety=ok attachment_metadata=ok draft_preview=ok calendar_tools=ok meeting_slots=ok appointment_preview=ok appointment_validation=ok timezone_conversion=ok'
 );

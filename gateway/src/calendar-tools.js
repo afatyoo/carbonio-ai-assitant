@@ -1,6 +1,7 @@
 import {
 	createAppointment,
 	getFreeBusy,
+	proposeMeetingSlots,
 	searchAppointments,
 	validateAppointmentInput
 } from './calendar.js';
@@ -54,6 +55,30 @@ registerTool(
 		maxResultBytes: 64_000
 	},
 	(input, context) => getFreeBusy({ cookie: context.cookie, ...input })
+);
+
+registerTool(
+	{
+		name: 'propose_meeting_slots',
+		description: 'Propose up to five bounded meeting slots that do not overlap attendee free/busy data.',
+		inputSchema: {
+			type: 'object',
+			additionalProperties: false,
+			required: ['start', 'end'],
+			properties: {
+				attendees: { type: 'string', maxLength: 5_000 },
+				...rangeProperties,
+				durationMinutes: { type: 'integer', minimum: 15, maximum: 480 },
+				count: { type: 'integer', minimum: 1, maximum: 5 }
+			}
+		},
+		permission: 'calendar.read',
+		risk: TOOL_RISK.READ,
+		confirmation: 'none',
+		timeoutMs: 25_000,
+		maxResultBytes: 16_000
+	},
+	(input, context) => proposeMeetingSlots({ cookie: context.cookie, ...input })
 );
 
 registerTool(

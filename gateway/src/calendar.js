@@ -104,6 +104,56 @@ export const getFreeBusy = async ({ cookie, attendees, start, end }) => {
 	}));
 };
 
+export const findAvailableMeetingSlots = ({
+	availability = [],
+	start,
+	end,
+	durationMinutes = 30,
+	count = 3,
+	stepMinutes = 30
+}) => {
+	const { startMs, endMs } = parseRange(start, end, 7);
+	const durationMs = Math.min(Math.max(Number(durationMinutes) || 30, 15), 480) * 60_000;
+	const stepMs = Math.min(Math.max(Number(stepMinutes) || 30, 15), 240) * 60_000;
+	const boundedCount = Math.min(Math.max(Number(count) || 3, 1), 5);
+	const busy = availability.flatMap(({ slots = [] }) => slots).filter(({ status }) =>
+		['busy', 'tentative', 'out_of_office', 'unknown'].includes(status)
+	);
+	const results = [];
+	for (let candidate = startMs; candidate + durationMs <= endMs; candidate += stepMs) {
+		const candidateEnd = candidate + durationMs;
+		if (busy.some((slot) => Number(slot.start) < candidateEnd && Number(slot.end) > candidate)) {
+			continue;
+		}
+		results.push({
+			start: new Date(candidate).toISOString(),
+			end: new Date(candidateEnd).toISOString()
+		});
+		if (results.length >= boundedCount) break;
+	}
+	return results;
+};
+
+export const proposeMeetingSlots = async ({
+	cookie,
+	attendees = '',
+	start,
+	end,
+	durationMinutes = 30,
+	count = 3
+}) => {
+	const addresses = parseAddresses(attendees).slice(0, 50);
+	const availability =
+		addresses.length > 0 ? await getFreeBusy({ cookie, attendees, start, end }) : [];
+	return findAvailableMeetingSlots({
+		availability,
+		start,
+		end,
+		durationMinutes,
+		count
+	});
+};
+
 export const createAppointment = async ({
 	cookie,
 	organizer,

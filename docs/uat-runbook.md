@@ -22,6 +22,8 @@ Expected: `smoke_health=ok headers=ok loopback=ok admin_auth=ok csrf=ok`.
 
 ## Authenticated Webmail checks
 
+- Use the support contract in `docs/browser-support.md`; cover Chrome and Firefox at
+  desktop and narrow widths before stable promotion.
 - Log in, log out, and log in again with each pilot account.
 - Confirm the robot button and AI view load in both supported themes.
 - Confirm a non-admin cannot edit provider/API-key settings.

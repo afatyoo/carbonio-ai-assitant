@@ -63,6 +63,22 @@ journalctl -u carbonio-ai-gateway -f
 
 The service listens only on `127.0.0.1:8787`.
 
+## Encrypted provider credential
+
+Store or rotate the provider API key as a systemd encrypted credential. The clear-text
+key is not persisted by the gateway settings file:
+
+```bash
+sudo /opt/carbonio-ai-assistant/bin/set-api-key.sh
+```
+
+For an existing installation whose key is still in `gateway.env`, migrate it without
+printing the key and remove the old environment entry:
+
+```bash
+sudo /opt/carbonio-ai-assistant/bin/set-api-key.sh --migrate-env
+```
+
 ## Uninstall
 
 Interactive uninstall that preserves history and saved configuration:

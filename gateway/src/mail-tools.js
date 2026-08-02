@@ -1,4 +1,10 @@
-import { createEmailDraft, getEmail, getEmailThread, searchEmails } from './mailbox.js';
+import {
+	createEmailDraft,
+	getEmail,
+	getEmailAttachments,
+	getEmailThread,
+	searchEmails
+} from './mailbox.js';
 import { registerTool, TOOL_RISK } from './tool-registry.js';
 
 const searchSchema = {
@@ -45,6 +51,27 @@ registerTool(
 		maxResultBytes: 48_000
 	},
 	(input, context) => getEmail({ cookie: context.cookie, ...input })
+);
+
+registerTool(
+	{
+		name: 'list_attachments',
+		description: 'List bounded attachment metadata without downloading attachment content.',
+		inputSchema: {
+			type: 'object',
+			additionalProperties: false,
+			required: ['id'],
+			properties: {
+				id: { type: 'string', minLength: 1, maxLength: 100 }
+			}
+		},
+		permission: 'mail.read',
+		risk: TOOL_RISK.READ,
+		confirmation: 'none',
+		timeoutMs: 25_000,
+		maxResultBytes: 32_000
+	},
+	(input, context) => getEmailAttachments({ cookie: context.cookie, ...input })
 );
 
 registerTool(

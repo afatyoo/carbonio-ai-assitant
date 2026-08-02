@@ -45,6 +45,7 @@ type PendingConfirmation = {
 		timezone?: string;
 		calendar?: string;
 		reminder?: string;
+		proposedSlots?: Array<{ start: string; end: string }>;
 	};
 };
 
@@ -64,12 +65,19 @@ const Conversation = styled.main`
 `;
 
 const Header = styled.header`
-	height: 4rem;
+	min-height: 4rem;
 	padding: 0 1.5rem;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	border-bottom: 0.0625rem solid ${({ theme }): string => theme.palette.gray3.regular};
+
+	@media (max-width: 48rem) {
+		align-items: flex-start;
+		flex-direction: column;
+		gap: 0.5rem;
+		padding: 0.75rem 1rem;
+	}
 `;
 
 const Status = styled.span`
@@ -84,9 +92,16 @@ const HeaderActions = styled.div`
 	display: flex;
 	align-items: center;
 	gap: 0.75rem;
+	max-width: 100%;
+
+	@media (max-width: 48rem) {
+		width: 100%;
+		justify-content: space-between;
+	}
 `;
 
 const ModelSelect = styled.select`
+	min-width: 0;
 	max-width: 16rem;
 	padding: 0.45rem 2rem 0.45rem 0.7rem;
 	border: 0.0625rem solid ${({ theme }): string => theme.palette.gray3.regular};
@@ -101,6 +116,10 @@ const Messages = styled.div`
 	flex: 1;
 	overflow: auto;
 	padding: 2rem max(1.5rem, calc((100% - 48rem) / 2));
+
+	@media (max-width: 48rem) {
+		padding: 1.25rem 1rem;
+	}
 `;
 
 const Empty = styled.div`
@@ -126,6 +145,10 @@ const Suggestions = styled.div`
 	grid-template-columns: repeat(2, minmax(12rem, 1fr));
 	gap: 0.75rem;
 	margin-top: 2rem;
+
+	@media (max-width: 38rem) {
+		grid-template-columns: minmax(0, 1fr);
+	}
 `;
 
 const Suggestion = styled.button`
@@ -153,6 +176,10 @@ const Bubble = styled.div<{ role: 'assistant' | 'user' }>`
 		role === 'user' ? theme.palette.primary.regular : theme.palette.gray4.regular};
 	color: ${({ role, theme }): string =>
 		role === 'user' ? theme.palette.gray6.regular : theme.palette.text.regular};
+
+	@media (max-width: 38rem) {
+		max-width: 95%;
+	}
 `;
 
 const ProcessMarker = styled.div`
@@ -265,6 +292,10 @@ const Composer = styled.form`
 	border-radius: 1rem;
 	background: ${({ theme }): string => theme.palette.gray6.regular};
 	box-shadow: 0 0.5rem 2rem rgb(0 0 0 / 8%);
+
+	@media (max-width: 48rem) {
+		margin: 0 1rem 1rem;
+	}
 `;
 
 const Input = styled.textarea`
@@ -325,9 +356,12 @@ export const AiAssistantView = (): React.JSX.Element => {
 			case 'get_email':
 			case 'get_email_thread':
 				return t('status.reading_email', 'Reading email content...');
+			case 'list_attachments':
+				return t('status.reading_attachments', 'Reading attachment metadata...');
 			case 'search_appointments':
 				return t('status.reading_calendar', 'Reading calendar...');
 			case 'check_free_busy':
+			case 'propose_meeting_slots':
 				return t('status.checking_availability', 'Checking availability...');
 			default:
 				return t('status.running_tool', 'Running Carbonio tool...');
@@ -730,6 +764,21 @@ export const AiAssistantView = (): React.JSX.Element => {
 											? new Date(pendingConfirmation.preview.end).toLocaleString(locale)
 											: '-'}
 									</DraftField>
+									{pendingConfirmation.preview.proposedSlots &&
+										pendingConfirmation.preview.proposedSlots.length > 1 && (
+											<DraftField>
+												<span>{t('chat.alternative_slots', 'Available alternatives')}</span>
+												{pendingConfirmation.preview.proposedSlots
+													.slice(1)
+													.map(
+														(slot) =>
+															`${new Date(slot.start).toLocaleString(locale)} – ${new Date(
+																slot.end
+															).toLocaleTimeString(locale)}`
+													)
+													.join('\n')}
+											</DraftField>
+										)}
 									<DraftField>
 										<span>{t('chat.attendees', 'Attendees')}</span>
 										{pendingConfirmation.preview.attendees || t('chat.no_attendees', 'None')}

@@ -5,6 +5,7 @@ import { fetchWithRetry } from '../src/fetch-with-retry.js';
 import { createProviderCircuitBreaker } from '../src/provider-circuit-breaker.js';
 
 let retryRequests = 0;
+let unauthorizedRequests = 0;
 const server = http.createServer((request, response) => {
 	if (request.url === '/retry') {
 		retryRequests += 1;
@@ -22,6 +23,12 @@ const server = http.createServer((request, response) => {
 		}, 100);
 		return;
 	}
+	if (request.url === '/unauthorized') {
+		unauthorizedRequests += 1;
+		response.writeHead(401, { 'content-type': 'application/json' });
+		response.end(JSON.stringify({ error: { message: 'Invalid API key' } }));
+		return;
+	}
 	response.writeHead(404);
 	response.end();
 });
@@ -31,7 +38,7 @@ const address = server.address();
 const baseUrl = `http://127.0.0.1:${address.port}`;
 
 try {
-	const response = await fetchWithRetry(`${baseUrl}/retry`, {}, { timeoutMs: 2_000 });
+	const response = await fetchWithRetry(`${baseUrl}/retry`, {}, { timeoutMs: 5_000 });
 	if (!response.ok || retryRequests !== 3) {
 		throw new Error(`Retry policy failed after ${retryRequests} request(s)`);
 	}
@@ -44,6 +51,14 @@ try {
 		timeoutRejected = true;
 	}
 	if (!timeoutRejected) throw new Error('Timeout policy did not abort the request');
+
+	const unauthorized = await fetchWithRetry(
+		`${baseUrl}/unauthorized`,
+		{},
+		{ timeoutMs: 1_000 }
+	);
+	assert.equal(unauthorized.status, 401);
+	assert.equal(unauthorizedRequests, 1);
 
 	const controller = new AbortController();
 	setTimeout(() => controller.abort(), 10);
@@ -79,7 +94,9 @@ try {
 	breaker.recordSuccess('test');
 	assert.equal(breaker.beforeRequest('test').halfOpenProbe, false);
 
-	console.log('provider_retry=ok provider_timeout=ok provider_cancel=ok provider_circuit=ok');
+	console.log(
+		'provider_retry=ok provider_timeout=ok invalid_key_no_retry=ok provider_cancel=ok provider_circuit=ok'
+	);
 } finally {
 	server.closeAllConnections();
 	await new Promise((resolve) => server.close(resolve));

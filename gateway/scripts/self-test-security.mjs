@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
+const originalWorkingDirectory = process.cwd();
+const testWorkingDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'carbonio-ai-security-'));
+process.chdir(testWorkingDirectory);
 
 process.env.AI_ADMIN_ACCOUNTS = 'admin@example.test,account-admin-id';
 process.env.AI_ALLOWED_ORIGINS = 'https://trusted.example.test';
@@ -29,7 +35,9 @@ const {
 	getToolPermissions,
 	requireAdminAccount
 } = await import('../src/security.js');
-const { assertModelAllowed, getModelAllowlist } = await import('../src/config.js');
+const { assertModelAllowed, getModelAllowlist, updateAgentConfig } = await import(
+	'../src/config.js'
+);
 const { closeHistoryDatabase, purgeDailyUsage } = await import('../src/history.js');
 const { redactSensitiveText } = await import('../src/redaction.js');
 const { sanitizeModelOutput } = await import('../src/output-safety.js');
@@ -110,6 +118,16 @@ assert.equal(
 	'special-model'
 );
 assert.throws(() => assertModelAllowed('blocked-model'), /not allowed/);
+const publicConfig = updateAgentConfig({
+	provider: 'openrouter',
+	model: 'allowed-model',
+	apiKey: 'must-not-be-persisted'
+});
+assert.equal(publicConfig.hasApiKey, true);
+const savedConfig = JSON.parse(
+	fs.readFileSync(path.join(testWorkingDirectory, '.runtime', 'config.json'), 'utf8')
+);
+assert.equal(Object.hasOwn(savedConfig, 'apiKey'), false);
 assert.equal(
 	redactSensitiveText('Authorization: Bearer abcdefghijklmnop password=hunter123'),
 	'Authorization: Bearer [REDACTED] password=[REDACTED]'
@@ -122,5 +140,7 @@ if (fs.existsSync(assistantViewPath)) {
 	assert.match(assistantView, /\{message\.text\}/);
 }
 
-console.log('admin_auth=ok account_policy=ok group_policy=ok tool_policy=ok csrf=ok quota=ok model_allowlist=ok redaction=ok safe_rendering=ok');
+console.log('admin_auth=ok account_policy=ok group_policy=ok tool_policy=ok csrf=ok quota=ok model_allowlist=ok credential_persistence=ok redaction=ok safe_rendering=ok');
 await closeHistoryDatabase();
+process.chdir(originalWorkingDirectory);
+fs.rmSync(testWorkingDirectory, { recursive: true, force: true });

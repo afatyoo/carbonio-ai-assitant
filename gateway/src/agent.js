@@ -49,6 +49,13 @@ const isMeetingActionRequest = (message) =>
 		message
 	);
 
+const isAttachmentRequest = (message) => /(attachment|attached file|lampiran|file terlampir)/i.test(message);
+const isSummaryRequest = (message) =>
+	/(summari[sz]e|summary|ringkas|rangkuman|action items?|tindakan|people and dates|orang dan tanggal)/i.test(
+		message
+	);
+const isThreadRequest = (message) => /(thread|conversation|percakapan|utas)/i.test(message);
+
 const selectTool = (message) => {
 	const value = message.toLowerCase();
 	if (value.includes('belum dibaca') || value.includes('unread')) {
@@ -482,25 +489,36 @@ const prepareMeeting = async ({ message, model, cookie, account, permissions, em
 		location: String(generated.location ?? '').trim().slice(0, 500),
 		body: String(generated.body ?? '').trim().slice(0, 20_000)
 	};
-	let conflicts = 0;
-	if (explicitAttendees.length > 0) {
-		emit('tool', { name: 'check_free_busy', status: 'running' });
-		const availability = await executeTool({
-			name: 'check_free_busy',
-			input: {
-				attendees: appointmentInput.attendees,
-				start: appointmentInput.start,
-				end: appointmentInput.end
-			},
-			context: { ownerId: account.id, cookie, permissions }
-		});
-		conflicts = availability.result.filter(({ slots }) => slots.length > 0).length;
-		emit('tool', {
-			name: 'check_free_busy',
-			status: 'completed',
-			count: availability.result.length
-		});
+	const durationMinutes = Math.max(
+		15,
+		Math.round((Date.parse(appointmentInput.end) - Date.parse(appointmentInput.start)) / 60_000)
+	);
+	const proposalEnd = new Date(
+		Date.parse(appointmentInput.start) + Math.max(durationMinutes * 4, 8 * 60) * 60_000
+	).toISOString();
+	emit('tool', { name: 'propose_meeting_slots', status: 'running' });
+	const proposal = await executeTool({
+		name: 'propose_meeting_slots',
+		input: {
+			attendees: appointmentInput.attendees,
+			start: appointmentInput.start,
+			end: proposalEnd,
+			durationMinutes,
+			count: 3
+		},
+		context: { ownerId: account.id, cookie, permissions }
+	});
+	const proposedSlots = proposal.result;
+	emit('tool', {
+		name: 'propose_meeting_slots',
+		status: 'completed',
+		count: proposedSlots.length
+	});
+	if (proposedSlots.length === 0) {
+		throw new Error('No available meeting slot was found in the next eight hours');
 	}
+	appointmentInput.start = proposedSlots[0].start;
+	appointmentInput.end = proposedSlots[0].end;
 	const pending = await executeTool({
 		name: 'create_appointment',
 		input: appointmentInput,
@@ -515,15 +533,15 @@ const prepareMeeting = async ({ message, model, cookie, account, permissions, em
 		tool: 'create_appointment',
 		token: pending.confirmation.token,
 		expiresAt: pending.confirmation.expiresAt,
-		preview: { ...pending.confirmation.preview, conflicts },
+		preview: { ...pending.confirmation.preview, conflicts: 0, proposedSlots },
 		input: appointmentInput,
 		idempotencyKey: randomUUID()
 	});
 	const english = /\b(schedule|meeting|appointment|calendar)\b/i.test(message) &&
 		!/(buat|jadwal|rapat|kalender)/i.test(message);
 	return english
-		? `I prepared the appointment${conflicts ? `; ${conflicts} attendee(s) have a conflicting slot` : ''}. Review it before confirming; confirmation can send invitations.`
-		: `Jadwal sudah disiapkan${conflicts ? `; ${conflicts} peserta memiliki jadwal yang bentrok` : ''}. Periksa sebelum konfirmasi karena konfirmasi dapat mengirim undangan.`;
+		? `I found ${proposedSlots.length} available slot(s) and prepared the earliest one. Review the alternatives before confirming; confirmation can send invitations.`
+		: `Saya menemukan ${proposedSlots.length} slot yang tersedia dan menyiapkan slot paling awal. Periksa alternatifnya sebelum konfirmasi karena konfirmasi dapat mengirim undangan.`;
 };
 
 export const runAgent = async ({ message, model, cookie, account, permissions = [], emit, signal }) => {
@@ -581,7 +599,71 @@ export const runAgent = async ({ message, model, cookie, account, permissions = 
 	const tool = isDocumentationOnlyQuery(message) ? null : selectTool(message);
 	let toolResult = null;
 
-	if (tool) {
+	if (!isDocumentationOnlyQuery(message) && isAttachmentRequest(message)) {
+		emit('tool', { name: 'search_emails', status: 'running' });
+		const search = await executeTool({
+			name: 'search_emails',
+			input: { query: 'in:inbox has:attachment', limit: 1 },
+			context: { ownerId: account.id, cookie, permissions }
+		});
+		const latest = search.result?.[0] ?? null;
+		emit('tool', { name: 'search_emails', status: 'completed', count: latest ? 1 : 0 });
+		let attachments = [];
+		if (latest) {
+			emit('tool', { name: 'list_attachments', status: 'running' });
+			const listed = await executeTool({
+				name: 'list_attachments',
+				input: { id: String(latest.id) },
+				context: { ownerId: account.id, cookie, permissions }
+			});
+			attachments = listed.result;
+			emit('tool', {
+				name: 'list_attachments',
+				status: 'completed',
+				count: attachments.length
+			});
+		}
+		toolResult = {
+			name: 'list_attachments',
+			message: latest
+				? { id: latest.id, subject: latest.subject, from: latest.from, timestamp: latest.timestamp }
+				: null,
+			items: attachments
+		};
+	} else if (!isDocumentationOnlyQuery(message) && isSummaryRequest(message)) {
+		const unreadOnly = /(unread|belum dibaca)/i.test(message);
+		emit('tool', { name: 'search_emails', status: 'running' });
+		const search = await executeTool({
+			name: 'search_emails',
+			input: { query: unreadOnly ? 'is:unread' : 'in:inbox', limit: isThreadRequest(message) ? 1 : 5 },
+			context: { ownerId: account.id, cookie, permissions }
+		});
+		const matches = search.result ?? [];
+		emit('tool', { name: 'search_emails', status: 'completed', count: matches.length });
+		if (isThreadRequest(message) && matches[0]?.conversationId) {
+			emit('tool', { name: 'get_email_thread', status: 'running' });
+			const read = await executeTool({
+				name: 'get_email_thread',
+				input: { conversationId: String(matches[0].conversationId), maxBodyLength: 8_000 },
+				context: { ownerId: account.id, cookie, permissions }
+			});
+			toolResult = { name: 'get_email_thread', items: [read.result] };
+			emit('tool', { name: 'get_email_thread', status: 'completed', count: read.result.messages.length });
+		} else {
+			emit('tool', { name: 'get_email', status: 'running' });
+			const detailed = [];
+			for (const item of matches.slice(0, 5)) {
+				const read = await executeTool({
+					name: 'get_email',
+					input: { id: String(item.id), maxBodyLength: 4_000 },
+					context: { ownerId: account.id, cookie, permissions }
+				});
+				detailed.push(read.result);
+			}
+			toolResult = { name: 'summarize_emails', items: detailed };
+			emit('tool', { name: 'get_email', status: 'completed', count: detailed.length });
+		}
+	} else if (tool) {
 		emit('tool', { name: tool.name, status: 'running' });
 		const execution = await executeTool({
 			name: tool.name,

@@ -67,6 +67,8 @@ install -o root -g root -m 0755 \
 	"$release_dir/rollback.sh" "$app_bin/rollback.sh"
 install -o root -g root -m 0755 \
 	"$release_dir/smoke-test.sh" "$app_bin/smoke-test.sh"
+install -o root -g root -m 0755 \
+	"$release_dir/set-api-key.sh" "$app_bin/set-api-key.sh"
 
 if ! getent passwd carbonio-ai >/dev/null; then
 	useradd --system \

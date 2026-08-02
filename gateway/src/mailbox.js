@@ -145,9 +145,56 @@ const collectBodyParts = (part, results = []) => {
 	return results;
 };
 
-const normalizeMessage = (message, maxBodyLength = 12_000) => {
+const decodeHtmlEntities = (value) =>
+	String(value)
+		.replace(/&nbsp;/gi, ' ')
+		.replace(/&amp;/gi, '&')
+		.replace(/&lt;/gi, '<')
+		.replace(/&gt;/gi, '>')
+		.replace(/&quot;/gi, '"')
+		.replace(/&#39;|&apos;/gi, "'")
+		.replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Math.min(Number(code), 0x10ffff)));
+
+export const htmlToPlainText = (value) =>
+	decodeHtmlEntities(
+		String(value ?? '')
+			.replace(/<(script|style|template|svg|iframe)[\s\S]*?<\/\1\s*>/gi, ' ')
+			.replace(/<br\s*\/?>/gi, '\n')
+			.replace(/<\/p\s*>|<\/div\s*>|<\/li\s*>|<\/tr\s*>/gi, '\n')
+			.replace(/<[^>]*>/g, ' ')
+	)
+		.replace(/[\t\f\v ]+/g, ' ')
+		.replace(/ *\n */g, '\n')
+		.replace(/\n{3,}/g, '\n\n')
+		.trim();
+
+const collectAttachments = (part, results = []) => {
+	if (!part || typeof part !== 'object') return results;
+	if (Array.isArray(part)) {
+		for (const child of part) collectAttachments(child, results);
+		return results;
+	}
+	const filename = String(part.filename ?? '').trim();
+	const disposition = String(part.cd ?? '').toLowerCase();
+	if (filename || disposition === 'attachment') {
+		results.push({
+			part: String(part.part ?? '').slice(0, 100),
+			filename: filename.slice(0, 500) || 'attachment',
+			contentType: String(part.ct ?? 'application/octet-stream').slice(0, 200),
+			size: Math.max(Number(part.s ?? 0) || 0, 0),
+			disposition: disposition || 'attachment'
+		});
+	}
+	for (const child of part.mp ?? []) collectAttachments(child, results);
+	return results;
+};
+
+export const normalizeMessageForAgent = (message, maxBodyLength = 12_000) => {
 	const parts = collectBodyParts(message.mp);
 	const preferred = parts.find(({ type }) => type === 'text/plain') ?? parts[0];
+	const originalBody = String(preferred?.content ?? contentValue(message.content));
+	const normalizedBody =
+		preferred?.type === 'text/html' ? htmlToPlainText(originalBody) : originalBody;
 	return {
 		...normalizeEmail(message),
 		to: (message.e ?? []).filter(({ t }) => t === 't').map(normalizeAddress),
@@ -155,9 +202,11 @@ const normalizeMessage = (message, maxBodyLength = 12_000) => {
 		fromAddress: (message.e ?? []).find(({ t }) => t === 'f')?.a ?? '',
 		messageIdHeader: String(message.mid ?? '').slice(0, 500),
 		inReplyTo: String(message.irt ?? '').slice(0, 500),
-		bodyType: preferred?.type ?? 'text/plain',
-		body: String(preferred?.content ?? contentValue(message.content)).slice(0, maxBodyLength),
-		truncated: Boolean(preferred && preferred.content.length > maxBodyLength)
+		bodyType: 'text/plain',
+		sourceBodyType: preferred?.type ?? 'text/plain',
+		body: normalizedBody.slice(0, maxBodyLength),
+		truncated: normalizedBody.length > maxBodyLength,
+		attachments: collectAttachments(message.mp).slice(0, 100)
 	};
 };
 
@@ -204,7 +253,12 @@ export const getEmail = async ({ cookie, id, maxBodyLength = 12_000 }) => {
 		cookie
 	);
 	if (!result.m?.[0] && !result.m?.id) throw new Error('Carbonio message was not found');
-	return normalizeMessage(result.m?.[0] ?? result.m, boundedLength);
+	return normalizeMessageForAgent(result.m?.[0] ?? result.m, boundedLength);
+};
+
+export const getEmailAttachments = async ({ cookie, id }) => {
+	const message = await getEmail({ cookie, id, maxBodyLength: 1_000 });
+	return message.attachments;
 };
 
 export const getEmailThread = async ({ cookie, conversationId, maxBodyLength = 8_000 }) => {
@@ -226,7 +280,7 @@ export const getEmailThread = async ({ cookie, conversationId, maxBodyLength = 8
 	const messages = [...(conversation.m ?? []), ...(conversation.chat ?? [])]
 		.sort((left, right) => Number(left.d ?? 0) - Number(right.d ?? 0))
 		.slice(-10)
-		.map((message) => normalizeMessage(message, boundedLength));
+		.map((message) => normalizeMessageForAgent(message, boundedLength));
 	return {
 		id: String(conversation.id ?? conversationId),
 		subject: String(conversation.su ?? '(No subject)').slice(0, 300),

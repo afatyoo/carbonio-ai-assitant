@@ -16,6 +16,21 @@ const loadSavedConfig = () => {
 
 const savedConfig = loadSavedConfig();
 
+const readSecretFile = (filePath) => {
+	if (!filePath) return '';
+	try {
+		return fs.readFileSync(filePath, 'utf8').trim();
+	} catch {
+		return '';
+	}
+};
+
+const credentialDirectory = process.env.CREDENTIALS_DIRECTORY;
+const credentialApiKey = readSecretFile(
+	process.env.AI_AGENT_API_KEY_FILE ??
+		(credentialDirectory ? path.join(credentialDirectory, 'carbonio-ai-agent-api-key') : '')
+);
+
 const parseAllowlist = (value) =>
 	String(value ?? '')
 		.split(',')
@@ -81,7 +96,7 @@ const runtimeConfig = {
 		savedConfig.agentUrl ??
 		PROVIDERS[initialProvider]?.endpoint ??
 		'',
-	apiKey: process.env.AI_AGENT_API_KEY ?? savedConfig.apiKey ?? '',
+	apiKey: process.env.AI_AGENT_API_KEY ?? credentialApiKey,
 	model:
 		process.env.AI_AGENT_MODEL ??
 		savedConfig.model ??
@@ -130,7 +145,8 @@ const validateCustomEndpoint = (url) => {
 
 const persistConfig = () => {
 	fs.mkdirSync(configDirectory, { recursive: true, mode: 0o700 });
-	fs.writeFileSync(configFile, JSON.stringify(runtimeConfig, null, 2), { mode: 0o600 });
+	const { apiKey: _apiKey, ...safeConfig } = runtimeConfig;
+	fs.writeFileSync(configFile, JSON.stringify(safeConfig, null, 2), { mode: 0o600 });
 	fs.chmodSync(configFile, 0o600);
 };
 
