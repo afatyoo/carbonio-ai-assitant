@@ -642,7 +642,7 @@ const prepareDraft = async ({
 const prepareLatestEmailMutation = async ({ action, cookie, account, permissions, emit }) => {
 	const explicitId = action.message.match(
 		/\b(?:email|message)\s+id\s*[:#]?\s*([A-Z0-9][A-Z0-9._:-]{0,99})/i
-	)?.[1];
+	)?.[1]?.replace(/[.!?…]+$/, '');
 	const latestRequested = isExplicitLatestMailRequest(action.message);
 	const criteria = extractMailTargetCriteria(action.message);
 	const timeZone = process.env.AI_DEFAULT_TIMEZONE ?? 'Asia/Jakarta';

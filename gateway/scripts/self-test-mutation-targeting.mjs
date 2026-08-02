@@ -211,6 +211,31 @@ await runConfirmationCase({
 });
 
 await runConfirmationCase({
+	name: 'mark-read-explicit-id-terminal-period',
+	message: 'Mark email ID 435. as read',
+	respond: (operation) => {
+		if (operation === 'GetMsg') {
+			return {
+				m: [
+					mailItem({
+						id: '435',
+						subject: 'Terminal punctuation target',
+						sender: 'sender@example.test',
+						date: '2026-08-01T02:00:00.000Z'
+					})
+				]
+			};
+		}
+		throw new Error(`Unexpected SOAP operation: ${operation}`);
+	},
+	assertConfirmation: (confirmation, requests) => {
+		assert.equal(requests.find(({ operation }) => operation === 'GetMsg')?.input.m?.id, '435');
+		assert.equal(confirmation.input.id, '435');
+		assert.equal(confirmation.preview.id, '435');
+	}
+});
+
+await runConfirmationCase({
 	name: 'move-latest',
 	message: 'Move the latest email to Trash',
 	respond: (operation) => {

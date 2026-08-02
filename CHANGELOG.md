@@ -2,6 +2,14 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [0.0.3-rc.18] - 2026-08-02
+
+### Fixed
+
+- Explicit mail IDs now discard only terminal sentence punctuation before exact Carbonio
+  `GetMsg` revalidation. Authenticated RC17 UAT reproduced `email ID 435.` being sent as
+  malformed ID `435.`; the target is now revalidated as `435` before confirmation.
+
 ## [0.0.3-rc.17] - 2026-08-02
 
 ### Security
