@@ -12,6 +12,20 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: carbonio_ai_test
+          POSTGRES_PASSWORD: carbonio_ai_test
+          POSTGRES_USER: carbonio_ai_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U carbonio_ai_test -d carbonio_ai_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v6
         with:
@@ -37,6 +51,10 @@ jobs:
         run: |
           npm --prefix gateway run check
           npm --prefix gateway run self-test
+      - name: Test PostgreSQL disconnect and reconnect
+        env:
+          AI_TEST_DATABASE_URL: postgresql://carbonio_ai_test:carbonio_ai_test@127.0.0.1:5432/carbonio_ai_test
+        run: npm --prefix gateway run self-test:postgres
       - name: Build UI
         run: pnpm run build
       - name: Dependency audit

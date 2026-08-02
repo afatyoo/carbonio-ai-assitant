@@ -2,6 +2,15 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [0.0.3-rc.16] - 2026-08-02
+
+### Fixed
+
+- PostgreSQL idle-client errors are now handled and logged without terminating the
+  gateway when the database is restarted or a network connection is interrupted.
+- Regression coverage includes secret-safe structured logging plus a real PostgreSQL
+  idle-backend termination and successful reconnect through the same pool.
+
 ## [0.0.3-rc.15] - 2026-08-02
 
 ### Security
@@ -258,6 +267,7 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 [0.0.3-rc.13]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.13
 [0.0.3-rc.14]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.14
 [0.0.3-rc.15]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.15
+[0.0.3-rc.16]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.16
 [0.0.3-rc.3]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.3
 [0.0.3-rc.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.2
 [0.0.3-rc.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.1

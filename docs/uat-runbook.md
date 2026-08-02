@@ -29,7 +29,19 @@ Expected: `smoke_health=ok headers=ok loopback=ok admin_auth=ok csrf=ok`.
 - Confirm a non-admin cannot edit provider/API-key settings.
 - Confirm an admin can see policy metrics and recent tool audit records.
 - Create, reload, rename, delete, undo, and search a conversation.
-- Restart the gateway and PostgreSQL separately; confirm history survives.
+- Restart the gateway and PostgreSQL separately; confirm history survives. Record the
+  gateway `MainPID` before restarting PostgreSQL and confirm the PID does not change.
+
+  ```bash
+  pid_before="$(systemctl show carbonio-ai-gateway.service --property MainPID --value)"
+  systemctl restart postgresql.service
+  curl -fsS --retry 15 --retry-delay 1 --retry-connrefused \
+    http://127.0.0.1:8787/api/ai/health | jq -e '.historyBackend == "postgresql"'
+  pid_after="$(systemctl show carbonio-ai-gateway.service --property MainPID --value)"
+  test "$pid_before" = "$pid_after"
+  ```
+
+  Reload the active conversation after PostgreSQL returns and confirm its messages remain.
 - Summarize unread mail and search a large mailbox with no more than bounded results.
 - Read plain-text and HTML messages; confirm remote images are not loaded by the tool.
 - Test an email with attachment metadata; content must not be uploaded automatically.

@@ -1,6 +1,7 @@
 import pg from 'pg';
 
 import { decryptHistoryText, encryptHistoryText } from './history-crypto.js';
+import { attachPostgresPoolErrorHandler } from './postgres-pool-resilience.js';
 
 const { Pool } = pg;
 const pool = new Pool({
@@ -10,6 +11,7 @@ const pool = new Pool({
 	connectionTimeoutMillis: 5_000,
 	ssl: process.env.AI_DATABASE_SSL === 'true' ? { rejectUnauthorized: true } : false
 });
+attachPostgresPoolErrorHandler(pool);
 
 await pool.query(`
 	CREATE TABLE IF NOT EXISTS schema_migrations (
