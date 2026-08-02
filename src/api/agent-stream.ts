@@ -1,4 +1,5 @@
 import { parseJsonResponse } from './response';
+import { createAgentStreamError } from './stream-error';
 
 export type AgentEvent = {
 	event: string;
@@ -71,6 +72,7 @@ export const readAgentEvents = async (
 	if (!contentType.includes('text/event-stream') || !response.body) {
 		throw new Error('AI gateway returned an invalid event stream');
 	}
+	const requestId = response.headers.get('x-request-id') ?? '';
 
 	const reader = response.body.getReader();
 	const decoder = new TextDecoder();
@@ -80,7 +82,7 @@ export const readAgentEvents = async (
 		const event = parseEventBlock(block);
 		if (!event) return;
 		if (event.event === 'error') {
-			throw new Error(event.data.message || 'AI Agent stream failed');
+			throw createAgentStreamError(event.data.message ?? '', requestId);
 		}
 		onEvent(event);
 	};

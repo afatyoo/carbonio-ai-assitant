@@ -2,6 +2,13 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [0.0.3-rc.14] - 2026-08-02
+
+### Fixed
+
+- Streaming AI errors now retain the gateway request ID so users and operators can
+  correlate failures with structured server logs during support and UAT.
+
 ## [0.0.3-rc.13] - 2026-08-02
 
 ### Security
@@ -240,6 +247,7 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 [0.0.3-rc.11]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.11
 [0.0.3-rc.12]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.12
 [0.0.3-rc.13]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.13
+[0.0.3-rc.14]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.14
 [0.0.3-rc.3]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.3
 [0.0.3-rc.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.2
 [0.0.3-rc.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.1
