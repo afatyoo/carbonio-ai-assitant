@@ -1,14 +1,19 @@
-import { getAgentConfig } from './config.js';
+import { getAgentConfig, getModelAllowlist } from './config.js';
 import { fetchWithRetry } from './fetch-with-retry.js';
 import { logEvent } from './logger.js';
 
 let cache = { key: '', expiresAt: 0, items: [] };
 
+const filterAllowed = (models) => {
+	const allowlist = getModelAllowlist();
+	return allowlist.includes('*') ? models : models.filter(({ id }) => allowlist.includes(id));
+};
+
 export const listAvailableModels = async () => {
 	const config = getAgentConfig();
 	const cacheKey = `${config.provider}:${config.agentUrl}`;
 	if (cache.key === cacheKey && Date.now() < cache.expiresAt && cache.items.length) {
-		return cache.items;
+		return filterAllowed(cache.items);
 	}
 
 	const predefined = {
@@ -31,7 +36,7 @@ export const listAvailableModels = async () => {
 		custom: [{ id: config.model, name: config.model }]
 	};
 	if (config.provider !== 'openrouter') {
-		return (predefined[config.provider] ?? predefined.custom).map((model) => ({
+		return filterAllowed(predefined[config.provider] ?? predefined.custom).map((model) => ({
 			...model,
 			free: false
 		}));
@@ -88,5 +93,5 @@ export const listAvailableModels = async () => {
 			...freeModels.filter((model) => model.id !== 'openrouter/free')
 		]
 	};
-	return cache.items;
+	return filterAllowed(cache.items);
 };

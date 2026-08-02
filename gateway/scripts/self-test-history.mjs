@@ -1,8 +1,10 @@
 import {
 	deleteConversation,
+	consumeDailyRequest,
 	getConversation,
 	listConversationPage,
 	purgeConversation,
+	purgeDailyUsage,
 	renameConversation,
 	restoreConversation,
 	saveConversation
@@ -96,11 +98,23 @@ try {
 		throw new Error('Conversation restore failed');
 	}
 
+	const usageDate = new Date().toISOString().slice(0, 10);
+	if ((await consumeDailyRequest(ownerA, usageDate, 2)) !== 1) {
+		throw new Error('Daily quota did not store the first request');
+	}
+	if ((await consumeDailyRequest(ownerA, usageDate, 2)) !== 2) {
+		throw new Error('Daily quota did not increment atomically');
+	}
+	if ((await consumeDailyRequest(ownerA, usageDate, 2)) !== null) {
+		throw new Error('Daily quota limit was not enforced');
+	}
+
 	console.log(
-		`history_backend=${process.env.AI_DATABASE_URL ? 'postgresql' : 'sqlite'} owner_isolation=ok pagination=ok search=ok summary_privacy=ok soft_delete=ok restore=ok`
+		`history_backend=${process.env.AI_DATABASE_URL ? 'postgresql' : 'sqlite'} owner_isolation=ok pagination=ok search=ok summary_privacy=ok soft_delete=ok restore=ok daily_quota=ok`
 	);
 } finally {
 	await purgeConversation(ownerA, firstId);
 	await purgeConversation(ownerA, secondId);
 	await purgeConversation(ownerB, firstId);
+	await purgeDailyUsage(ownerA);
 }

@@ -47,6 +47,11 @@ All notable changes to Carbonio AI Assistant are documented in this file.
   verified one-time SQLite migration.
 - PostgreSQL setup, backup, and guarded restore scripts with dedicated database
   credentials and installer-managed operational commands.
+- Administrator-only provider configuration, provider/model allowlists, fail-closed
+  custom endpoints, cross-site request protection, and security response headers.
+- Persistent daily account quotas, per-minute rate limiting, write-tool and global
+  kill switches, administrator metrics, and graceful database shutdown.
+- User-facing AI processing disclosure and read-only settings UI for non-admin users.
 
 ### Changed
 

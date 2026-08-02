@@ -14,6 +14,12 @@ const loadSavedConfig = () => {
 
 const savedConfig = loadSavedConfig();
 
+const parseAllowlist = (value) =>
+	String(value ?? '')
+		.split(',')
+		.map((item) => item.trim())
+		.filter(Boolean);
+
 export const PROVIDERS = {
 	openrouter: {
 		name: 'OpenRouter',
@@ -81,6 +87,43 @@ const runtimeConfig = {
 		''
 };
 
+const providerAllowlist = new Set(
+	parseAllowlist(
+		process.env.AI_PROVIDER_ALLOWLIST ?? 'openrouter,openai,anthropic,deepseek,gemini'
+	)
+);
+
+export const getModelAllowlist = () => {
+	const configured = parseAllowlist(process.env.AI_MODEL_ALLOWLIST);
+	return configured.length ? configured : [runtimeConfig.model].filter(Boolean);
+};
+
+export const assertModelAllowed = (model) => {
+	const normalized = String(model || runtimeConfig.model).trim();
+	const allowed = getModelAllowlist();
+	if (!normalized || (!allowed.includes('*') && !allowed.includes(normalized))) {
+		throw new Error('Model is not allowed by administrator policy');
+	}
+	return normalized;
+};
+
+const validateCustomEndpoint = (url) => {
+	if (process.env.AI_ALLOW_CUSTOM_ENDPOINT !== 'true') {
+		throw new Error('Custom endpoints are disabled by administrator policy');
+	}
+	const parsed = new URL(url);
+	if (parsed.protocol !== 'https:' && process.env.NODE_ENV === 'production') {
+		throw new Error('Custom endpoint must use HTTPS in production');
+	}
+	if (parsed.username || parsed.password) throw new Error('Endpoint credentials are not allowed');
+	const allowedHosts = parseAllowlist(process.env.AI_CUSTOM_ENDPOINT_HOSTS).map((host) =>
+		host.toLowerCase()
+	);
+	if (!allowedHosts.length || !allowedHosts.includes(parsed.hostname.toLowerCase())) {
+		throw new Error('Custom endpoint host is not allowlisted');
+	}
+};
+
 const persistConfig = () => {
 	fs.mkdirSync(configDirectory, { recursive: true, mode: 0o700 });
 	fs.writeFileSync(configFile, JSON.stringify(runtimeConfig, null, 2), { mode: 0o600 });
@@ -94,7 +137,10 @@ export const getPublicAgentConfig = () => ({
 	agentUrl: runtimeConfig.agentUrl,
 	hasApiKey: Boolean(runtimeConfig.apiKey),
 	model: runtimeConfig.model,
-	mode: runtimeConfig.provider === 'custom' && !runtimeConfig.agentUrl ? 'local-agent' : 'remote-agent'
+	mode: runtimeConfig.provider === 'custom' && !runtimeConfig.agentUrl ? 'local-agent' : 'remote-agent',
+	modelAllowlist: getModelAllowlist(),
+	processingDisclosure:
+		'Prompts and only the mailbox data needed for your request may be sent to the configured AI provider.'
 });
 
 export const updateAgentConfig = ({
@@ -106,6 +152,9 @@ export const updateAgentConfig = ({
 }) => {
 	const nextProvider = provider ?? runtimeConfig.provider;
 	if (!PROVIDERS[nextProvider]) throw new Error('Unsupported provider');
+	if (!providerAllowlist.has(nextProvider)) {
+		throw new Error('Provider is not allowed by administrator policy');
+	}
 	if (typeof agentUrl !== 'string') throw new Error('agentUrl must be a string');
 	const normalizedUrl =
 		nextProvider === 'custom' ? agentUrl.trim() : PROVIDERS[nextProvider].endpoint;
@@ -115,14 +164,15 @@ export const updateAgentConfig = ({
 			throw new Error('Agent URL must use HTTP or HTTPS');
 		}
 	}
+	if (nextProvider === 'custom') validateCustomEndpoint(normalizedUrl);
+	const nextModel = assertModelAllowed(
+		typeof model === 'string' && model.trim() ? model.trim() : PROVIDERS[nextProvider].defaultModel
+	);
 
 	if (nextProvider !== runtimeConfig.provider && !apiKey) runtimeConfig.apiKey = '';
 	runtimeConfig.provider = nextProvider;
 	runtimeConfig.agentUrl = normalizedUrl;
-	runtimeConfig.model =
-		typeof model === 'string' && model.trim()
-			? model.trim()
-			: PROVIDERS[nextProvider].defaultModel;
+	runtimeConfig.model = nextModel;
 	if (clearApiKey) runtimeConfig.apiKey = '';
 	if (typeof apiKey === 'string' && apiKey.trim()) runtimeConfig.apiKey = apiKey.trim();
 	persistConfig();

@@ -26,8 +26,9 @@ module.
 - Calendar search, attendee free/busy checks, and confirmed appointment creation
 - Schema-based tool permissions, audit records, result limits, and idempotency protection
 - Provider presets for OpenRouter, OpenAI, Anthropic, DeepSeek, and Gemini
-- Custom agent endpoint support
+- Administrator-only provider settings and fail-closed custom endpoint allowlisting
 - Per-conversation model selection
+- Provider/model allowlists, account quotas, cross-site request checks, and write-tool kill switch
 - Correlated request IDs, structured JSON logs, provider retry, and bounded timeouts
 - Citation-backed documentation RAG for the official Carbonio email SOAP API
 - Real-time, localized process markers for documentation, mailbox, and AI activity
@@ -60,6 +61,8 @@ The gateway binds to `127.0.0.1:8787` by default. Carbonio Shell should proxy
 ## Security notes
 
 - Provider API keys are never returned to the browser.
+- Global provider settings require an account listed in `AI_ADMIN_ACCOUNTS`; an empty
+  admin list grants no user administrative access.
 - Runtime configuration, audit data, and local-development SQLite history are stored
   under `gateway/.runtime/` and excluded from Git. Production conversation history uses
   a dedicated PostgreSQL database.

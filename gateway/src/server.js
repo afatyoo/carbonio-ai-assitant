@@ -5,6 +5,7 @@ import { runAgent } from './agent.js';
 import { getPublicAgentConfig, updateAgentConfig } from './config.js';
 import {
 	deleteConversation,
+	closeHistoryDatabase,
 	getConversation,
 	historyBackend,
 	listConversationPage,
@@ -15,15 +16,30 @@ import {
 import { getKnowledgeMetadata, retrieveKnowledge } from './knowledge.js';
 import { getCurrentAccount } from './mailbox.js';
 import { logEvent } from './logger.js';
+import { getMetricsSnapshot, incrementMetric } from './metrics.js';
 import { listAvailableModels } from './models.js';
 import { runWithRequestContext } from './request-context.js';
 import { listAuditEntries } from './tool-audit.js';
 import { listToolDefinitions } from './tool-registry.js';
 import { executeTool } from './tool-runner.js';
+import {
+	areWriteToolsEnabled,
+	assertSameOrigin,
+	consumeAccountQuota,
+	getSecurityPolicy,
+	isAdminAccount,
+	isAiEnabled,
+	requireAdminAccount
+} from './security.js';
 
 const port = Number(process.env.PORT ?? 8787);
 
 const sendJson = (response, status, body) => {
+	response.setHeader('cache-control', 'no-store');
+	response.setHeader('content-security-policy', "default-src 'none'; frame-ancestors 'self'");
+	response.setHeader('referrer-policy', 'no-referrer');
+	response.setHeader('x-content-type-options', 'nosniff');
+	response.setHeader('x-frame-options', 'SAMEORIGIN');
 	response.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
 	response.end(JSON.stringify(body));
 };
@@ -39,6 +55,14 @@ const readJson = async (request) => {
 
 const authenticate = (request) => getCurrentAccount(request.headers.cookie ?? '');
 
+const errorStatus = (error, fallback = 400) =>
+	Number(error?.statusCode) ||
+	(error.message.includes('authentication')
+		? 401
+		: error.message.includes('permission')
+			? 403
+			: fallback);
+
 const handleRequest = async (request, response) => {
 	const requestUrl = new URL(request.url, 'http://127.0.0.1');
 
@@ -46,17 +70,37 @@ const handleRequest = async (request, response) => {
 		sendJson(response, 200, {
 			status: 'ok',
 			mode: getPublicAgentConfig().mode,
-			historyBackend
+			historyBackend,
+			enabled: isAiEnabled()
 		});
+		return;
+	}
+
+	if (!isAiEnabled()) {
+		sendJson(response, 503, { error: 'AI Assistant is disabled by administrator policy' });
 		return;
 	}
 
 	if (request.method === 'GET' && request.url === '/api/ai/config') {
 		try {
-			await authenticate(request);
-			sendJson(response, 200, getPublicAgentConfig());
+			const account = await authenticate(request);
+			sendJson(response, 200, {
+				...getPublicAgentConfig(),
+				canManageSettings: isAdminAccount(account)
+			});
 		} catch (error) {
 			sendJson(response, 401, { error: error.message });
+		}
+		return;
+	}
+
+	if (request.method === 'GET' && request.url === '/api/ai/admin/metrics') {
+		try {
+			const account = await authenticate(request);
+			requireAdminAccount(account);
+			sendJson(response, 200, { metrics: getMetricsSnapshot(), policy: getSecurityPolicy() });
+		} catch (error) {
+			sendJson(response, errorStatus(error, 403), { error: error.message });
 		}
 		return;
 	}
@@ -124,7 +168,10 @@ const handleRequest = async (request, response) => {
 	if (toolExecuteMatch && request.method === 'POST') {
 		try {
 			const account = await authenticate(request);
+			await consumeAccountQuota(account.id);
 			const payload = await readJson(request);
+			const permissions = ['mail.read', 'calendar.read'];
+			if (areWriteToolsEnabled()) permissions.push('mail.draft', 'calendar.write');
 			const execution = await executeTool({
 				name: toolExecuteMatch[1],
 				input: payload.input,
@@ -132,18 +179,18 @@ const handleRequest = async (request, response) => {
 					ownerId: account.id,
 					accountName: account.name,
 					cookie: request.headers.cookie ?? '',
-					permissions: ['mail.read', 'mail.draft', 'calendar.read', 'calendar.write'],
+					permissions,
 					confirmationToken: payload.confirmationToken,
 					idempotencyKey: payload.idempotencyKey
 				}
 			});
 			sendJson(response, 200, execution);
 		} catch (error) {
-			const status = error.message.includes('authentication')
+			const status = error.statusCode ?? (error.message.includes('authentication')
 				? 401
 				: error.message.includes('Unknown tool')
 					? 404
-					: 400;
+					: 400);
 			sendJson(response, status, { error: error.message });
 		}
 		return;
@@ -232,15 +279,15 @@ const handleRequest = async (request, response) => {
 
 	if (request.method === 'PUT' && request.url === '/api/ai/config') {
 		try {
-			await authenticate(request);
+			const account = await authenticate(request);
+			requireAdminAccount(account);
 			const payload = await readJson(request);
-			sendJson(response, 200, updateAgentConfig(payload));
+			sendJson(response, 200, {
+				...updateAgentConfig(payload),
+				canManageSettings: true
+			});
 		} catch (error) {
-			sendJson(
-				response,
-				error.message.includes('authentication') ? 401 : 400,
-				{ error: error.message }
-			);
+			sendJson(response, errorStatus(error), { error: error.message });
 		}
 		return;
 	}
@@ -252,6 +299,7 @@ const handleRequest = async (request, response) => {
 
 	try {
 		const account = await authenticate(request);
+		await consumeAccountQuota(account.id);
 		const payload = await readJson(request);
 		if (typeof payload.message !== 'string' || !payload.message.trim()) {
 			sendJson(response, 400, { error: 'message is required' });
@@ -285,12 +333,14 @@ const handleRequest = async (request, response) => {
 			account,
 			emit
 		});
+		incrementMetric('chat_completed_total');
 		if (wantsEventStream) {
 			response.end();
 		} else {
 			sendJson(response, 200, { events });
 		}
 	} catch (error) {
+		incrementMetric('chat_failed_total');
 		if (!response.headersSent) {
 			sendJson(
 				response,
@@ -305,6 +355,10 @@ const handleRequest = async (request, response) => {
 };
 
 const server = http.createServer((request, response) => {
+	response.setHeader('content-security-policy', "default-src 'none'; frame-ancestors 'self'");
+	response.setHeader('referrer-policy', 'no-referrer');
+	response.setHeader('x-content-type-options', 'nosniff');
+	response.setHeader('x-frame-options', 'SAMEORIGIN');
 	const incomingRequestId = request.headers['x-request-id'];
 	const requestId =
 		typeof incomingRequestId === 'string' && /^[A-Za-z0-9._-]{8,100}$/.test(incomingRequestId)
@@ -322,11 +376,15 @@ const server = http.createServer((request, response) => {
 			});
 		});
 		try {
+			assertSameOrigin(request);
+			incrementMetric('http_requests_total');
 			await handleRequest(request, response);
 		} catch (error) {
 			logEvent('error', 'unhandled_request_error', { error });
 			if (!response.headersSent) {
-				sendJson(response, 500, { error: 'Internal gateway error' });
+				sendJson(response, errorStatus(error, 500), {
+					error: errorStatus(error, 500) >= 500 ? 'Internal gateway error' : error.message
+				});
 			} else if (!response.writableEnded) {
 				response.end();
 			}
@@ -340,3 +398,14 @@ server.listen(port, '127.0.0.1', () => {
 		mode: getPublicAgentConfig().mode
 	});
 });
+
+const shutdown = (signal) => {
+	logEvent('info', 'gateway_stopping', { signal });
+	server.close(() => {
+		void closeHistoryDatabase().finally(() => process.exit(0));
+	});
+	setTimeout(() => process.exit(1), 10_000).unref();
+};
+
+process.once('SIGTERM', () => shutdown('SIGTERM'));
+process.once('SIGINT', () => shutdown('SIGINT'));

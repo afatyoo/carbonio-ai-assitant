@@ -3,7 +3,7 @@ import './calendar-tools.js';
 
 import { randomUUID } from 'node:crypto';
 
-import { getAgentConfig } from './config.js';
+import { assertModelAllowed, getAgentConfig } from './config.js';
 import { fetchWithRetry } from './fetch-with-retry.js';
 import {
 	appendKnowledgeSources,
@@ -87,7 +87,7 @@ const localAnswer = (message, toolResult, knowledgeResults) => {
 
 const remoteCompletion = async ({ systemPrompt, userPrompt, requestedModel, json = false }) => {
 	const config = getAgentConfig();
-	const model = requestedModel || config.model;
+	const model = assertModelAllowed(requestedModel || config.model);
 	const isOpenAiCompatible = ['openrouter', 'openai', 'deepseek'].includes(config.provider);
 	const endpoint = isOpenAiCompatible
 		? `${config.agentUrl.replace(/\/$/, '')}/chat/completions`

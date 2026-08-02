@@ -11,6 +11,9 @@ type PublicConfig = {
 	hasApiKey: boolean;
 	model: string;
 	mode: 'local-agent' | 'remote-agent';
+	modelAllowlist: string[];
+	processingDisclosure: string;
+	canManageSettings: boolean;
 };
 
 const providers = {
@@ -143,6 +146,9 @@ export const AiSettingsView = (): React.JSX.Element => {
 	);
 	const [error, setError] = useState(false);
 	const [saving, setSaving] = useState(false);
+	const [canManageSettings, setCanManageSettings] = useState(false);
+	const [modelAllowlist, setModelAllowlist] = useState<string[]>([]);
+	const [processingDisclosure, setProcessingDisclosure] = useState('');
 
 	useEffect(() => {
 		apiFetch('/api/ai/config')
@@ -152,6 +158,9 @@ export const AiSettingsView = (): React.JSX.Element => {
 				setAgentUrl(config.agentUrl);
 				setHasApiKey(config.hasApiKey);
 				setModel(config.model || '~openai/gpt-latest');
+				setCanManageSettings(config.canManageSettings);
+				setModelAllowlist(config.modelAllowlist ?? []);
+				setProcessingDisclosure(config.processingDisclosure ?? '');
 				setStatus(
 					config.mode === 'remote-agent'
 						? t('settings.remote_configured', 'Remote agent configured')
@@ -205,9 +214,18 @@ export const AiSettingsView = (): React.JSX.Element => {
 			<h1>{t('app.name', 'AI Assistant')}</h1>
 			<p>{t('settings.description', 'Configure the Agent API used by Carbonio AI Assistant.')}</p>
 			<Card onSubmit={(event): void => void save(event)}>
+				{!canManageSettings ? (
+					<p>
+						{t(
+							'settings.admin_only',
+							'Only a Carbonio AI administrator can change provider settings.'
+						)}
+					</p>
+				) : null}
 				<Field>
 					{t('settings.provider', 'AI provider')}
 					<Select
+						disabled={!canManageSettings}
 						value={provider}
 						onChange={(event): void => {
 							const nextProvider = event.target.value as keyof typeof providers;
@@ -237,6 +255,7 @@ export const AiSettingsView = (): React.JSX.Element => {
 					<Field>
 						{t('settings.custom_endpoint', 'Custom endpoint')}
 						<Input
+							disabled={!canManageSettings}
 							type="url"
 							placeholder="https://agent.example.com/chat"
 							value={agentUrl}
@@ -246,17 +265,32 @@ export const AiSettingsView = (): React.JSX.Element => {
 				) : (
 					<Field>
 						{t('settings.endpoint', 'Endpoint')}
-						<Input type="url" value={agentUrl} readOnly />
+					<Input type="url" value={agentUrl} readOnly disabled={!canManageSettings} />
 					</Field>
 				)}
 				<Field>
 					{t('settings.model', 'Model')}
-					<Input
-						type="text"
-						placeholder="~openai/gpt-latest"
-						value={model}
-						onChange={(event): void => setModel(event.target.value)}
-					/>
+					{modelAllowlist.length > 0 && !modelAllowlist.includes('*') ? (
+						<Select
+							value={model}
+							disabled={!canManageSettings}
+							onChange={(event): void => setModel(event.target.value)}
+						>
+							{modelAllowlist.map((allowedModel) => (
+								<option key={allowedModel} value={allowedModel}>
+									{allowedModel}
+								</option>
+							))}
+						</Select>
+					) : (
+						<Input
+							type="text"
+							placeholder="~openai/gpt-latest"
+							value={model}
+							disabled={!canManageSettings}
+							onChange={(event): void => setModel(event.target.value)}
+						/>
+					)}
 					<Hint>
 						{t(
 							'settings.model_hint',
@@ -268,6 +302,7 @@ export const AiSettingsView = (): React.JSX.Element => {
 					{t('settings.api_key', 'API key')}
 					<Input
 						type="password"
+						disabled={!canManageSettings}
 						autoComplete="new-password"
 						placeholder={
 							hasApiKey
@@ -288,13 +323,14 @@ export const AiSettingsView = (): React.JSX.Element => {
 					</Hint>
 				</Field>
 				<Actions>
-					<Save type="submit" disabled={saving}>
+					<Save type="submit" disabled={saving || !canManageSettings}>
 						{saving
 							? t('settings.saving', 'Saving...')
 							: t('settings.save', 'Save configuration')}
 					</Save>
 					<Status error={error}>{status}</Status>
 				</Actions>
+				{processingDisclosure ? <Hint>{processingDisclosure}</Hint> : null}
 			</Card>
 		</Page>
 	);

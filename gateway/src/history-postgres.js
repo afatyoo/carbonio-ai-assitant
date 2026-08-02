@@ -49,6 +49,20 @@ const migrations = [
 			CREATE INDEX IF NOT EXISTS messages_conversation_position
 			ON messages(owner_id, conversation_id, position);
 		`
+	},
+	{
+		version: 2,
+		sql: `
+			CREATE TABLE IF NOT EXISTS daily_ai_usage (
+				owner_id TEXT NOT NULL,
+				usage_date DATE NOT NULL,
+				request_count INTEGER NOT NULL DEFAULT 0,
+				updated_at BIGINT NOT NULL,
+				PRIMARY KEY (owner_id, usage_date)
+			);
+			CREATE INDEX IF NOT EXISTS daily_ai_usage_updated
+			ON daily_ai_usage(updated_at);
+		`
 	}
 ];
 
@@ -339,6 +353,28 @@ export const importConversation = async (ownerId, conversation) => {
 		]
 	);
 	return { id: conversation.id, messageCount: saved.messageCount };
+};
+
+export const consumeDailyRequest = async (ownerId, usageDate, limit) => {
+	const result = await pool.query(
+		`INSERT INTO daily_ai_usage(owner_id, usage_date, request_count, updated_at)
+		 VALUES ($1, $2, 1, $3)
+		 ON CONFLICT(owner_id, usage_date) DO UPDATE SET
+		 request_count = daily_ai_usage.request_count + 1,
+		 updated_at = EXCLUDED.updated_at
+		 WHERE daily_ai_usage.request_count < $4
+		 RETURNING request_count`,
+		[ownerId, usageDate, Date.now(), limit]
+	);
+	if (!result.rowCount) return null;
+	void pool.query('DELETE FROM daily_ai_usage WHERE updated_at < $1', [
+		Date.now() - 90 * 86_400_000
+	]);
+	return Number(result.rows[0].request_count);
+};
+
+export const purgeDailyUsage = async (ownerId) => {
+	await pool.query('DELETE FROM daily_ai_usage WHERE owner_id = $1', [ownerId]);
 };
 
 export const closeHistoryDatabase = async () => pool.end();

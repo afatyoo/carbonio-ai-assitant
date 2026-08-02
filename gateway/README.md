@@ -23,7 +23,12 @@ Artifact deployment berada di `deploy/`:
 
 Runtime production menggunakan Node.js 22 dan data persisten berada di
 `/var/lib/carbonio-ai-assistant/.runtime/`. Endpoint config, model, history,
-dan chat memerlukan cookie sesi Carbonio yang valid.
+dan chat memerlukan cookie sesi Carbonio yang valid. `PUT /api/ai/config`
+bersifat fail-closed dan hanya tersedia bagi account ID atau alamat yang tercantum
+di `AI_ADMIN_ACCOUNTS`. Batasi provider/model melalui `AI_PROVIDER_ALLOWLIST` dan
+`AI_MODEL_ALLOWLIST`. Custom endpoint ditolak kecuali
+`AI_ALLOW_CUSTOM_ENDPOINT=true` dan hostname HTTPS-nya ada di
+`AI_CUSTOM_ENDPOINT_HOSTS`.
 
 Self-test database dan reliability dapat dijalankan dari working directory service:
 
@@ -132,6 +137,7 @@ Agent eksternal dapat mengembalikan salah satu field berikut:
 - `GET /api/ai/knowledge/search?q=...`
 - `GET /api/ai/tools`
 - `GET /api/ai/audit?limit=...`
+- `GET /api/ai/admin/metrics` (administrator only)
 - `GET /api/ai/conversations?cursor=...&q=...`
 - `GET /api/ai/conversations/:id`
 - `PUT /api/ai/conversations/:id`

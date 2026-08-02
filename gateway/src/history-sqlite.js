@@ -26,6 +26,13 @@ database.exec(`
 	);
 	CREATE INDEX IF NOT EXISTS conversations_owner_updated
 	ON conversations(owner_id, updated_at DESC);
+	CREATE TABLE IF NOT EXISTS daily_ai_usage (
+		owner_id TEXT NOT NULL,
+		usage_date TEXT NOT NULL,
+		request_count INTEGER NOT NULL DEFAULT 0,
+		updated_at INTEGER NOT NULL,
+		PRIMARY KEY (owner_id, usage_date)
+	);
 `);
 
 const columns = new Set(
@@ -74,6 +81,27 @@ database.exec(`
 `);
 
 fs.chmodSync(databasePath, 0o600);
+
+export const consumeDailyRequest = (ownerId, usageDate, limit) => {
+	const existing = database
+		.prepare('SELECT request_count FROM daily_ai_usage WHERE owner_id = ? AND usage_date = ?')
+		.get(ownerId, usageDate);
+	if (Number(existing?.request_count ?? 0) >= limit) return null;
+	database
+		.prepare(
+			`INSERT INTO daily_ai_usage(owner_id, usage_date, request_count, updated_at)
+			 VALUES (?, ?, 1, ?)
+			 ON CONFLICT(owner_id, usage_date) DO UPDATE SET
+			 request_count = request_count + 1, updated_at = excluded.updated_at`
+		)
+		.run(ownerId, usageDate, Date.now());
+	database.prepare('DELETE FROM daily_ai_usage WHERE updated_at < ?').run(Date.now() - 90 * 86_400_000);
+	return Number(existing?.request_count ?? 0) + 1;
+};
+
+export const purgeDailyUsage = (ownerId) => {
+	database.prepare('DELETE FROM daily_ai_usage WHERE owner_id = ?').run(ownerId);
+};
 
 const parseConversation = (row) => ({
 	id: row.id,
