@@ -31,6 +31,8 @@ di `AI_ADMIN_ACCOUNTS`. Batasi provider/model melalui `AI_PROVIDER_ALLOWLIST` da
 `AI_CUSTOM_ENDPOINT_HOSTS`.
 Pilot per-account dapat dibatasi dengan `AI_ENABLED_ACCOUNTS`, sedangkan mutation
 draft/appointment dapat dibatasi terpisah melalui `AI_WRITE_TOOL_ACCOUNTS`.
+Request OpenRouter secara default mengirim policy `data_collection=deny` dan `zdr=true`;
+ubah hanya setelah review kebijakan data organisasi.
 
 Self-test database dan reliability dapat dijalankan dari working directory service:
 

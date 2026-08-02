@@ -54,6 +54,8 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 - User-facing AI processing disclosure and read-only settings UI for non-admin users.
 - Per-account pilot/write-tool feature flags and secret-pattern redaction before
   mailbox context is sent to an external provider.
+- Per-request OpenRouter Zero Data Retention and data-collection denial, plus a
+  documented provider privacy review for the production pilot.
 
 ### Changed
 

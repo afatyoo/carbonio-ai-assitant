@@ -124,6 +124,17 @@ const remoteCompletion = async ({ systemPrompt, userPrompt, requestedModel, json
 				: isOpenAiCompatible
 					? {
 							model,
+							...(config.provider === 'openrouter'
+								? {
+										provider: {
+											data_collection:
+												process.env.AI_OPENROUTER_DENY_DATA_COLLECTION === 'false'
+													? 'allow'
+													: 'deny',
+											zdr: process.env.AI_OPENROUTER_ZDR !== 'false'
+										}
+									}
+								: {}),
 							...(json && config.provider === 'openai'
 								? { response_format: { type: 'json_object' } }
 								: {}),
