@@ -21,7 +21,8 @@ assert.match(assistantSource, /grid-template-columns: minmax\(0, 1fr\)/);
 assert.match(assistantSource, /@media \(prefers-reduced-motion: reduce\)/);
 assert.equal(assistantSource.includes('dangerouslySetInnerHTML'), false);
 assert.equal(assistantSource.includes("import { Button } from '@zextras/carbonio-design-system'"), false);
-assert.match(assistantSource, /<PrimaryActionButton[\s\S]*Save to Drafts/);
+assert.match(assistantSource, /<PrimaryActionButton[\s\S]*confirmationPresentation/);
+assert.match(assistantSource, /getConfirmationPresentation/);
 assert.match(assistantSource, /<SecondaryActionButton[\s\S]*Regenerate/);
 assert.deepEqual(flattenKeys(english).sort(), flattenKeys(indonesian).sort());
 

@@ -35,6 +35,9 @@ Expected: `smoke_health=ok headers=ok loopback=ok admin_auth=ok csrf=ok`.
 - Test an email with attachment metadata; content must not be uploaded automatically.
 - Generate a reply draft, inspect every field, confirm once, and verify it in Drafts.
 - Generate a meeting, inspect timezone/attendees/conflicts, confirm once, and verify Calendar.
+- With dedicated test data and separate action-time approval, verify mark-read, tag, move,
+  send, permanent delete, appointment update, invitation, and cancellation one at a time.
+- For appointment updates, confirm the before/after changes and reject a stale `ms`/`rev`.
 - Re-submit both confirmation tokens; both must be rejected without duplicate objects.
 - Test invalid API key, provider `429`, provider timeout, and Carbonio SOAP failure.
 - Confirm errors are localized, contain a request ID, and do not expose a secret.

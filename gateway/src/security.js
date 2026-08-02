@@ -52,7 +52,7 @@ export const areWriteToolsEnabled = (account) =>
 
 export const getToolPermissions = (account) => {
 	const defaults = ['mail.read', 'calendar.read'];
-	if (areWriteToolsEnabled(account)) defaults.push('mail.draft', 'calendar.write');
+	if (areWriteToolsEnabled(account)) defaults.push('mail.draft', 'mail.write', 'calendar.write');
 	const resolved = resolveScopedPolicy(toolPermissionPolicy, account, defaults).filter((permission) =>
 		knownToolPermissions.has(permission)
 	);

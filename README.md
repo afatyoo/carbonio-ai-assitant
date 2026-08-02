@@ -68,18 +68,20 @@ The gateway binds to `127.0.0.1:8787` by default. Carbonio Shell should proxy
   a dedicated PostgreSQL database.
 - Conversation access is scoped with the active Carbonio session and account
   ID.
-- Read tools never mark email as read. Draft creation is the only enabled mailbox
-  mutation and requires a one-time, account-bound confirmation token; it never sends email.
-- Appointment creation is treated as a write action because it can send attendee invitations;
-  the UI shows the schedule, attendees, and conflicts before confirmation.
+- Read tools never mark email as read. Email draft, send, mark-read, tag, move, and delete
+  mutations require a one-time account-bound confirmation token and idempotency key;
+  permanent delete is presented as a destructive action.
+- Calendar create, draft, update, invitation, and cancellation flows show bounded previews.
+  Updates use Carbonio `ms`/`rev` conflict detection and display field changes; attendee
+  invitations and cancellation always require explicit confirmation.
 - Production deployments should use an external secret manager and a supported
   production database.
 
 ## Development status
 
-This repository is an MVP intended for local testing and further integration
-work. Review authentication, authorization, database operations, auditing, and
-provider data-retention policies before production use.
+This repository is a production-pilot candidate. Complete the documented browser,
+mailbox-size, upgrade, staging, backup, and pilot-approval gates before expanding beyond
+the configured allowlist.
 
 ## License
 

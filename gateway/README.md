@@ -88,6 +88,12 @@ isi field sensitif. Tool `WRITE` dan `DESTRUCTIVE` menggunakan confirmation toke
 sekali pakai yang terikat ke owner, nama tool, dan hash input. Idempotency result
 disimpan per owner/tool/key untuk mencegah mutation ganda.
 
+Tool email mencakup read/search, draft create/update/forward, send, mark-read, tag,
+move, dan permanent delete. Tool kalender mencakup search/get appointment, free/busy,
+contact/GAL resolution, draft/create/update, invitation, dan cancellation. Mutation
+tidak dijalankan dari content email dan selalu melewati preview; update kalender memakai
+`ms`/`rev` Carbonio untuk mendeteksi versi yang sudah berubah.
+
 Audit pilot disimpan di `.runtime/audit.sqlite` dengan mode file `0600` dan dapat
 diarahkan melalui `AI_AUDIT_DB_PATH`. Database ini akan ikut dimigrasikan ke
 PostgreSQL pada fase production database.

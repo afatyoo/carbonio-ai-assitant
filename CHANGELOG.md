@@ -2,6 +2,24 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [0.0.3-rc.9] - 2026-08-02
+
+### Added
+
+- Confirmed email draft update, forward draft, send, mark-read, tag, move, and permanent
+  delete tools using Carbonio `SaveDraft`, `SendMsg`, and `MsgAction` contracts.
+- Bounded appointment detail, contact/GAL search, attendee resolution, calendar draft,
+  version-aware appointment update, invitation, and cancellation tools.
+- Localized confirmation cards and result messages for every email and calendar mutation,
+  including permanent-action warnings and appointment before/after changes.
+- Explicit Indonesian and English action routing that never executes a mutation until the
+  account-bound one-time confirmation token is accepted.
+
+### Fixed
+
+- Appointment results no longer claim invitations were sent when no attendees were listed.
+- Default write-enabled account permissions now include mail write and calendar write scopes.
+
 ## [0.0.3-rc.8] - 2026-08-02
 
 ### Fixed
@@ -188,6 +206,7 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 [0.0.3-rc.6]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.6
 [0.0.3-rc.7]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.7
 [0.0.3-rc.8]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.8
+[0.0.3-rc.9]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.9
 [0.0.3-rc.3]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.3
 [0.0.3-rc.2]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.2
 [0.0.3-rc.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.1

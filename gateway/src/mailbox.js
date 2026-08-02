@@ -217,6 +217,74 @@ const parseRecipients = (value, type) =>
 		.filter(Boolean)
 		.map((address) => ({ a: address, t: type }));
 
+export const buildMailMessage = ({
+	mode,
+	draftId = '',
+	to,
+	cc = '',
+	bcc = '',
+	subject,
+	body,
+	from = '',
+	originalId = '',
+	replyType = ''
+}) => ({
+	...(draftId && mode === 'draft' ? { id: String(draftId) } : {}),
+	...(draftId && mode === 'send' ? { did: String(draftId) } : {}),
+	su: { _content: subject },
+	e: [
+		...parseRecipients(to, 't'),
+		...parseRecipients(cc, 'c'),
+		...parseRecipients(bcc, 'b'),
+		...(from ? [{ a: from, t: 'f' }] : [])
+	],
+	mp: [
+		{
+			ct: 'text/plain',
+			body: true,
+			content: { _content: body }
+		}
+	],
+	...(originalId ? { origid: originalId } : {}),
+	...(replyType ? { rt: replyType } : {})
+});
+
+export const buildMessageActionRequest = ({ id, operation, folderId, tagName }) => {
+	const itemId = String(id ?? '').trim();
+	if (!itemId || /[\s,]/.test(itemId)) {
+		throw new Error('A single Carbonio item ID is required');
+	}
+	if (!['read', 'tag', 'move', 'delete'].includes(operation)) {
+		throw new Error(`Unsupported Carbonio message action: ${operation}`);
+	}
+	if (operation === 'tag' && !String(tagName ?? '').trim()) {
+		throw new Error('Tag name is required');
+	}
+	if (operation === 'move' && !String(folderId ?? '').trim()) {
+		throw new Error('Destination folder ID is required');
+	}
+	return {
+		action: {
+			id: itemId,
+			op: operation,
+			...(operation === 'tag' ? { tn: String(tagName).trim() } : {}),
+			...(operation === 'move' ? { l: String(folderId).trim() } : {})
+		}
+	};
+};
+
+export const messageAction = async ({ cookie, id, operation, folderId, tagName }) => {
+	const request = buildMessageActionRequest({ id, operation, folderId, tagName });
+	await soapRequest('MsgAction', request, cookie);
+	const statuses = {
+		read: 'marked_read',
+		tag: 'tag_added',
+		move: 'moved',
+		delete: 'deleted_permanently'
+	};
+	return { id: String(id), operation, status: statuses[operation] };
+};
+
 export const searchEmails = async ({ cookie, query, limit = 10 }) => {
 	const boundedLimit = Math.min(Math.max(Number(limit) || 10, 1), 20);
 	const result = await soapRequest(
@@ -291,6 +359,7 @@ export const getEmailThread = async ({ cookie, conversationId, maxBodyLength = 8
 
 export const createEmailDraft = async ({
 	cookie,
+	draftId = '',
 	to,
 	cc = '',
 	bcc = '',
@@ -300,24 +369,18 @@ export const createEmailDraft = async ({
 	originalId = '',
 	replyType = ''
 }) => {
-	const message = {
-		su: { _content: subject },
-		e: [
-			...parseRecipients(to, 't'),
-			...parseRecipients(cc, 'c'),
-			...parseRecipients(bcc, 'b'),
-			...(from ? [{ a: from, t: 'f' }] : [])
-		],
-		mp: [
-			{
-				ct: 'text/plain',
-				body: true,
-				content: { _content: body }
-			}
-		],
-		...(originalId ? { origid: originalId } : {}),
-		...(replyType ? { rt: replyType } : {})
-	};
+	const message = buildMailMessage({
+		mode: 'draft',
+		draftId,
+		to,
+		cc,
+		bcc,
+		subject,
+		body,
+		from,
+		originalId,
+		replyType
+	});
 	const result = await soapRequest('SaveDraft', { m: message }, cookie);
 	const saved = result.m?.[0] ?? result.m ?? result.chat?.[0] ?? result.chat;
 	if (!saved?.id) throw new Error('Carbonio did not return the saved draft ID');
@@ -327,6 +390,42 @@ export const createEmailDraft = async ({
 		subject,
 		to: parseRecipients(to, 't').map(({ a }) => a),
 		status: 'saved_to_drafts'
+	};
+};
+
+export const sendEmail = async ({
+	cookie,
+	draftId = '',
+	to,
+	cc = '',
+	bcc = '',
+	subject,
+	body,
+	from = '',
+	originalId = '',
+	replyType = ''
+}) => {
+	const message = buildMailMessage({
+		mode: 'send',
+		draftId,
+		to,
+		cc,
+		bcc,
+		subject,
+		body,
+		from,
+		originalId,
+		replyType
+	});
+	const result = await soapRequest('SendMsg', { m: message }, cookie);
+	const sent = result.m?.[0] ?? result.m;
+	if (!sent?.id) throw new Error('Carbonio did not return the sent message ID');
+	return {
+		id: String(sent.id),
+		conversationId: String(sent.cid ?? ''),
+		subject,
+		to: parseRecipients(to, 't').map(({ a }) => a),
+		status: 'sent'
 	};
 };
 

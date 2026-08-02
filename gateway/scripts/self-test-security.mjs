@@ -20,11 +20,10 @@ process.env.AI_MODEL_POLICY_JSON = JSON.stringify({
 });
 process.env.AI_TOOL_PERMISSION_POLICY_JSON = JSON.stringify({
 	'group:ai-writers@example.test': ['mail.read', 'mail.draft'],
-	'domain:example.test': ['mail.read'],
-	'*': ['calendar.read']
+	'domain:example.test': ['mail.read']
 });
 process.env.AI_ENABLED_ACCOUNTS = 'enabled@example.test';
-process.env.AI_WRITE_TOOL_ACCOUNTS = 'writer@example.test';
+process.env.AI_WRITE_TOOL_ACCOUNTS = 'writer@example.test,default-writer@other.test';
 
 const {
 	assertSameOrigin,
@@ -60,6 +59,10 @@ assert.deepEqual(
 assert.deepEqual(
 	getToolPermissions({ id: 'reader-id', name: 'reader@example.test', groups: [] }),
 	['mail.read']
+);
+assert.deepEqual(
+	getToolPermissions({ id: 'default-writer-id', name: 'default-writer@other.test', groups: [] }),
+	['mail.read', 'calendar.read', 'mail.draft', 'mail.write', 'calendar.write']
 );
 assert.throws(
 	() => requireAdminAccount({ id: 'user-id', name: 'user@example.test' }),

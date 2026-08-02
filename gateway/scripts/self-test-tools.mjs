@@ -1,4 +1,5 @@
 import path from 'node:path';
+import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import os from 'node:os';
 
@@ -154,13 +155,98 @@ for (const toolName of [
 	'get_email',
 	'list_attachments',
 	'get_email_thread',
-	'create_email_draft'
+	'create_email_draft',
+	'update_email_draft',
+	'forward_as_draft',
+	'send_email',
+	'mark_as_read',
+	'add_tag',
+	'move_email',
+	'delete_email'
 ]) {
 	if (!mailDefinitions.some(({ name }) => name === toolName)) {
 		throw new Error(`Missing registered mail tool: ${toolName}`);
 	}
 }
-const { normalizeMessageForAgent } = await import('../src/mailbox.js');
+	const { buildMailMessage, buildMessageActionRequest, normalizeMessageForAgent } = await import(
+	'../src/mailbox.js'
+);
+if (
+	JSON.stringify(buildMessageActionRequest({ id: '101', operation: 'read' })) !==
+	JSON.stringify({ action: { id: '101', op: 'read' } })
+) {
+	throw new Error('MsgAction read payload is incorrect');
+}
+if (
+	JSON.stringify(
+		buildMessageActionRequest({ id: '102', operation: 'tag', tagName: 'Important' })
+	) !== JSON.stringify({ action: { id: '102', op: 'tag', tn: 'Important' } })
+) {
+	throw new Error('MsgAction tag payload is incorrect');
+}
+if (
+	JSON.stringify(
+		buildMessageActionRequest({ id: '103', operation: 'move', folderId: '20' })
+	) !== JSON.stringify({ action: { id: '103', op: 'move', l: '20' } })
+) {
+	throw new Error('MsgAction move payload is incorrect');
+}
+if (
+	JSON.stringify(buildMessageActionRequest({ id: '104', operation: 'delete' })) !==
+	JSON.stringify({ action: { id: '104', op: 'delete' } })
+) {
+	throw new Error('MsgAction delete payload is incorrect');
+}
+assert.throws(
+	() => buildMessageActionRequest({ id: '101,102', operation: 'read' }),
+	/single Carbonio item ID/
+);
+assert.deepEqual(
+	buildMailMessage({
+		mode: 'draft',
+		draftId: '435',
+		to: 'recipient@example.test',
+		subject: 'Updated subject',
+		body: 'Updated body',
+		from: 'owner@example.test'
+	}),
+	{
+		id: '435',
+		su: { _content: 'Updated subject' },
+		e: [
+			{ a: 'recipient@example.test', t: 't' },
+			{ a: 'owner@example.test', t: 'f' }
+		],
+		mp: [{ ct: 'text/plain', body: true, content: { _content: 'Updated body' } }]
+	}
+);
+assert.deepEqual(
+	buildMailMessage({
+		mode: 'draft',
+		to: 'recipient@example.test',
+		subject: 'Fwd: Source',
+		body: 'Forwarded body',
+		originalId: '77',
+		replyType: 'w'
+	}),
+	{
+		su: { _content: 'Fwd: Source' },
+		e: [{ a: 'recipient@example.test', t: 't' }],
+		mp: [{ ct: 'text/plain', body: true, content: { _content: 'Forwarded body' } }],
+		origid: '77',
+		rt: 'w'
+	}
+);
+assert.equal(
+	buildMailMessage({
+		mode: 'send',
+		draftId: '435',
+		to: 'recipient@example.test',
+		subject: 'Send subject',
+		body: 'Send body'
+	}).did,
+	'435'
+);
 const normalizedHtmlMessage = normalizeMessageForAgent(
 	{
 		id: 'html-1',
@@ -196,15 +282,134 @@ if (
 	throw new Error('HTML normalization or attachment metadata boundary failed');
 }
 for (const toolName of [
+	'get_appointment',
 	'search_appointments',
 	'check_free_busy',
+	'search_contacts',
+	'resolve_attendees',
 	'propose_meeting_slots',
-	'create_appointment'
+	'create_appointment',
+	'create_calendar_draft',
+	'update_appointment',
+	'cancel_appointment',
+	'send_meeting_invitation'
 ]) {
 	if (!mailDefinitions.some(({ name }) => name === toolName)) {
 		throw new Error(`Missing registered calendar tool: ${toolName}`);
 	}
 }
+const {
+	buildAppointmentRequest,
+	buildCancelAppointmentRequest,
+	buildModifyAppointmentRequest,
+	normalizeAppointmentDetails,
+	normalizeAutocompleteMatches
+} = await import('../src/calendar.js');
+const appointmentFixture = {
+	organizer: 'owner@example.test',
+	attendees: 'guest@example.test',
+	subject: 'UAT Meeting',
+	start: '2026-08-05T03:00:00.000Z',
+	end: '2026-08-05T03:30:00.000Z',
+	location: 'Room 1',
+	body: 'Agenda'
+};
+const draftAppointmentRequest = buildAppointmentRequest({
+	...appointmentFixture,
+	draft: true
+});
+assert.equal(draftAppointmentRequest.m.inv.comp[0].draft, '1');
+assert.equal(draftAppointmentRequest.m.inv.comp[0].neverSent, '1');
+assert.deepEqual(draftAppointmentRequest.m.inv.comp[0].s, { d: '20260805T030000Z' });
+assert.deepEqual(draftAppointmentRequest.m.inv.comp[0].at, [
+	{ a: 'guest@example.test', d: 'guest@example.test', role: 'REQ', ptst: 'NE', rsvp: '1' }
+]);
+const modifyAppointmentRequest = buildModifyAppointmentRequest({
+	...appointmentFixture,
+	inviteId: '439',
+	componentNum: 0,
+	modifiedSequence: 9,
+	revision: 2,
+	draft: true
+});
+assert.equal(modifyAppointmentRequest.id, '439');
+assert.equal(modifyAppointmentRequest.comp, 0);
+assert.equal(modifyAppointmentRequest.ms, 9);
+assert.equal(modifyAppointmentRequest.rev, 2);
+assert.equal(modifyAppointmentRequest.m.inv.comp[0].draft, '1');
+assert.deepEqual(
+	buildCancelAppointmentRequest({
+		inviteId: '439',
+		componentNum: 0,
+		modifiedSequence: 9,
+		revision: 2
+	}),
+	{ id: '439', comp: 0, ms: 9, rev: 2 }
+);
+assert.deepEqual(
+	normalizeAppointmentDetails({
+		id: '438',
+		ms: 9,
+		rev: 2,
+		inv: [
+			{
+				id: '439',
+				comp: [
+					{
+						compNum: 0,
+						name: 'UAT Meeting',
+						loc: 'Room 1',
+						s: { u: 1785898800000, tz: 'Asia/Jakarta' },
+						e: { u: 1785900600000 },
+						at: [{ a: 'guest@example.test' }],
+						or: { a: 'owner@example.test' },
+						status: 'CONF',
+						desc: 'Agenda'
+					}
+				]
+			}
+		]
+	}),
+	{
+		id: '438',
+		inviteId: '439',
+		componentNum: 0,
+		modifiedSequence: 9,
+		revision: 2,
+		subject: 'UAT Meeting',
+		start: '2026-08-05T03:00:00.000Z',
+		end: '2026-08-05T03:30:00.000Z',
+		timezone: 'Asia/Jakarta',
+		attendees: ['guest@example.test'],
+		organizer: 'owner@example.test',
+		location: 'Room 1',
+		status: 'CONF',
+		recurring: false,
+		body: 'Agenda'
+	}
+);
+assert.deepEqual(
+	normalizeAutocompleteMatches([
+		{
+			email: 'guest@example.test',
+			display: 'Guest User',
+			type: 'gal',
+			isGroup: '0',
+			exp: '0',
+			id: 'contact-1'
+		}
+	]),
+	[
+		{
+			address: 'guest@example.test',
+			displayName: 'Guest User',
+			type: 'gal',
+			isGroup: false,
+			canExpand: false,
+			id: 'contact-1'
+		}
+	]
+);
 const draftPending = await executeTool({
 	name: 'create_email_draft',
 	input: {
@@ -220,6 +425,23 @@ if (
 ) {
 	throw new Error('Email draft preview and confirmation flow failed');
 }
+const markReadPending = await executeTool({
+	name: 'mark_as_read',
+	input: {
+		id: '501',
+		subject: 'Source reference',
+		sender: 'sender@example.test',
+		date: '1785898800000'
+	},
+	context: { ownerId: 'owner-a', permissions: ['mail.write'] }
+});
+assert.deepEqual(markReadPending.confirmation?.preview, {
+	kind: 'mark_as_read',
+	id: '501',
+	subject: 'Source reference',
+	sender: 'sender@example.test',
+	date: '1785898800000'
+});
 const appointmentPending = await executeTool({
 	name: 'create_appointment',
 	input: {
@@ -235,6 +457,40 @@ if (
 ) {
 	throw new Error('Appointment preview and confirmation flow failed');
 }
+const updatePending = await executeTool({
+	name: 'update_appointment',
+	input: {
+		appointmentId: '438',
+		inviteId: '439',
+		componentNum: 0,
+		modifiedSequence: 9,
+		revision: 2,
+		currentSubject: 'UAT Meeting',
+		currentStart: '2026-08-05T03:00:00.000Z',
+		currentEnd: '2026-08-05T03:30:00.000Z',
+		currentTimezone: 'Asia/Jakarta',
+		currentAttendees: '',
+		currentLocation: 'Room 1',
+		currentBody: 'Agenda',
+		subject: 'UAT Meeting revised',
+		start: '2026-08-05T03:00:00.000Z',
+		end: '2026-08-05T04:00:00.000Z',
+		timezone: 'Asia/Jakarta',
+		attendees: '',
+		location: 'Room 1',
+		body: 'Agenda'
+	},
+	context: { ownerId: 'owner-a', permissions: ['calendar.write'] }
+});
+assert.equal(updatePending.confirmation?.preview?.kind, 'appointment_update');
+assert.deepEqual(updatePending.confirmation?.preview?.changes, [
+	{ field: 'subject', before: 'UAT Meeting', after: 'UAT Meeting revised' },
+	{
+		field: 'end',
+		before: '2026-08-05T03:30:00.000Z',
+		after: '2026-08-05T04:00:00.000Z'
+	}
+]);
 let invalidAppointmentRejected = false;
 try {
 	await executeTool({
@@ -266,9 +522,13 @@ try {
 	invalidAttendeeRejected = error.message.includes('Invalid attendee email');
 }
 if (!invalidAttendeeRejected) throw new Error('Invalid attendee address was accepted');
-const { isDraftActionRequest, isMeetingActionRequest, zonedLocalToIso } = await import(
-	'../src/agent.js'
-);
+const {
+	classifyActionRequest,
+	classifyCalendarActionRequest,
+	isDraftActionRequest,
+	isMeetingActionRequest,
+	zonedLocalToIso
+} = await import('../src/agent.js');
 const { findAvailableMeetingSlots } = await import('../src/calendar.js');
 if (zonedLocalToIso('2026-08-03T10:00:00', 'Asia/Jakarta') !== '2026-08-03T03:00:00.000Z') {
 	throw new Error('Appointment timezone conversion failed');
@@ -281,6 +541,44 @@ if (
 ) {
 	throw new Error('Indonesian draft or meeting intent matching failed');
 }
+assert.deepEqual(classifyActionRequest('Kirim email ke guest@example.test tentang UAT'), {
+	tool: 'send_email'
+});
+assert.deepEqual(classifyActionRequest('Teruskan email terakhir ke guest@example.test sebagai draft'), {
+	tool: 'forward_as_draft'
+});
+assert.deepEqual(classifyActionRequest('Perbarui draft email terakhir agar lebih singkat'), {
+	tool: 'update_email_draft'
+});
+assert.deepEqual(classifyActionRequest('Tandai email terakhir sudah dibaca'), {
+	tool: 'mark_as_read'
+});
+assert.deepEqual(classifyActionRequest('Tambahkan tag Important ke email terakhir'), {
+	tool: 'add_tag',
+	tagName: 'Important'
+});
+assert.deepEqual(classifyActionRequest('Pindahkan email terakhir ke Trash'), {
+	tool: 'move_email',
+	folderId: '3',
+	folderName: 'Trash'
+});
+assert.deepEqual(classifyActionRequest('Hapus permanen email terakhir'), {
+	tool: 'delete_email'
+});
+assert.equal(classifyActionRequest('Bagaimana cara menghapus email?'), null);
+assert.deepEqual(classifyCalendarActionRequest('Buat draf kalender untuk meeting besok'), {
+	tool: 'create_calendar_draft'
+});
+assert.deepEqual(classifyCalendarActionRequest('Ubah jadwal meeting berikutnya menjadi jam 11'), {
+	tool: 'update_appointment'
+});
+assert.deepEqual(classifyCalendarActionRequest('Kirim undangan meeting ke guest@example.test'), {
+	tool: 'send_meeting_invitation'
+});
+assert.deepEqual(classifyCalendarActionRequest('Batalkan meeting berikutnya'), {
+	tool: 'cancel_appointment'
+});
+assert.equal(classifyCalendarActionRequest('Bagaimana cara membatalkan meeting?'), null);
 const proposedSlots = findAvailableMeetingSlots({
 	availability: [
 		{

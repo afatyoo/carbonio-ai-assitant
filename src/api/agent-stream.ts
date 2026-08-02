@@ -27,8 +27,19 @@ export type AgentEvent = {
 			timezone?: string;
 			calendar?: string;
 			reminder?: string;
+			id?: string;
+			sender?: string;
+			date?: string;
+			appointmentId?: string;
+			inviteId?: string;
+			tagName?: string;
+			folderId?: string;
+			folderName?: string;
+			permanent?: boolean;
+			changes?: Array<{ field: string; before: string; after: string }>;
+			proposedSlots?: Array<{ start: string; end: string }>;
 		};
-		input?: Record<string, string>;
+		input?: Record<string, string | number>;
 	};
 };
 

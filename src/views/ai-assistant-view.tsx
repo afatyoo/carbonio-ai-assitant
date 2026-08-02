@@ -16,6 +16,11 @@ import {
 	saveConversation
 } from '../history/chat-history';
 import { useAppTranslation } from '../i18n/use-app-translation';
+import {
+	getActionResultMessage,
+	getConfirmationPresentation
+} from '../utils/action-confirmation';
+import { getAppointmentResultMessage } from '../utils/appointment-result';
 
 type ModelOption = {
 	id: string;
@@ -28,7 +33,7 @@ type PendingConfirmation = {
 	tool: string;
 	token: string;
 	idempotencyKey: string;
-	input: Record<string, string>;
+	input: Record<string, string | number>;
 	preview: {
 		to?: string;
 		cc?: string;
@@ -45,6 +50,16 @@ type PendingConfirmation = {
 		calendar?: string;
 		reminder?: string;
 		proposedSlots?: Array<{ start: string; end: string }>;
+		id?: string;
+		sender?: string;
+		date?: string;
+		appointmentId?: string;
+		inviteId?: string;
+		tagName?: string;
+		folderId?: string;
+		folderName?: string;
+		permanent?: boolean;
+		changes?: Array<{ field: string; before: string; after: string }>;
 	};
 };
 
@@ -665,7 +680,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 		if (lastUserMessage) void send(lastUserMessage.text, true);
 	};
 
-	const confirmDraft = async (): Promise<void> => {
+	const confirmAction = async (): Promise<void> => {
 		if (!pendingConfirmation || isConfirming) return;
 		setIsConfirming(true);
 		try {
@@ -684,23 +699,20 @@ export const AiAssistantView = (): React.JSX.Element => {
 			const execution = await parseJsonResponse<{
 				result?: { id?: string; status?: string };
 			}>(response);
-			const isAppointment = pendingConfirmation.tool === 'create_appointment';
+			const resultId = execution.result?.id ?? '-';
+			const resultMessage =
+				pendingConfirmation.tool === 'create_appointment'
+					? getAppointmentResultMessage(
+							resultId,
+							String(pendingConfirmation.input.attendees ?? '')
+						)
+					: getActionResultMessage(pendingConfirmation.tool, resultId);
 			setMessages((current) => [
 				...current,
 				{
 					id: Date.now(),
 					role: 'assistant',
-					text: isAppointment
-						? t(
-								'chat.appointment_created',
-								'Appointment created in Carbonio Calendar (ID: {{id}}). Invitations were sent to listed attendees.',
-								{ id: execution.result?.id ?? '-' }
-							)
-						: t(
-								'chat.draft_saved',
-								'Draft saved to Carbonio Drafts (ID: {{id}}). It has not been sent.',
-								{ id: execution.result?.id ?? '-' }
-							)
+					text: t(resultMessage.key, resultMessage.fallback, resultMessage.values)
 				}
 			]);
 			setPendingConfirmation(null);
@@ -719,6 +731,17 @@ export const AiAssistantView = (): React.JSX.Element => {
 		event.preventDefault();
 		void send(input);
 	};
+	const confirmationPresentation = pendingConfirmation
+		? getConfirmationPresentation(pendingConfirmation.tool, pendingConfirmation.preview.kind)
+		: null;
+	const isCalendarConfirmation = Boolean(
+		pendingConfirmation?.preview.kind?.includes('appointment') ||
+			pendingConfirmation?.preview.kind === 'calendar_draft' ||
+			pendingConfirmation?.preview.kind === 'meeting_invitation'
+	);
+	const isEmailContentConfirmation = Boolean(
+		pendingConfirmation?.preview.kind?.startsWith('email_')
+	);
 
 	return (
 		<Page>
@@ -780,18 +803,18 @@ export const AiAssistantView = (): React.JSX.Element => {
 					)}
 					{pendingConfirmation && (
 						<ConfirmationCard
-							aria-label={
-								pendingConfirmation.tool === 'create_appointment'
-									? t('chat.appointment_preview', 'Appointment preview')
-									: t('chat.draft_preview', 'Email draft preview')
-							}
+							aria-label={t(
+								confirmationPresentation?.ariaKey ?? 'chat.action_preview',
+								confirmationPresentation?.ariaFallback ?? 'Action preview'
+							)}
 						>
 							<ConfirmationTitle>
-								{pendingConfirmation.tool === 'create_appointment'
-									? t('chat.confirm_appointment_title', 'Confirm creating this appointment')
-									: t('chat.confirm_draft_title', 'Confirm saving this draft')}
+								{t(
+									confirmationPresentation?.titleKey ?? 'chat.confirm_action_title',
+									confirmationPresentation?.titleFallback ?? 'Confirm this action'
+								)}
 							</ConfirmationTitle>
-							{pendingConfirmation.tool === 'create_appointment' ? (
+							{isCalendarConfirmation ? (
 								<>
 									<DraftField>
 										<span>{t('chat.start', 'Start')}</span>
@@ -799,6 +822,12 @@ export const AiAssistantView = (): React.JSX.Element => {
 											? new Date(pendingConfirmation.preview.start).toLocaleString(locale)
 											: '-'}
 									</DraftField>
+									{pendingConfirmation.preview.sender && (
+										<DraftField><span>{t('chat.sender', 'Sender')}</span>{pendingConfirmation.preview.sender}</DraftField>
+									)}
+									{pendingConfirmation.preview.date && (
+										<DraftField><span>{t('chat.date', 'Date')}</span>{new Date(/^\d+$/.test(pendingConfirmation.preview.date) ? Number(pendingConfirmation.preview.date) : pendingConfirmation.preview.date).toLocaleString(locale)}</DraftField>
+									)}
 									<DraftField>
 										<span>{t('chat.end', 'End')}</span>
 										{pendingConfirmation.preview.end
@@ -851,20 +880,46 @@ export const AiAssistantView = (): React.JSX.Element => {
 										</DraftField>
 									)}
 								</>
-							) : (
+							) : isEmailContentConfirmation ? (
 								<DraftField>
 									<span>{t('chat.recipient', 'To')}</span>
 									{pendingConfirmation.preview.to}
 								</DraftField>
+							) : (
+								<>
+									<DraftField>
+										<span>{t('chat.message_id', 'Message ID')}</span>
+										{pendingConfirmation.preview.id ?? '-'}
+									</DraftField>
+									{pendingConfirmation.preview.tagName && (
+										<DraftField><span>{t('chat.tag', 'Tag')}</span>{pendingConfirmation.preview.tagName}</DraftField>
+									)}
+									{(pendingConfirmation.preview.folderName || pendingConfirmation.preview.folderId) && (
+										<DraftField><span>{t('chat.destination', 'Destination')}</span>{pendingConfirmation.preview.folderName || pendingConfirmation.preview.folderId}</DraftField>
+									)}
+									{pendingConfirmation.preview.permanent && (
+										<DraftField><span>{t('chat.warning', 'Warning')}</span>{t('chat.permanent_delete_warning', 'This action permanently deletes the email.')}</DraftField>
+									)}
+								</>
 							)}
-							<DraftField>
-								<span>{t('chat.subject', 'Subject')}</span>
-								{pendingConfirmation.preview.subject}
-							</DraftField>
-							<DraftField>
-								<span>{t('chat.body', 'Message')}</span>
-								{pendingConfirmation.preview.body}
-							</DraftField>
+							{pendingConfirmation.preview.subject && (
+								<DraftField>
+									<span>{t('chat.subject', 'Subject')}</span>
+									{pendingConfirmation.preview.subject}
+								</DraftField>
+							)}
+							{pendingConfirmation.preview.body && (
+								<DraftField>
+									<span>{t('chat.body', 'Message')}</span>
+									{pendingConfirmation.preview.body}
+								</DraftField>
+							)}
+							{pendingConfirmation.preview.changes?.length ? (
+								<DraftField>
+									<span>{t('chat.changes', 'Changes')}</span>
+									{pendingConfirmation.preview.changes.map(({ field, before, after }) => `${field}: ${before || '—'} → ${after || '—'}`).join('\n')}
+								</DraftField>
+							) : null}
 							<ConfirmationActions>
 								<SecondaryActionButton
 									type="button"
@@ -875,14 +930,15 @@ export const AiAssistantView = (): React.JSX.Element => {
 								</SecondaryActionButton>
 								<PrimaryActionButton
 									type="button"
-									onClick={(): void => void confirmDraft()}
+									onClick={(): void => void confirmAction()}
 									disabled={isConfirming}
 								>
 									{isConfirming
 										? t('chat.confirming_action', 'Confirming...')
-										: pendingConfirmation.tool === 'create_appointment'
-											? t('chat.create_appointment', 'Create appointment')
-											: t('chat.save_draft', 'Save to Drafts')}
+										: t(
+												confirmationPresentation?.buttonKey ?? 'chat.confirm_action',
+												confirmationPresentation?.buttonFallback ?? 'Confirm'
+											)}
 								</PrimaryActionButton>
 							</ConfirmationActions>
 						</ConfirmationCard>
