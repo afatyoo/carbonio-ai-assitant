@@ -18,7 +18,7 @@ real confidential mail while the free-model pilot is active.
 sudo /opt/carbonio-ai-assistant/bin/smoke-test.sh
 ```
 
-Expected: `smoke_health=ok headers=ok loopback=ok admin_auth=ok csrf=ok`.
+Expected: `smoke_health=ok headers=ok loopback=ok admin_auth=ok csrf=ok history=postgresql`.
 
 ## Authenticated Webmail checks
 
