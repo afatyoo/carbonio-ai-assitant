@@ -20,6 +20,8 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 - Provider retry for HTTP `429`, `502`, `503`, and network errors with exponential
   backoff and jitter.
 - Reliability self-tests for retry and timeout behavior.
+- A direct conversation delete button on history hover, while retaining Delete in
+  the overflow menu for discoverability.
 
 ### Changed
 

@@ -9,6 +9,7 @@
 		"more_actions": "Tindakan lainnya untuk {{title}}",
 		"rename": "Ubah nama",
 		"delete": "Hapus",
+		"delete_conversation": "Hapus {{title}}",
 		"rename_prompt": "Ubah nama percakapan",
 		"delete_confirm": "Hapus \"{{title}}\"?",
 		"load_error": "Riwayat percakapan tidak dapat dimuat",

@@ -9,6 +9,7 @@
 		"more_actions": "More actions for {{title}}",
 		"rename": "Rename",
 		"delete": "Delete",
+		"delete_conversation": "Delete {{title}}",
 		"rename_prompt": "Rename conversation",
 		"delete_confirm": "Delete \"{{title}}\"?",
 		"load_error": "Unable to load conversation history",

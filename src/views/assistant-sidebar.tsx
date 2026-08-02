@@ -154,6 +154,9 @@ const HistoryTitle = styled.div`
 
 const HistoryActions = styled.div<{ open: boolean }>`
 	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	gap: 0.125rem;
 	opacity: ${({ open }): number => (open ? 1 : 0)};
 	pointer-events: ${({ open }): string => (open ? 'auto' : 'none')};
 	transition: opacity 120ms ease;
@@ -521,6 +524,22 @@ export const AssistantSidebar = ({
 									)}
 									{!editing && (
 										<HistoryActions data-history-actions="true" open={menuOpen}>
+											<Button
+												type="ghost"
+												color="text"
+												size="small"
+												icon="Trash2Outline"
+												disabled={busyId === conversation.id}
+												aria-label={t(
+													'sidebar.delete_conversation',
+													'Delete {{title}}',
+													{ title: conversation.title }
+												)}
+												onClick={(event): void => {
+													event.stopPropagation();
+													void removeConversation(conversation);
+												}}
+											/>
 											<Dropdown
 												items={actions}
 												placement="bottom-end"
