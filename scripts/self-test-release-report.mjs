@@ -70,6 +70,41 @@ try {
 	assert.equal(gatewayLock.version, rootPackage.version);
 	assert.equal(gatewayLock.packages[''].version, rootPackage.version);
 
+	const repositoryReadme = await readFile(path.join(projectRoot, 'README.md'), 'utf8');
+	for (const heading of [
+		'What v1.0.0 includes',
+		'RAG scope',
+		'Known limitations',
+		'Production deployment',
+		'Upgrade',
+		'Rollback',
+		'Uninstall',
+		'Troubleshooting'
+	]) {
+		assert.match(repositoryReadme, new RegExp(`^## ${heading.replaceAll('.', '\\\\.')}$`, 'm'));
+	}
+	assert.match(repositoryReadme, /carbonio-ai-assistant-v1\.0\.0\.tar\.gz/);
+	assert.match(repositoryReadme, /carbonio-ai-gateway\.service/);
+	assert.match(
+		repositoryReadme,
+		/not full mailbox, attachment, file, or workspace vector RAG/i
+	);
+	for (const limitation of [
+		'logout/login/login-again',
+		'Firefox desktop and narrow-layout',
+		'real non-administrator Settings boundary',
+		'large-mailbox',
+		'live attachment',
+		'remaining calendar mutation lifecycle',
+		'Carbonio upgrade rehearsal',
+		'separate staging and PostgreSQL replica/failover'
+	]) {
+		assert.match(repositoryReadme, new RegExp(limitation, 'i'));
+	}
+	for (const command of ['install.sh', 'smoke-test.sh', 'rollback.sh', 'uninstall.sh']) {
+		assert.match(repositoryReadme, new RegExp(command.replace('.', '\\\\.')));
+	}
+
 	const repositoryReport = await readFile(
 		path.join(projectRoot, `docs/releases/v${rootPackage.version}.md`),
 		'utf8'
