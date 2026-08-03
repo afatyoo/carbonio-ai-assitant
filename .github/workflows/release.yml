@@ -75,7 +75,7 @@ jobs:
             --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             --checksum "${archive}.sha256" \
             --output release/github-release-notes.md
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: carbonio-ai-assistant-${{ github.ref_name }}
           path: |
