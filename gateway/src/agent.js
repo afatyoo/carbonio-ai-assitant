@@ -39,6 +39,35 @@ const isDocumentationOnlyQuery = (message) =>
 		message
 	);
 
+const protectedDataObjectPattern =
+	'(?:e-?mails?|mailboxes?|inbox|kotak\\s+masuk|kalender|calendars?)';
+const indonesianDataAccessOptOutPattern = new RegExp(
+	`\\b(?:jangan(?:\\s+pernah)?|tanpa)\\s+(?:pernah\\s+)?(?:mengakses|akses|membaca|baca|menggunakan|gunakan|membuka|buka)\\s+(?:akun\\s+|saya\\s+|milik\\s+saya\\s+)?${protectedDataObjectPattern}\\b`,
+	'i'
+);
+const englishDataAccessOptOutPattern = new RegExp(
+	`\\b(?:do\\s+not|don't|dont|never|without)\\s+(?:ever\\s+)?(?:access(?:ing)?|read(?:ing)?|us(?:e|ing)|open(?:ing)?|check(?:ing)?)\\s+(?:(?:my|the|any)\\s+)?${protectedDataObjectPattern}\\b`,
+	'i'
+);
+const hypotheticalOptOutPattern =
+	/\b(?:if|when)\s+i\s+(?:say|said)|\b(?:jika|kalau|ketika)\s+saya\s+(?:bilang|mengatakan)/i;
+
+export const isAgentDataAccessOptOut = (message) => {
+	const withoutQuotedText = String(message ?? '')
+		.replace(/"[^"\n]*"|“[^”\n]*”|‘[^’\n]*’|(?<![\p{L}\p{N}])'[^'\n]+'(?![\p{L}\p{N}])/gu, ' ')
+		.replaceAll('’', "'");
+	return withoutQuotedText.split(/[.!?;,\n]+/).some((clause) => {
+		const optOutMatches = [
+			indonesianDataAccessOptOutPattern.exec(clause),
+			englishDataAccessOptOutPattern.exec(clause)
+		].filter(Boolean);
+		if (optOutMatches.length === 0) return false;
+		const optOutIndex = Math.min(...optOutMatches.map(({ index }) => index));
+		const hypothetical = hypotheticalOptOutPattern.exec(clause);
+		return !hypothetical || hypothetical.index > optOutIndex;
+	});
+};
+
 export const isDraftActionRequest = (message) =>
 	/(draft\s+(a\s+)?reply|compose\s+(an?\s+)?email|buat(?:kan)?\s+(draft|balasan|email)|siapkan\s+(draft|balasan|email)|balas\s+email)/i.test(
 		message
@@ -217,6 +246,7 @@ const remoteCompletion = async ({
 	json = false
 }) => {
 	const config = getAgentConfig();
+	const hasSystemPrompt = typeof systemPrompt === 'string' && systemPrompt.length > 0;
 	const model = assertModelAllowed(requestedModel || config.model, account);
 	beforeProviderRequest(config.provider);
 	const isOpenAiCompatible = ['openrouter', 'openai', 'deepseek'].includes(config.provider);
@@ -243,12 +273,14 @@ const remoteCompletion = async ({
 			? {
 					model,
 					max_tokens: 2048,
-					system: systemPrompt,
+					...(hasSystemPrompt ? { system: systemPrompt } : {}),
 					messages: [{ role: 'user', content: userPrompt }]
 				}
 			: config.provider === 'gemini'
 				? {
-						systemInstruction: { parts: [{ text: systemPrompt }] },
+						...(hasSystemPrompt
+							? { systemInstruction: { parts: [{ text: systemPrompt }] } }
+							: {}),
 						contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
 						generationConfig: { maxOutputTokens: 2048 }
 					}
@@ -274,13 +306,13 @@ const remoteCompletion = async ({
 								? { response_format: { type: 'json_object' } }
 								: {}),
 							messages: [
-								{ role: 'system', content: systemPrompt },
+								...(hasSystemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
 								{ role: 'user', content: userPrompt }
 							]
 						}
 					: {
 							message: userPrompt,
-							system: systemPrompt,
+							...(hasSystemPrompt ? { system: systemPrompt } : {}),
 							model
 						};
 	const startedAt = Date.now();
@@ -362,7 +394,11 @@ const remoteCompletion = async ({
 			JSON.stringify(data)
 	);
 	recordProviderSuccess(config.provider);
-	const providerUsage = extractProviderUsage(data, `${systemPrompt}\n${userPrompt}`, output);
+	const providerUsage = extractProviderUsage(
+		data,
+		[systemPrompt, userPrompt].filter(Boolean).join('\n'),
+		output
+	);
 	incrementMetric('provider_input_tokens_total', providerUsage.inputTokens);
 	incrementMetric('provider_output_tokens_total', providerUsage.outputTokens);
 	if (ownerId) {
@@ -399,6 +435,15 @@ const remoteAnswer = async ({
 	});
 	return appendKnowledgeSources(answer, knowledgeResults);
 };
+
+const remoteDirectAnswer = ({ message, requestedModel, account, signal }) =>
+	remoteCompletion({
+		requestedModel,
+		ownerId: account?.id,
+		account,
+		signal,
+		userPrompt: message
+	});
 
 const extractJsonObject = (value) => {
 	const start = value.indexOf('{');
@@ -1146,8 +1191,9 @@ const prepareExistingAppointmentAction = async ({
 
 export const runAgent = async ({ message, model, cookie, account, permissions = [], emit, signal }) => {
 	const config = getAgentConfig();
+	const dataAccessOptOut = isAgentDataAccessOptOut(message);
 	const knowledgeStartedAt = Date.now();
-	const knowledgeResults = shouldRetrieveKnowledge(message)
+	const knowledgeResults = !dataAccessOptOut && shouldRetrieveKnowledge(message)
 		? retrieveKnowledge(message, { limit: knowledgeLimit })
 		: [];
 	if (knowledgeResults.length > 0) {
@@ -1162,6 +1208,21 @@ export const runAgent = async ({ message, model, cookie, account, permissions = 
 			result_ids: knowledgeResults.map(({ id }) => id),
 			duration_ms: Date.now() - knowledgeStartedAt
 		});
+	}
+	if (dataAccessOptOut) {
+		const answer = config.agentUrl
+			? await remoteDirectAnswer({
+					message,
+					requestedModel: model,
+					account,
+					signal
+				})
+			: localAnswer(message, null, []);
+		for (const chunk of answer.match(/[\s\S]{1,42}/g) ?? [answer]) {
+			emit('message', { text: chunk });
+		}
+		emit('done', {});
+		return;
 	}
 	const action = isDocumentationOnlyQuery(message) ? null : classifyActionRequest(message);
 	const calendarAction = isDocumentationOnlyQuery(message)
