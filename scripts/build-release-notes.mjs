@@ -39,6 +39,7 @@ export const validateRepositoryReleaseContract = async ({ projectRoot, expectedV
 	);
 	for (const heading of [
 		'Executive summary',
+		'Risk acceptance',
 		'CI/CD and verification matrix',
 		'Complete closed-bug ledger',
 		'Live UAT results',
@@ -48,13 +49,27 @@ export const validateRepositoryReleaseContract = async ({ projectRoot, expectedV
 	]) {
 		requireMatch(report, new RegExp(`^## ${heading.replaceAll('/', '\\/')}\\s*$`, 'm'), `Release report is missing section: ${heading}`);
 	}
-	for (let bugNumber = 1; bugNumber <= 24; bugNumber += 1) {
+	for (let bugNumber = 1; bugNumber <= 25; bugNumber += 1) {
 		const bugId = `BUG-${String(bugNumber).padStart(3, '0')}`;
-		requireMatch(report, new RegExp(`^### ${bugId}\\b`, 'm'), `Release report is missing ${bugId}`);
+		const headingPattern = new RegExp(`^### ${bugId}\\b`, 'm');
+		requireMatch(report, headingPattern, `Release report is missing ${bugId}`);
+		const sectionStart = report.search(headingPattern);
+		const afterHeadingStart = report.indexOf('\n', sectionStart) + 1;
+		const afterHeading = report.slice(afterHeadingStart);
+		const nextSectionOffset = afterHeading.search(/^### BUG-|^## /m);
+		const section =
+			nextSectionOffset >= 0
+				? report.slice(sectionStart, afterHeadingStart + nextSectionOffset)
+				: report.slice(sectionStart);
+		for (const detail of ['Symptom', 'Root cause', 'Resolution', 'Regression/evidence']) {
+			if (!section.includes(`- **${detail}:**`)) {
+				throw new Error(`${bugId} is missing detail: ${detail}`);
+			}
+		}
 	}
 	const closedBugCount = report.match(/^### BUG-[0-9]{3}\b/gm)?.length ?? 0;
-	if (closedBugCount < 24) {
-		throw new Error(`Release report must contain at least 24 closed bugs; found ${closedBugCount}`);
+	if (closedBugCount < 25) {
+		throw new Error(`Release report must contain at least 25 closed bugs; found ${closedBugCount}`);
 	}
 
 	for (const publicFile of ['README.md', 'CHANGELOG.md']) {

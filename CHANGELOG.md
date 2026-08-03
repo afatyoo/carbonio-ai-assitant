@@ -2,6 +2,33 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [1.0.0] - 2026-08-03
+
+### Security
+
+- Explicit mailbox/calendar data-access opt-outs now bypass all Carbonio mailbox and
+  calendar tools, documentation RAG, and synthetic tool context. The direct provider path
+  receives exactly one original user message with no system/tool/RAG wrapper.
+- The bilingual classifier covers access/read/use/open/check variants, Unicode apostrophes,
+  plural protected objects, quoted and hypothetical text, reinforced opt-outs, and multiple
+  opt-outs without weakening ordinary email/calendar requests.
+
+### Fixed
+
+- Closed the live beta UAT bug where `Jangan akses email atau kalender` triggered
+  documentation retrieval and `search_emails` solely because the negated sentence contained
+  the words `balas` and `email`.
+
+### Verified
+
+- Added a real `runAgent` → HTTP-provider regression with 13 positive bilingual opt-out
+  prompts and eight false-positive/hypothetical cases. The test asserts zero tool events,
+  empty mailbox/RAG context, and an exact user-only provider payload.
+- The internal candidate passed full local and installed gateway suites, strict PostgreSQL
+  production smoke, PostgreSQL idle disconnect/reconnect without gateway restart, and
+  authenticated Chrome UAT on the exact commit. See the
+  [detailed v1.0.0 report](docs/releases/v1.0.0.md).
+
 ## [1.0.0-beta.1] - 2026-08-02
 
 ### Added
@@ -323,6 +350,7 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 - Initial public MVP with a Carbonio microfrontend, AI gateway, provider settings,
   mailbox tools, server-side SQLite history, and systemd-based deployment tooling.
 
+[1.0.0]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v1.0.0
 [1.0.0-beta.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v1.0.0-beta.1
 [0.0.3-rc.19]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.19
 [0.0.3-rc.18]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.18
