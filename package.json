@@ -20,6 +20,7 @@
 		"lint": "eslint --ext .ts,.tsx src",
 		"package:release": "bash deploy/package-release.sh",
 		"self-test:deploy": "node deploy/self-test-smoke.mjs",
+		"self-test:i18n": "node scripts/self-test-i18n.mjs",
 		"self-test:release": "node scripts/self-test-release-report.mjs",
 		"self-test:ui": "node scripts/self-test-ui-contract.mjs && node scripts/self-test-appointment-result.mjs && node scripts/self-test-action-confirmation.mjs && node scripts/self-test-agent-stream.mjs",
 		"start": "sdk watch",

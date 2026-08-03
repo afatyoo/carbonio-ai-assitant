@@ -45,6 +45,8 @@ jobs:
         run: pnpm run lint
       - name: Type-check UI
         run: pnpm run type-check
+      - name: Test i18n contracts
+        run: pnpm run self-test:i18n
       - name: Test UI contracts
         run: pnpm run self-test:ui
       - name: Test deployment smoke gate
@@ -61,6 +63,8 @@ jobs:
         run: npm --prefix gateway run self-test:postgres
       - name: Build UI
         run: pnpm run build
+      - name: Verify built locale catalogs
+        run: pnpm run self-test:i18n -- --dist
       - name: Dependency audit
         run: |
           pnpm audit --audit-level high

@@ -1,0 +1,4 @@
+{
+	"fallback": "en",
+	"official": ["en", "fr", "hi", "id", "it", "pt", "ru", "es", "th"]
+}
