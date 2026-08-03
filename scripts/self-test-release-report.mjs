@@ -104,6 +104,8 @@ try {
 	for (const command of ['install.sh', 'smoke-test.sh', 'rollback.sh', 'uninstall.sh']) {
 		assert.match(repositoryReadme, new RegExp(command.replace('.', '\\.')));
 	}
+	assert.doesNotMatch(repositoryReadme, /—/);
+	assert.doesNotMatch(repositoryReadme, /;/);
 
 	const repositoryReport = await readFile(
 		path.join(projectRoot, `docs/releases/v${rootPackage.version}.md`),
