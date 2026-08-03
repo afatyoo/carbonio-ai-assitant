@@ -81,7 +81,7 @@ try {
 		'Uninstall',
 		'Troubleshooting'
 	]) {
-		assert.match(repositoryReadme, new RegExp(`^## ${heading.replaceAll('.', '\\\\.')}$`, 'm'));
+		assert.match(repositoryReadme, new RegExp(`^## ${heading.replaceAll('.', '\\.')}$`, 'm'));
 	}
 	assert.match(repositoryReadme, /carbonio-ai-assistant-v1\.0\.0\.tar\.gz/);
 	assert.match(repositoryReadme, /carbonio-ai-gateway\.service/);
@@ -102,7 +102,7 @@ try {
 		assert.match(repositoryReadme, new RegExp(limitation, 'i'));
 	}
 	for (const command of ['install.sh', 'smoke-test.sh', 'rollback.sh', 'uninstall.sh']) {
-		assert.match(repositoryReadme, new RegExp(command.replace('.', '\\\\.')));
+		assert.match(repositoryReadme, new RegExp(command.replace('.', '\\.')));
 	}
 
 	const repositoryReport = await readFile(
