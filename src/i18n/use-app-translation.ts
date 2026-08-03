@@ -4,6 +4,13 @@ import { getI18n } from '@zextras/carbonio-shell-ui';
 
 type TranslationOptions = Record<string, string | number | boolean>;
 
+const SUPPORTED_LOCALES = new Set(['en', 'fr', 'hi', 'id', 'it', 'pt', 'ru', 'es', 'th']);
+
+export const resolveAppLocale = (locale?: string): string => {
+	const baseLocale = locale?.trim().replaceAll('_', '-').split('-')[0]?.toLowerCase();
+	return baseLocale && SUPPORTED_LOCALES.has(baseLocale) ? baseLocale : 'en';
+};
+
 export const useAppTranslation = (): {
 	t: (key: string, fallback: string, options?: TranslationOptions) => string;
 	locale: string;
@@ -32,7 +39,7 @@ export const useAppTranslation = (): {
 
 	return {
 		t,
-		locale: i18n.resolvedLanguage ?? i18n.language ?? 'en',
+		locale: resolveAppLocale(i18n.resolvedLanguage ?? i18n.language),
 		ready: i18n.isInitialized && i18n.hasLoadedNamespace('translation')
 	};
 };
