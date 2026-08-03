@@ -144,6 +144,8 @@
 		"contact_error": "Tidak dapat menghubungi agent: {{message}}"
 	},
 	"settings": {
+		"admin_only": "Khusus administrator",
+		"admin_status": "Status administrator",
 		"description": "Atur API Agent yang digunakan oleh Asisten AI Carbonio.",
 		"provider": "Provider AI",
 		"provider_hint": "Endpoint dan protokol diatur secara otomatis.",
@@ -166,6 +168,7 @@
 		"usage_title": "Penggunaan AI Anda",
 		"usage_requests": "{{used}} dari {{limit}} permintaan hari ini",
 		"usage_tokens": "{{used}} dari {{limit}} token hari ini",
-		"custom_provider": "Endpoint kustom"
+		"custom_provider": "Endpoint kustom",
+		"recent_tool_activity": "Aktivitas alat terbaru"
 	}
 }

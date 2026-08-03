@@ -144,6 +144,8 @@
 		"contact_error": "Unable to contact the agent: {{message}}"
 	},
 	"settings": {
+		"admin_only": "Administrator only",
+		"admin_status": "Administrator status",
 		"description": "Configure the Agent API used by Carbonio AI Assistant.",
 		"provider": "AI provider",
 		"provider_hint": "The endpoint and protocol are configured automatically.",
@@ -166,6 +168,7 @@
 		"usage_title": "Your AI usage",
 		"usage_requests": "{{used}} of {{limit}} requests today",
 		"usage_tokens": "{{used}} of {{limit}} tokens today",
-		"custom_provider": "Custom endpoint"
+		"custom_provider": "Custom endpoint",
+		"recent_tool_activity": "Recent tool activity"
 	}
 }
