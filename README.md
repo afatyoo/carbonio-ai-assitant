@@ -63,16 +63,16 @@ metadata for citations.
 This is documentation grounding, not full mailbox, attachment, file, or workspace vector RAG.
 The release does not:
 
-- create mailbox or attachment embeddings;
-- install or query `pgvector`;
-- index every user's email, Files content, shared folders, or private workspace;
-- synchronize a vector index when source content, permissions, or retention state changes;
+- create mailbox or attachment embeddings.
+- install or query `pgvector`.
+- index every user's email, Files content, shared folders, or private workspace.
+- synchronize a vector index when source content, permissions, or retention state changes.
 - extract arbitrary attachment bodies for provider upload.
 
 Mailbox and calendar data is fetched on demand through bounded Carbonio SOAP tools using
-the active user's session. Production-ready user/workspace vector RAG—including controlled
+the active user's session. Production-ready user/workspace vector RAG, including controlled
 import, ACL revalidation, deletion propagation, hybrid retrieval, reranking, and cross-user
-isolation—is deferred to the separate production RAG plan.
+isolation, is deferred to the separate production RAG plan.
 
 ## Architecture
 
@@ -92,18 +92,18 @@ carbonio-ai-gateway.service (127.0.0.1:8787)
 ```
 
 The browser never receives the provider API key or direct database credentials. The gateway
-does not trust an account ID supplied by the browser; it derives ownership from the active
+does not trust an account ID supplied by the browser. It derives ownership from the active
 Carbonio session.
 
 ## Tested environment
 
 The stable production-pilot evidence was collected on:
 
-- Carbonio Advanced 26.6.2 on Ubuntu 24.04;
-- Carbonio Shell UI 15.1.0;
-- a single Carbonio Proxy/Web UI/Mailstore host;
-- PostgreSQL 16 on the same pilot host;
-- Chrome with the internal Carbonio CA trusted;
+- Carbonio Advanced 26.6.2 on Ubuntu 24.04.
+- Carbonio Shell UI 15.1.0.
+- a single Carbonio Proxy/Web UI/Mailstore host.
+- PostgreSQL 16 on the same pilot host.
+- Chrome with the internal Carbonio CA trusted.
 - packaged Node.js v22.22.0 for the gateway.
 
 The UI targets the latest two major Chrome, Firefox, Edge, and Safari versions, subject to
@@ -113,16 +113,16 @@ part of the current live UAT evidence. See [browser support](docs/browser-suppor
 ## Known limitations
 
 The project owner accepted the following external gates for v1.0.0 as known limitations.
-Risk acceptance permitted the stable release; it did **not** convert missing evidence into
+Risk acceptance permitted the stable release. It did **not** convert missing evidence into
 a pass:
 
-1. logout/login/login-again persistence with a known pilot password;
-2. authenticated Firefox desktop and narrow-layout coverage;
-3. a real non-administrator Settings boundary test;
-4. large-mailbox bounded-search and performance acceptance;
-5. live attachment handling with a dedicated safe fixture;
-6. the remaining calendar mutation lifecycle and confirmation-replay checks;
-7. Carbonio upgrade rehearsal on a comparison host; and
+1. logout/login/login-again persistence with a known pilot password.
+2. authenticated Firefox desktop and narrow-layout coverage.
+3. a real non-administrator Settings boundary test.
+4. large-mailbox bounded-search and performance acceptance.
+5. live attachment handling with a dedicated safe fixture.
+6. the remaining calendar mutation lifecycle and confirmation-replay checks.
+7. Carbonio upgrade rehearsal on a comparison host.
 8. separate staging and PostgreSQL replica/failover rehearsal.
 
 The optional permanent-delete/replay scenario and the `AI-UAT` tag/folder lifecycle also
@@ -134,7 +134,7 @@ record is in the [v1.0.0 release report](docs/releases/v1.0.0.md#risk-acceptance
 
 - Every protected request verifies the Carbonio session and scopes data by the resolved
   account ID.
-- The gateway binds only to `127.0.0.1:8787`; Carbonio Nginx provides the same-origin public
+- The gateway binds only to `127.0.0.1:8787`. Carbonio Nginx provides the same-origin public
   route and security headers.
 - Provider credentials are administrator-owned, encrypted with `systemd-creds`, and never
   echoed to the browser.
@@ -166,7 +166,7 @@ Read the [provider data policy](docs/provider-data-policy.md) and
    Alice this week." Read operations do not mark messages as read.
 4. For a draft or mutation, inspect the exact target, recipients, destination, or calendar
    before/after preview.
-5. Confirm only the intended action. Confirmation is single-use; a changed or ambiguous
+5. Confirm only the intended action. Confirmation is single-use. A changed or ambiguous
    target fails closed.
 6. Use history search, rename, delete, and Undo from the conversation sidebar.
 7. When reporting a failure, copy the request ID shown by the UI so an administrator can
@@ -174,7 +174,7 @@ Read the [provider data policy](docs/provider-data-policy.md) and
 
 ### Administrator workflow
 
-1. Add only approved pilot identities to `AI_ENABLED_ACCOUNTS`; keep write access narrower
+1. Add only approved pilot identities to `AI_ENABLED_ACCOUNTS`. Keep write access narrower
    through `AI_WRITE_TOOL_ACCOUNTS`.
 2. Add administrator identities to `AI_ADMIN_ACCOUNTS`. An empty list grants no one admin
    access.
@@ -191,13 +191,13 @@ an API key directly in `gateway.env`.
 
 The Carbonio Proxy/Web UI host must provide:
 
-- a supported Carbonio installation with Iris at `/opt/zextras/web/iris` and Carbonio Nginx;
-- root access for installation and service management;
-- PostgreSQL plus `psql`, `createuser`, `createdb`, `pg_dump`, and `pg_restore`;
-- `curl`, `jq`, `tar`, `sha256sum`, `openssl`, `systemctl`, and `systemd-creds`;
-- outbound HTTPS access to download the pinned Node runtime when it is not already present;
-- outbound HTTPS access to the chosen AI provider;
-- a Webmail certificate trusted by pilot browsers;
+- a supported Carbonio installation with Iris at `/opt/zextras/web/iris` and Carbonio Nginx.
+- root access for installation and service management.
+- PostgreSQL plus `psql`, `createuser`, `createdb`, `pg_dump`, and `pg_restore`.
+- `curl`, `jq`, `tar`, `sha256sum`, `openssl`, `systemctl`, and `systemd-creds`.
+- outbound HTTPS access to download the pinned Node runtime when it is not already present.
+- outbound HTTPS access to the chosen AI provider.
+- a Webmail certificate trusted by pilot browsers.
 - a maintenance window, a verified backup destination, and an approved rollback commit.
 
 The installer downloads and verifies the pinned official Node 22 runtime, installs the UI
@@ -297,11 +297,11 @@ smoke_health=ok headers=ok loopback=ok admin_auth=ok csrf=ok history=postgresql
 
 Then hard-refresh authenticated Carbonio Webmail and verify:
 
-1. the robot icon opens the assistant route;
-2. provider status is connected and only allowed models appear;
-3. an existing conversation still loads from PostgreSQL;
+1. the robot icon opens the assistant route.
+2. provider status is connected and only allowed models appear.
+3. an existing conversation still loads from PostgreSQL.
 4. a synthetic prompt that explicitly forbids email/calendar access receives an answer
-   without mailbox, calendar, confirmation, or mutation events;
+   without mailbox, calendar, confirmation, or mutation events.
 5. one approved non-mutating mailbox query behaves as expected.
 
 Do not repeat a live email or calendar mutation without separate action-time approval.
@@ -384,7 +384,7 @@ JSON through the intended route. Do not add a browser-side endpoint override as 
 ### AI gateway HTTP 405
 
 Confirm the UI and gateway come from the same exact release, the request uses the documented
-method, and Carbonio Nginx preserves `/api/ai/*`. Validate Nginx and inspect the request ID;
+method, and Carbonio Nginx preserves `/api/ai/*`. Validate Nginx and inspect the request ID.
 do not expose port 8787 publicly.
 
 ### The provider returns successfully but no answer appears
@@ -445,7 +445,7 @@ npm install
 node src/server.js
 ```
 
-The development gateway binds to `127.0.0.1:8787` by default. SQLite is a local fallback;
+The development gateway binds to `127.0.0.1:8787` by default. SQLite is a local fallback.
 it is not accepted by the production smoke test.
 
 ## Verification
@@ -462,15 +462,15 @@ npm --prefix gateway run self-test
 ```
 
 The PostgreSQL disconnect/reconnect integration test requires an explicit safe test database
-through `AI_TEST_DATABASE_URL`; do not aim it at an unapproved production database.
+through `AI_TEST_DATABASE_URL`. Do not aim it at an unapproved production database.
 
 ## Repository structure
 
-- `src/` — React/TypeScript Carbonio microfrontend.
-- `gateway/` — AI provider, Carbonio tool, policy, observability, and history gateway.
-- `deploy/` — packaging, install, database, credential, smoke, rollback, and uninstall tools.
-- `scripts/` — UI and release-contract checks.
-- `docs/` — policy, browser support, UAT, release evidence, and project history.
+- `src/`: React/TypeScript Carbonio microfrontend.
+- `gateway/`: AI provider, Carbonio tool, policy, observability, and history gateway.
+- `deploy/`: packaging, install, database, credential, smoke, rollback, and uninstall tools.
+- `scripts/`: UI and release-contract checks.
+- `docs/`: policy, browser support, UAT, release evidence, and project history.
 
 ## Documentation
 
