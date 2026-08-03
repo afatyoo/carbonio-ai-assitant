@@ -23,14 +23,14 @@ try {
 	await writeFile(reportPath, '# Carbonio AI Assistant v1 Beta\n\nVerified report body.\n', 'utf8');
 	await writeFile(
 		checksumPath,
-		`${checksum}  carbonio-ai-assistant-v1.0.0.tar.gz\n`,
+		`${checksum}  carbonio-ai-assistant-v1.0.1.tar.gz\n`,
 		'utf8'
 	);
 
 	await buildReleaseNotes({
 		reportPath,
-		version: '1.0.0',
-		tag: 'v1.0.0',
+		version: '1.0.1',
+		tag: 'v1.0.1',
 		commit,
 		runUrl,
 		checksumPath,
@@ -40,22 +40,22 @@ try {
 	const output = await readFile(outputPath, 'utf8');
 	assert.match(output, /Verified report body\./);
 	assert.match(output, /## Exact-build verification/);
-	assert.match(output, /Tag: `v1\.0\.0`/);
+	assert.match(output, /Tag: `v1\.0\.1`/);
 	assert.match(output, new RegExp(`Commit: \`${commit}\``));
 	assert.match(output, new RegExp(`Release workflow: ${runUrl}`));
-	assert.match(output, new RegExp(`Artifact checksum: \`${checksum}  carbonio-ai-assistant-v1\\.0\\.0\\.tar\\.gz\``));
+	assert.match(output, new RegExp(`Artifact checksum: \`${checksum}  carbonio-ai-assistant-v1\\.0\\.1\\.tar\\.gz\``));
 
 	await assert.rejects(
 		buildReleaseNotes({
 			reportPath,
-			version: '1.0.0',
-			tag: 'v1.0.1',
+			version: '1.0.1',
+			tag: 'v1.0.2',
 			commit,
 			runUrl,
 			checksumPath,
 			outputPath
 		}),
-		/Tag v1\.0\.1 does not match version 1\.0\.0/
+		/Tag v1\.0\.2 does not match version 1\.0\.1/
 	);
 
 	const rootPackage = JSON.parse(await readFile(path.join(projectRoot, 'package.json'), 'utf8'));
@@ -65,14 +65,19 @@ try {
 	const gatewayLock = JSON.parse(
 		await readFile(path.join(projectRoot, 'gateway/package-lock.json'), 'utf8')
 	);
-	assert.equal(rootPackage.version, '1.0.0');
+	assert.equal(rootPackage.version, '1.0.1');
 	assert.equal(gatewayPackage.version, rootPackage.version);
 	assert.equal(gatewayLock.version, rootPackage.version);
 	assert.equal(gatewayLock.packages[''].version, rootPackage.version);
 
 	const repositoryReadme = await readFile(path.join(projectRoot, 'README.md'), 'utf8');
+	for (const locale of ['en', 'fr', 'hi', 'id', 'it', 'pt', 'ru', 'es', 'th']) {
+		assert.ok(repositoryReadme.includes(`(\`${locale}\`)`));
+	}
+	assert.match(repositoryReadme, /high-quality first-pass translations without\s+native linguistic sign-off/i);
+	assert.match(repositoryReadme, /not translated automatically/i);
 	for (const heading of [
-		'What v1.0.0 includes',
+		'What v1.0.1 includes',
 		'RAG scope',
 		'Known limitations',
 		'Production deployment',
@@ -83,7 +88,7 @@ try {
 	]) {
 		assert.match(repositoryReadme, new RegExp(`^## ${heading.replaceAll('.', '\\.')}$`, 'm'));
 	}
-	assert.match(repositoryReadme, /carbonio-ai-assistant-v1\.0\.0\.tar\.gz/);
+	assert.match(repositoryReadme, /carbonio-ai-assistant-v1\.0\.1\.tar\.gz/);
 	assert.match(repositoryReadme, /carbonio-ai-gateway\.service/);
 	assert.match(
 		repositoryReadme,
@@ -111,13 +116,13 @@ try {
 		path.join(projectRoot, `docs/releases/v${rootPackage.version}.md`),
 		'utf8'
 	);
-	assert.match(repositoryReport, /^# Carbonio AI Assistant v1\.0\.0/m);
+	assert.match(repositoryReport, /^# Carbonio AI Assistant v1\.0\.1/m);
 
 	const contract = await validateRepositoryReleaseContract({
 		projectRoot,
-		expectedVersion: '1.0.0'
+		expectedVersion: '1.0.1'
 	});
-	assert.equal(contract.version, '1.0.0');
+	assert.equal(contract.version, '1.0.1');
 	assert.equal(contract.closedBugCount, 25);
 
 	const brokenRoot = path.join(workspace, 'broken-repository');
@@ -125,7 +130,7 @@ try {
 		'package.json',
 		'gateway/package.json',
 		'gateway/package-lock.json',
-		'docs/releases/v1.0.0.md',
+		'docs/releases/v1.0.1.md',
 		'README.md',
 		'CHANGELOG.md',
 		'deploy/package-release.sh',
@@ -137,7 +142,7 @@ try {
 		await mkdir(path.dirname(destination), { recursive: true });
 		await cp(path.join(projectRoot, relativePath), destination);
 	}
-	const extendedReportPath = path.join(brokenRoot, 'docs/releases/v1.0.0.md');
+	const extendedReportPath = path.join(brokenRoot, 'docs/releases/v1.0.1.md');
 	const originalReport = await readFile(extendedReportPath, 'utf8');
 	await writeFile(
 		extendedReportPath,
@@ -147,7 +152,7 @@ try {
 	await assert.rejects(
 		validateRepositoryReleaseContract({
 			projectRoot: brokenRoot,
-			expectedVersion: '1.0.0'
+			expectedVersion: '1.0.1'
 		}),
 		/Release report is missing section: Risk acceptance/
 	);
@@ -160,7 +165,7 @@ try {
 	await assert.rejects(
 		validateRepositoryReleaseContract({
 			projectRoot: brokenRoot,
-			expectedVersion: '1.0.0'
+			expectedVersion: '1.0.1'
 		}),
 		/Release report is missing BUG-025/
 	);
@@ -176,7 +181,7 @@ try {
 	await assert.rejects(
 		validateRepositoryReleaseContract({
 			projectRoot: brokenRoot,
-			expectedVersion: '1.0.0'
+			expectedVersion: '1.0.1'
 		}),
 		/BUG-001 is missing detail: Root cause/
 	);
@@ -185,7 +190,7 @@ try {
 	await writeFile(extendedReportPath, extendedReport, 'utf8');
 	const extendedContract = await validateRepositoryReleaseContract({
 		projectRoot: brokenRoot,
-		expectedVersion: '1.0.0'
+		expectedVersion: '1.0.1'
 	});
 	assert.equal(extendedContract.closedBugCount, 26);
 
@@ -198,7 +203,7 @@ try {
 	await assert.rejects(
 		validateRepositoryReleaseContract({
 			projectRoot: brokenRoot,
-			expectedVersion: '1.0.0'
+			expectedVersion: '1.0.1'
 		}),
 		/Release workflow must publish the curated body with --notes-file/
 	);

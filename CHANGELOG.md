@@ -2,6 +2,27 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [1.0.1] - 2026-08-03
+
+### Added
+
+- Added complete French, Hindi, Italian, Brazilian Portuguese, Russian, Spanish, and Thai
+  catalogs alongside English and Indonesian for all addon-owned UI text.
+- Added manifest-driven checks for exact key parity, placeholders, source coverage, non-empty
+  values, and production build output across all nine official Carbonio locales.
+
+### Fixed
+
+- Normalized regional Carbonio locale values such as `pt-BR` and `id-ID` to supported base
+  catalogs, with deterministic English fallback for unsupported community locales.
+
+### Limitations
+
+- The seven new catalogs are high-quality first passes without native linguistic sign-off.
+  AI answers, mailbox content, citations, and external provider messages are not translated.
+
+- See the [detailed v1.0.1 report](docs/releases/v1.0.1.md).
+
 ## [1.0.0] - 2026-08-03
 
 ### Security
@@ -350,6 +371,7 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 - Initial public MVP with a Carbonio microfrontend, AI gateway, provider settings,
   mailbox tools, server-side SQLite history, and systemd-based deployment tooling.
 
+[1.0.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v1.0.1
 [1.0.0]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v1.0.0
 [1.0.0-beta.1]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v1.0.0-beta.1
 [0.0.3-rc.19]: https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v0.0.3-rc.19
