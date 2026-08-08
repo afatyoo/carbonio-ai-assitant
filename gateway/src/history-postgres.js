@@ -454,6 +454,10 @@ export const purgeAccountPreferences = async (ownerId) => {
 	await pool.query('DELETE FROM account_ai_preferences WHERE owner_id = $1', [ownerId]);
 };
 
+export const purgeAllAccountPreferences = async () => {
+	await pool.query('DELETE FROM account_ai_preferences');
+};
+
 export const purgeDailyUsage = async (ownerId) => {
 	await pool.query('DELETE FROM daily_ai_usage WHERE owner_id = $1', [ownerId]);
 };

@@ -169,6 +169,7 @@
 		"usage_requests": "{{used}} dari {{limit}} permintaan hari ini",
 		"usage_tokens": "{{used}} dari {{limit}} token hari ini",
 		"custom_provider": "Endpoint kustom",
-		"recent_tool_activity": "Aktivitas alat terbaru"
+		"recent_tool_activity": "Aktivitas alat terbaru",
+		"managed_by_environment": "Dikelola melalui environment"
 	}
 }

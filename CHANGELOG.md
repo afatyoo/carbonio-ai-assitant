@@ -2,6 +2,24 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [1.0.2] - 2026-08-08
+
+### Fixed
+
+- Prevented environment configuration from silently overriding a model selected in Settings.
+- Added effective provider, effective model, configuration revision, source metadata, and
+  environment-managed field locks to the Settings contract.
+- Invalidated stale account model preferences after an effective configuration change.
+- Prevented historical conversations from changing the model used for new requests.
+- Rendered assistant responses as readable plain text and localized labeled timestamps.
+
+### Verified
+
+- Added regressions for environment locks, revision changes, safe plain-text rendering,
+  localized timestamps, i18n parity, gateway security, history isolation, and TypeScript.
+
+- See the [detailed v1.0.2 report](docs/releases/v1.0.2.md).
+
 ## [1.0.1] - 2026-08-03
 
 ### Added

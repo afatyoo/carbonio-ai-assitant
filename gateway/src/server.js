@@ -16,6 +16,7 @@ import {
 	getConversation,
 	historyBackend,
 	listConversationPage,
+	purgeAllAccountPreferences,
 	renameConversation,
 	restoreConversation,
 	saveAccountPreferences,
@@ -358,8 +359,13 @@ const handleRequest = async (request, response) => {
 			const account = await authenticate(request);
 			requireAdminAccount(account);
 			const payload = await readJson(request);
+			const previousRevision = getPublicAgentConfig(account).configRevision;
+			const updatedConfig = updateAgentConfig(payload);
+			if (updatedConfig.configRevision !== previousRevision) {
+				await purgeAllAccountPreferences();
+			}
 			sendJson(response, 200, {
-				...updateAgentConfig(payload),
+				...updatedConfig,
 				canManageSettings: true
 			});
 		} catch (error) {

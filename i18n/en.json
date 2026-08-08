@@ -169,6 +169,7 @@
 		"usage_requests": "{{used}} of {{limit}} requests today",
 		"usage_tokens": "{{used}} of {{limit}} tokens today",
 		"custom_provider": "Custom endpoint",
-		"recent_tool_activity": "Recent tool activity"
+		"recent_tool_activity": "Recent tool activity",
+		"managed_by_environment": "Managed by environment"
 	}
 }

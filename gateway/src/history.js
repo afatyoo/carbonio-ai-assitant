@@ -24,5 +24,7 @@ export const saveAccountPreferences = (...args) =>
 	Promise.resolve(backend.saveAccountPreferences(...args));
 export const purgeAccountPreferences = (...args) =>
 	Promise.resolve(backend.purgeAccountPreferences(...args));
+export const purgeAllAccountPreferences = (...args) =>
+	Promise.resolve(backend.purgeAllAccountPreferences(...args));
 export const purgeDailyUsage = (...args) => Promise.resolve(backend.purgeDailyUsage(...args));
 export const closeHistoryDatabase = () => Promise.resolve(backend.closeHistoryDatabase?.());

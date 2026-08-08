@@ -21,6 +21,7 @@ import {
 	getConfirmationPresentation
 } from '../utils/action-confirmation';
 import { getAppointmentResultMessage } from '../utils/appointment-result';
+import { normalizeAssistantDisplayText } from '../utils/plain-text-answer';
 
 type ModelOption = {
 	id: string;
@@ -442,7 +443,6 @@ export const AiAssistantView = (): React.JSX.Element => {
 				setActiveConversationId(latest.id);
 				setConversationTitle(latest.title);
 				setMessages(latest.messages);
-				setSelectedModel(latest.model);
 			})
 			.catch(() => {
 				// A new conversation can still be started when history is unavailable.
@@ -466,7 +466,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 					setActiveConversationId(conversation.id);
 					setConversationTitle(conversation.title);
 					setMessages(conversation.messages);
-					setSelectedModel(conversation.model);
+					setSelectedModel(preferredModel);
 					setPendingConfirmation(null);
 				})
 				.catch(() =>
@@ -531,7 +531,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 			)
 			.then(({ preferences }) => {
 				setPreferredModel(preferences.preferredModel);
-				if (!conversationLoadedRef.current) setSelectedModel(preferences.preferredModel);
+				setSelectedModel(preferences.preferredModel);
 			})
 			.catch(() => {
 				// The provider default remains usable if preferences cannot be loaded.
@@ -790,7 +790,9 @@ export const AiAssistantView = (): React.JSX.Element => {
 						messages.map((message) =>
 							message.text ? (
 								<Bubble key={message.id} role={message.role}>
-									{message.text}
+									{message.role === 'assistant'
+										? normalizeAssistantDisplayText(message.text, locale)
+										: message.text}
 								</Bubble>
 							) : null
 						)

@@ -178,6 +178,10 @@ export const purgeAccountPreferences = (ownerId) => {
 	database.prepare('DELETE FROM account_ai_preferences WHERE owner_id = ?').run(ownerId);
 };
 
+export const purgeAllAccountPreferences = () => {
+	database.prepare('DELETE FROM account_ai_preferences').run();
+};
+
 export const purgeDailyUsage = (ownerId) => {
 	database.prepare('DELETE FROM daily_ai_usage WHERE owner_id = ?').run(ownerId);
 };

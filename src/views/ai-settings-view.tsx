@@ -10,6 +10,11 @@ type PublicConfig = {
 	agentUrl: string;
 	hasApiKey: boolean;
 	model: string;
+	effectiveModel: string;
+	effectiveProvider: string;
+	configRevision: string;
+	configSource: Record<'provider' | 'agentUrl' | 'model', 'environment' | 'runtime'>;
+	lockedFields: string[];
 	mode: 'local-agent' | 'remote-agent';
 	modelAllowlist: string[];
 	processingDisclosure: string;
@@ -192,6 +197,7 @@ export const AiSettingsView = (): React.JSX.Element => {
 	const [saving, setSaving] = useState(false);
 	const [canManageSettings, setCanManageSettings] = useState(false);
 	const [modelAllowlist, setModelAllowlist] = useState<string[]>([]);
+	const [lockedFields, setLockedFields] = useState<string[]>([]);
 	const [processingDisclosure, setProcessingDisclosure] = useState('');
 	const [adminMetrics, setAdminMetrics] = useState<AdminMetrics | null>(null);
 	const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
@@ -214,6 +220,7 @@ export const AiSettingsView = (): React.JSX.Element => {
 				setAgentUrl(config.agentUrl);
 				setHasApiKey(config.hasApiKey);
 				setModel(config.model || '~openai/gpt-latest');
+				setLockedFields(config.lockedFields ?? []);
 				setCanManageSettings(config.canManageSettings);
 				setModelAllowlist(config.modelAllowlist ?? []);
 				setProcessingDisclosure(config.processingDisclosure ?? '');
@@ -264,6 +271,11 @@ export const AiSettingsView = (): React.JSX.Element => {
 				})
 			});
 			const data = await parseJsonResponse<PublicConfig>(response);
+			setProvider((data.effectiveProvider as keyof typeof providers) || 'custom');
+			setAgentUrl(data.agentUrl);
+			setModel(data.effectiveModel);
+			setModelAllowlist(data.modelAllowlist ?? []);
+			setLockedFields(data.lockedFields ?? []);
 			setHasApiKey(data.hasApiKey);
 			setApiKey('');
 			setStatus(
@@ -299,7 +311,7 @@ export const AiSettingsView = (): React.JSX.Element => {
 				<Field>
 					{t('settings.provider', 'AI provider')}
 					<Select
-						disabled={!canManageSettings}
+						disabled={!canManageSettings || lockedFields.includes('provider')}
 						value={provider}
 						onChange={(event): void => {
 							const nextProvider = event.target.value as keyof typeof providers;
@@ -319,17 +331,19 @@ export const AiSettingsView = (): React.JSX.Element => {
 						))}
 					</Select>
 					<Hint>
-						{t(
+						{lockedFields.includes('provider')
+							? t('settings.managed_by_environment', 'Managed by environment')
+							: t(
 							'settings.provider_hint',
 							'The endpoint and protocol are configured automatically.'
-						)}
+							)}
 					</Hint>
 				</Field>
 				{provider === 'custom' ? (
 					<Field>
 						{t('settings.custom_endpoint', 'Custom endpoint')}
 						<Input
-							disabled={!canManageSettings}
+							disabled={!canManageSettings || lockedFields.includes('agentUrl')}
 							type="url"
 							placeholder="https://agent.example.com/chat"
 							value={agentUrl}
@@ -347,7 +361,7 @@ export const AiSettingsView = (): React.JSX.Element => {
 					{modelAllowlist.length > 0 && !modelAllowlist.includes('*') ? (
 						<Select
 							value={model}
-							disabled={!canManageSettings}
+							disabled={!canManageSettings || lockedFields.includes('model')}
 							onChange={(event): void => setModel(event.target.value)}
 						>
 							{modelAllowlist.map((allowedModel) => (
@@ -361,15 +375,17 @@ export const AiSettingsView = (): React.JSX.Element => {
 							type="text"
 							placeholder="~openai/gpt-latest"
 							value={model}
-							disabled={!canManageSettings}
+							disabled={!canManageSettings || lockedFields.includes('model')}
 							onChange={(event): void => setModel(event.target.value)}
 						/>
 					)}
 					<Hint>
-						{t(
+						{lockedFields.includes('model')
+							? t('settings.managed_by_environment', 'Managed by environment')
+							: t(
 							'settings.model_hint',
 							'Provider model ID. A recommended default is filled automatically.'
-						)}
+							)}
 					</Hint>
 				</Field>
 				<Field>

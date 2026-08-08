@@ -11,7 +11,8 @@ process.env.AI_ADMIN_ACCOUNTS = 'admin@example.test,account-admin-id';
 process.env.AI_ALLOWED_ORIGINS = 'https://trusted.example.test';
 process.env.AI_REQUESTS_PER_MINUTE = '2';
 process.env.AI_REQUESTS_PER_DAY = '3';
-process.env.AI_MODEL_ALLOWLIST = 'allowed-model';
+process.env.AI_MODEL_ALLOWLIST = 'allowed-model,locked-model';
+process.env.AI_AGENT_MODEL = 'locked-model';
 process.env.AI_MODEL_POLICY_JSON = JSON.stringify({
 	'account:special@example.test': ['special-model'],
 	'group:ai-premium@example.test': ['group-model'],
@@ -34,7 +35,7 @@ const {
 	getToolPermissions,
 	requireAdminAccount
 } = await import('../src/security.js');
-const { assertModelAllowed, getModelAllowlist, updateAgentConfig } = await import(
+const { assertModelAllowed, getModelAllowlist, getPublicAgentConfig, updateAgentConfig } = await import(
 	'../src/config.js'
 );
 const { closeHistoryDatabase, purgeDailyUsage } = await import('../src/history.js');
@@ -121,12 +122,24 @@ assert.equal(
 	'special-model'
 );
 assert.throws(() => assertModelAllowed('blocked-model'), /not allowed/);
+const lockedConfig = getPublicAgentConfig();
+assert.equal(lockedConfig.effectiveModel, 'locked-model');
+assert.equal(lockedConfig.configSource.model, 'environment');
+assert.deepEqual(lockedConfig.lockedFields, ['model']);
+assert.throws(
+	() => updateAgentConfig({ provider: 'openrouter', model: 'allowed-model' }),
+	/model is managed by environment/
+);
+delete process.env.AI_AGENT_MODEL;
 const publicConfig = updateAgentConfig({
 	provider: 'openrouter',
 	model: 'allowed-model',
 	apiKey: 'must-not-be-persisted'
 });
 assert.equal(publicConfig.hasApiKey, true);
+assert.equal(publicConfig.effectiveModel, 'allowed-model');
+assert.equal(publicConfig.configSource.model, 'runtime');
+assert.notEqual(publicConfig.configRevision, lockedConfig.configRevision);
 const savedConfig = JSON.parse(
 	fs.readFileSync(path.join(testWorkingDirectory, '.runtime', 'config.json'), 'utf8')
 );
@@ -140,7 +153,7 @@ const assistantViewPath = new URL('../../src/views/ai-assistant-view.tsx', impor
 if (fs.existsSync(assistantViewPath)) {
 	const assistantView = fs.readFileSync(assistantViewPath, 'utf8');
 	assert.equal(assistantView.includes('dangerouslySetInnerHTML'), false);
-	assert.match(assistantView, /\{message\.text\}/);
+	assert.match(assistantView, /normalizeAssistantDisplayText\(message\.text, locale\)/);
 }
 
 console.log('admin_auth=ok account_policy=ok group_policy=ok tool_policy=ok csrf=ok quota=ok model_allowlist=ok credential_persistence=ok redaction=ok safe_rendering=ok');

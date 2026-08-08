@@ -4,7 +4,7 @@ Standalone AI assistant for Carbonio Webmail, delivered as an independent Carbon
 microfrontend and a private server-side gateway. It adds a ChatGPT-style workspace without
 replacing or modifying the existing Mail application.
 
-**Stable release:** [`v1.0.1`](https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v1.0.1)
+**Stable release:** [`v1.0.2`](https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v1.0.2)
 
 **Deployment class:** controlled Carbonio production pilot with documented known limitations
 
@@ -13,9 +13,17 @@ replacing or modifying the existing Mail application.
 ![Carbonio AI Assistant interface](docs/assets/carbonio-ai-assistant-overview.png)
 
 For exact release evidence, the closed-bug ledger, and authenticated UAT results, read the
-[v1.0.1 release report](docs/releases/v1.0.1.md).
+[v1.0.2 release report](docs/releases/v1.0.2.md).
 
-## What v1.0.1 includes
+## What v1.0.2 includes
+
+### Urgent model and response fixes
+
+- Settings exposes the effective provider and model plus environment-managed field locks.
+- Effective configuration changes invalidate stale saved account model preferences.
+- Historical conversations no longer override the model used for a new request.
+- Assistant answers are displayed as safe readable plain text without literal Markdown
+  emphasis, headings, horizontal rules, or raw labeled millisecond timestamps.
 
 ### Languages
 
@@ -68,7 +76,7 @@ raw external provider errors are not translated automatically.
 
 ## RAG scope
 
-v1.0.1 includes a curated local lexical index of official Carbonio email SOAP API
+v1.0.2 includes a curated local lexical index of official Carbonio email SOAP API
 documentation. It can ground supported API and email-composition guidance and return source
 metadata for citations.
 
@@ -124,7 +132,7 @@ part of the current live UAT evidence. See [browser support](docs/browser-suppor
 
 ## Known limitations
 
-The project owner accepted the following external gates for v1.0.1 as known limitations.
+The project owner accepted the following external gates for v1.0.2 as known limitations.
 Risk acceptance permitted the stable release. It did **not** convert missing evidence into
 a pass:
 
@@ -140,7 +148,7 @@ a pass:
 The optional permanent-delete/replay scenario and the `AI-UAT` tag/folder lifecycle also
 remain skipped/open. Do not expand beyond the controlled pilot on the basis of untested
 browsers, mailbox sizes, upgrade paths, or high-availability behavior. The complete risk
-record is in the [v1.0.1 release report](docs/releases/v1.0.1.md#risk-acceptance).
+record is in the [v1.0.2 release report](docs/releases/v1.0.2.md#risk-acceptance).
 
 ## Security and privacy
 
@@ -222,13 +230,13 @@ Deploy from the public release artifact, not an arbitrary branch checkout. Run t
 inside a dedicated staging directory on the Carbonio Proxy/Web UI host:
 
 ```bash
-mkdir carbonio-ai-v1.0.1
-cd carbonio-ai-v1.0.1
-curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v1.0.1/carbonio-ai-assistant-v1.0.1.tar.gz
-curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v1.0.1/carbonio-ai-assistant-v1.0.1.tar.gz.sha256
-sha256sum --check carbonio-ai-assistant-v1.0.1.tar.gz.sha256
-tar -xzf carbonio-ai-assistant-v1.0.1.tar.gz
-cd carbonio-ai-assistant-v1.0.1
+mkdir carbonio-ai-v1.0.2
+cd carbonio-ai-v1.0.2
+curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v1.0.2/carbonio-ai-assistant-v1.0.2.tar.gz
+curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v1.0.2/carbonio-ai-assistant-v1.0.2.tar.gz.sha256
+sha256sum --check carbonio-ai-assistant-v1.0.2.tar.gz.sha256
+tar -xzf carbonio-ai-assistant-v1.0.2.tar.gz
+cd carbonio-ai-assistant-v1.0.2
 ```
 
 Published archive SHA-256:
@@ -237,7 +245,7 @@ Published archive SHA-256:
 1f1b1695a3ec4a084627ded3a111f4b29c3a45a82149da10bec22a04404d6e4f
 ```
 
-Inspect `release.env` and confirm version `1.0.1`, the approved exact commit, and the Node
+Inspect `release.env` and confirm version `1.0.2`, the approved exact commit, and the Node
 runtime before continuing.
 
 ### Install the application
@@ -486,7 +494,7 @@ through `AI_TEST_DATABASE_URL`. Do not aim it at an unapproved production databa
 
 ## Documentation
 
-- [Stable v1.0.1 report](docs/releases/v1.0.1.md)
+- [Stable v1.0.2 report](docs/releases/v1.0.2.md)
 - [Deployment helper reference](deploy/README.md)
 - [Administrator policy](docs/admin-policy.md)
 - [Provider data policy](docs/provider-data-policy.md)
@@ -499,7 +507,7 @@ through `AI_TEST_DATABASE_URL`. Do not aim it at an unapproved production databa
 The next major data feature is production-ready user/workspace RAG: controlled source
 import, embeddings and hybrid retrieval, per-user/workspace isolation, ACL revalidation,
 retention/deletion propagation, attachment safety, evaluation, and operational monitoring.
-It is deliberately outside v1.0.1.
+It is deliberately outside v1.0.2.
 
 ## License
 

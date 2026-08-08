@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 
 import { parseScopedPolicy, resolveScopedPolicy } from './account-policy.js';
 
@@ -152,11 +153,42 @@ const persistConfig = () => {
 
 export const getAgentConfig = () => ({ ...runtimeConfig });
 
+const getConfigSource = () => ({
+	provider: process.env.AI_AGENT_PROVIDER ? 'environment' : 'runtime',
+	agentUrl: process.env.AI_AGENT_URL ? 'environment' : 'runtime',
+	model: process.env.AI_AGENT_MODEL ? 'environment' : 'runtime'
+});
+
+const getLockedFields = () =>
+	Object.entries(getConfigSource())
+		.filter(([, source]) => source === 'environment')
+		.map(([field]) => field);
+
+const getConfigRevision = () =>
+	createHash('sha256')
+		.update(
+			JSON.stringify({
+				provider: runtimeConfig.provider,
+				agentUrl: runtimeConfig.agentUrl,
+				model: runtimeConfig.model,
+				modelAllowlist: process.env.AI_MODEL_ALLOWLIST ?? '',
+				modelPolicy: process.env.AI_MODEL_POLICY_JSON ?? '',
+				lockedFields: getLockedFields()
+			})
+		)
+		.digest('hex')
+		.slice(0, 16);
+
 export const getPublicAgentConfig = (account) => ({
 	provider: runtimeConfig.provider,
+	effectiveProvider: runtimeConfig.provider,
 	agentUrl: runtimeConfig.agentUrl,
 	hasApiKey: Boolean(runtimeConfig.apiKey),
 	model: runtimeConfig.model,
+	effectiveModel: runtimeConfig.model,
+	configRevision: getConfigRevision(),
+	configSource: getConfigSource(),
+	lockedFields: getLockedFields(),
 	mode: runtimeConfig.provider === 'custom' && !runtimeConfig.agentUrl ? 'local-agent' : 'remote-agent',
 	modelAllowlist: getModelAllowlist(account),
 	processingDisclosure:
@@ -171,6 +203,9 @@ export const updateAgentConfig = ({
 	clearApiKey = false
 }) => {
 	const nextProvider = provider ?? runtimeConfig.provider;
+	if (process.env.AI_AGENT_PROVIDER && nextProvider !== runtimeConfig.provider) {
+		throw new Error('provider is managed by environment');
+	}
 	if (!PROVIDERS[nextProvider]) throw new Error('Unsupported provider');
 	if (!providerAllowlist.has(nextProvider)) {
 		throw new Error('Provider is not allowed by administrator policy');
@@ -178,6 +213,9 @@ export const updateAgentConfig = ({
 	if (typeof agentUrl !== 'string') throw new Error('agentUrl must be a string');
 	const normalizedUrl =
 		nextProvider === 'custom' ? agentUrl.trim() : PROVIDERS[nextProvider].endpoint;
+	if (process.env.AI_AGENT_URL && normalizedUrl !== runtimeConfig.agentUrl) {
+		throw new Error('agentUrl is managed by environment');
+	}
 	if (normalizedUrl) {
 		const parsed = new URL(normalizedUrl);
 		if (!['http:', 'https:'].includes(parsed.protocol)) {
@@ -188,6 +226,9 @@ export const updateAgentConfig = ({
 	const nextModel = assertModelAllowed(
 		typeof model === 'string' && model.trim() ? model.trim() : PROVIDERS[nextProvider].defaultModel
 	);
+	if (process.env.AI_AGENT_MODEL && nextModel !== runtimeConfig.model) {
+		throw new Error('model is managed by environment');
+	}
 
 	if (nextProvider !== runtimeConfig.provider && !apiKey) runtimeConfig.apiKey = '';
 	runtimeConfig.provider = nextProvider;
