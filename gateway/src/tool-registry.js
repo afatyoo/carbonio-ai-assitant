@@ -1,3 +1,5 @@
+import { assertUserScopedToolDefinition } from './carbonio-capabilities.js';
+
 export const TOOL_RISK = Object.freeze({
 	READ: 'READ',
 	DRAFT: 'DRAFT',
@@ -23,6 +25,7 @@ export const registerTool = (definition, handler) => {
 	if (typeof definition.permission !== 'string' || !definition.permission) {
 		throw new Error(`Tool permission is required: ${definition.name}`);
 	}
+	assertUserScopedToolDefinition(definition);
 	assertSchema(definition.inputSchema);
 	if (typeof handler !== 'function') throw new Error(`Tool handler is required: ${definition.name}`);
 	const normalized = Object.freeze({

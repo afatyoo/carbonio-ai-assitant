@@ -4,18 +4,18 @@ Standalone AI assistant for Carbonio Webmail, delivered as an independent Carbon
 microfrontend and a private server-side gateway. It adds a ChatGPT-style workspace without
 replacing or modifying the existing Mail application.
 
-**Current beta release:** [`v2.0.1-beta.1`](https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v2.0.1-beta.1)
+**Current release:** [`v2.0.1`](https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v2.0.1)
 
-**Deployment class:** controlled Carbonio beta pilot with documented known limitations
+**Deployment class:** full user-scoped Carbonio release with documented known limitations
 
 **License:** [MIT](LICENSE)
 
 ![Carbonio AI Assistant interface](docs/assets/carbonio-ai-assistant-overview.png)
 
 For exact release evidence, the closed-bug ledger, and authenticated UAT results, read the
-[v2.0.1-beta.1 release report](docs/releases/v2.0.1-beta.1.md).
+[v2.0.1 release report](docs/releases/v2.0.1.md).
 
-## What v2.0.1-beta.1 includes
+## What v2.0.1 includes
 
 ### User-only private RAG
 
@@ -99,7 +99,7 @@ raw external provider errors are not translated automatically.
 
 ## RAG scope
 
-v2.0.1-beta.1 adds opt-in private retrieval for the authenticated user's Mail, safe attachment text
+v2.0.1 adds opt-in private retrieval for the authenticated user's Mail, safe attachment text
 and metadata, Calendar, Tasks, and personal Contacts. The existing curated official Carbonio
 API documentation corpus remains available for product guidance.
 
@@ -169,7 +169,7 @@ part of the current live UAT evidence. See [browser support](docs/browser-suppor
 
 ## Known limitations
 
-The project owner accepted the remaining environment-dependent gates for v2.0.1-beta.1 as known
+The project owner accepted the remaining environment-dependent gates for v2.0.1 as known
 limitations. Acceptance does not turn missing evidence into a pass:
 
 1. Files/Docs and Chats remain unavailable until official user-scoped compatibility probes pass.
@@ -188,7 +188,7 @@ limitations. Acceptance does not turn missing evidence into a pass:
 
 Do not claim Files, Chats, binary attachment understanding, high availability, or performance
 targets that were not validated. The complete risk record is in the
-[v2.0.1-beta.1 release report](docs/releases/v2.0.1-beta.1.md#risk-acceptance).
+[v2.0.1 release report](docs/releases/v2.0.1.md#risk-acceptance).
 
 ## Security and privacy
 
@@ -276,19 +276,19 @@ Deploy from the public release artifact, not an arbitrary branch checkout. Run t
 inside a dedicated staging directory on the Carbonio Proxy/Web UI host:
 
 ```bash
-mkdir carbonio-ai-v2.0.1-beta.1
-cd carbonio-ai-v2.0.1-beta.1
-curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.0.1-beta.1/carbonio-ai-assistant-v2.0.1-beta.1.tar.gz
-curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.0.1-beta.1/carbonio-ai-assistant-v2.0.1-beta.1.tar.gz.sha256
-sha256sum --check carbonio-ai-assistant-v2.0.1-beta.1.tar.gz.sha256
-tar -xzf carbonio-ai-assistant-v2.0.1-beta.1.tar.gz
-cd carbonio-ai-assistant-v2.0.1-beta.1
+mkdir carbonio-ai-v2.0.1
+cd carbonio-ai-v2.0.1
+curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.0.1/carbonio-ai-assistant-v2.0.1.tar.gz
+curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.0.1/carbonio-ai-assistant-v2.0.1.tar.gz.sha256
+sha256sum --check carbonio-ai-assistant-v2.0.1.tar.gz.sha256
+tar -xzf carbonio-ai-assistant-v2.0.1.tar.gz
+cd carbonio-ai-assistant-v2.0.1
 ```
 
 Use the signed release asset's `.sha256` file as the checksum authority. The release page
 also records the exact workflow, commit, and artifact digest.
 
-Inspect `release.env` and confirm version `2.0.1-beta.1`, the approved exact commit, and the Node
+Inspect `release.env` and confirm version `2.0.1`, the approved exact commit, and the Node
 runtime before continuing.
 
 ### Install the application
@@ -552,7 +552,8 @@ through `AI_TEST_DATABASE_URL`. Do not aim it at an unapproved production databa
 
 ## Documentation
 
-- [Beta v2.0.1-beta.1 report](docs/releases/v2.0.1-beta.1.md)
+- [v2.0.1 release report](docs/releases/v2.0.1.md)
+- [Carbonio user tool matrix](docs/carbonio-user-tool-matrix.md)
 - [Private RAG architecture](docs/rag-architecture.md)
 - [Private RAG threat model](docs/rag-threat-model.md)
 - [Source compatibility matrix](docs/rag-compatibility-matrix.md)

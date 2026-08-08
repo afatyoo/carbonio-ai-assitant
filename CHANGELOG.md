@@ -2,7 +2,7 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
-## [2.0.1-beta.1] - 2026-08-08
+## [2.0.1] - 2026-08-08
 
 ### Fixed
 
@@ -23,7 +23,7 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 - Passed gateway syntax checks, the full gateway regression suite, and release contracts.
 - Authenticated Webmail Mail sync returned HTTP 202, indexed 11 documents into 11 chunks,
   completed all encrypted worker jobs, and returned the durable queue to zero.
-- See the [detailed v2.0.1-beta.1 report](docs/releases/v2.0.1-beta.1.md).
+- See the [detailed v2.0.1 report](docs/releases/v2.0.1.md).
 
 ## [2.0.0] - 2026-08-08
 
