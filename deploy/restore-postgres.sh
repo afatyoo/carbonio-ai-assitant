@@ -27,7 +27,7 @@ restart_gateway() {
 }
 trap restart_gateway EXIT
 
-pg_restore --clean --if-exists --no-owner --no-privileges \
+pg_restore --clean --if-exists --no-owner --no-privileges --no-comments \
 	--dbname "$database_url" "$2"
 restore_succeeded=1
 echo "Restore completed from: $2"
