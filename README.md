@@ -4,7 +4,7 @@ Standalone AI assistant for Carbonio Webmail, delivered as an independent Carbon
 microfrontend and a private server-side gateway. It adds a ChatGPT-style workspace without
 replacing or modifying the existing Mail application.
 
-**Current release:** [`v2.0.2`](https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v2.0.2)
+**Current release:** [`v2.1.0`](https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v2.1.0)
 
 **Deployment class:** full user-scoped Carbonio release with documented known limitations
 
@@ -13,9 +13,9 @@ replacing or modifying the existing Mail application.
 ![Carbonio AI Assistant interface](docs/assets/carbonio-ai-assistant-overview.png)
 
 For exact release evidence, the closed-bug ledger, and authenticated UAT results, read the
-[v2.0.2 release report](docs/releases/v2.0.2.md).
+[v2.1.0 release report](docs/releases/v2.1.0.md).
 
-## What v2.0.2 includes
+## What v2.1.0 includes
 
 ### User-only private RAG
 
@@ -75,7 +75,10 @@ raw external provider errors are not translated automatically.
 - Bounded email and thread search, unread listing, exact message retrieval, safe HTML-to-text
   normalization, summaries, action items, people/date extraction, and attachment metadata.
 - New, reply, forward, and update-draft previews.
-- Controlled save-draft, send, mark-read, tag, move, and permanent-delete actions.
+- Controlled save-draft, send, read/unread, flag/unflag, spam/not-spam, tag, move, archive,
+  restore, attachment removal, Trash emptying, and permanent-delete actions.
+- User folder and tag lifecycle tools cover list, create, rename, move, recoverable removal,
+  and explicitly destructive cleanup operations.
 - Exact-target resolution, risk classification, audit records, one-time confirmation tokens,
   and idempotency protection for mutations.
 
@@ -84,7 +87,13 @@ raw external provider errors are not translated automatically.
 - Appointment search and exact retrieval.
 - Contact/GAL attendee resolution, free/busy checks, timezone-aware slot proposals, and
   conflict detection.
-- Calendar draft, appointment creation/update, invitation, and cancellation previews.
+- Personal contact listing, exact retrieval, create, update, move, tag, and recoverable delete.
+- Calendar listing, creation, rename, permanent deletion, invitation responses and forwarding,
+  alarm dismiss/snooze, appointment creation/update, invitation, and cancellation previews.
+- User-owned share listing, grant, revoke, and notification through folder ACL metadata.
+- Personal incoming filter rule, sending identity, and signature lifecycle management.
+- An allowlisted AI tool planner exposes the supported catalog to chat while refusing invented
+  IDs, revisions, target names, recipients, or mutation fields.
 - Carbonio `ms`/`rev` stale-version protection and rejection of ambiguous recurring-event
   mutations.
 
@@ -99,7 +108,7 @@ raw external provider errors are not translated automatically.
 
 ## RAG scope
 
-v2.0.2 adds opt-in private retrieval for the authenticated user's Mail, safe attachment text
+v2.1.0 adds opt-in private retrieval for the authenticated user's Mail, safe attachment text
 and metadata, Calendar, Tasks, and personal Contacts. The existing curated official Carbonio
 API documentation corpus remains available for product guidance.
 
@@ -169,8 +178,10 @@ part of the current live UAT evidence. See [browser support](docs/browser-suppor
 
 ## Known limitations
 
-The project owner accepted the remaining environment-dependent gates for v2.0.2 as known
-limitations. Acceptance does not turn missing evidence into a pass:
+Deploying or enabling v2.1.0 means the operator and each participating user accept the
+remaining environment-dependent gates below. This project is an independent community addon
+and is not developed, supported, certified, or endorsed by Zextras. Acceptance does not create
+support obligations for Zextras and does not turn missing evidence into a pass:
 
 1. Files/Docs and Chats remain unavailable until official user-scoped compatibility probes pass.
 2. PDF, office, archive, image, and executable attachment bodies are metadata-only. They are
@@ -185,10 +196,16 @@ limitations. Acceptance does not turn missing evidence into a pass:
 7. Carbonio upgrade rehearsal requires a separate comparison host.
 8. The optional permanent-delete/replay scenario and complete calendar mutation lifecycle
    remain skipped/open.
+9. Five Tasks mutations remain disabled because this Carbonio server returns
+   `service.UNKNOWN_DOCUMENT` for the documented task commands. Task reads remain gated until
+   authenticated synchronization is confirmed.
+10. The AI planner is probabilistic. It can propose only allowlisted tools, and every write or
+    destructive proposal still requires exact user confirmation. Users remain responsible for
+    reviewing recipients, targets, permissions, and destructive effects.
 
 Do not claim Files, Chats, binary attachment understanding, high availability, or performance
 targets that were not validated. The complete risk record is in the
-[v2.0.2 release report](docs/releases/v2.0.2.md#risk-acceptance).
+[v2.1.0 release report](docs/releases/v2.1.0.md#risk-acceptance).
 
 ## Security and privacy
 
@@ -276,19 +293,19 @@ Deploy from the public release artifact, not an arbitrary branch checkout. Run t
 inside a dedicated staging directory on the Carbonio Proxy/Web UI host:
 
 ```bash
-mkdir carbonio-ai-v2.0.2
-cd carbonio-ai-v2.0.2
-curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.0.2/carbonio-ai-assistant-v2.0.2.tar.gz
-curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.0.2/carbonio-ai-assistant-v2.0.2.tar.gz.sha256
-sha256sum --check carbonio-ai-assistant-v2.0.2.tar.gz.sha256
-tar -xzf carbonio-ai-assistant-v2.0.2.tar.gz
-cd carbonio-ai-assistant-v2.0.2
+mkdir carbonio-ai-v2.1.0
+cd carbonio-ai-v2.1.0
+curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.1.0/carbonio-ai-assistant-v2.1.0.tar.gz
+curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.1.0/carbonio-ai-assistant-v2.1.0.tar.gz.sha256
+sha256sum --check carbonio-ai-assistant-v2.1.0.tar.gz.sha256
+tar -xzf carbonio-ai-assistant-v2.1.0.tar.gz
+cd carbonio-ai-assistant-v2.1.0
 ```
 
 Use the signed release asset's `.sha256` file as the checksum authority. The release page
 also records the exact workflow, commit, and artifact digest.
 
-Inspect `release.env` and confirm version `2.0.2`, the approved exact commit, and the Node
+Inspect `release.env` and confirm version `2.1.0`, the approved exact commit, and the Node
 runtime before continuing.
 
 ### Install the application
@@ -552,7 +569,7 @@ through `AI_TEST_DATABASE_URL`. Do not aim it at an unapproved production databa
 
 ## Documentation
 
-- [v2.0.2 release report](docs/releases/v2.0.2.md)
+- [v2.1.0 release report](docs/releases/v2.1.0.md)
 - [Carbonio user tool matrix](docs/carbonio-user-tool-matrix.md)
 - [Private RAG architecture](docs/rag-architecture.md)
 - [Private RAG threat model](docs/rag-threat-model.md)

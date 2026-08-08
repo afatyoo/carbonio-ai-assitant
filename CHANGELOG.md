@@ -2,7 +2,7 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
-## [Unreleased]
+## [2.1.0] - 2026-08-08
 
 ### Added
 
@@ -27,6 +27,14 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 - Added a second Tasks indexing compatibility fallback for Carbonio servers that reject the
   documented `GetTask` command with `service.UNKNOWN_DOCUMENT`. Appointment-backed records
   are retrieved through `GetAppointment` without hiding unrelated SOAP errors.
+
+### Verified
+
+- Registered capability inventory contains 74 active user-scoped tools, 5 unavailable Tasks
+  mutations, 4 explicit compatibility gates, and no administrative tools.
+- Target-server unauthenticated command recognition passed for the new Contacts, Calendar,
+  attachment, filter, identity, signature, and notification SOAP operations.
+- See the [detailed v2.1.0 report](docs/releases/v2.1.0.md).
 
 ## [2.0.2] - 2026-08-08
 
