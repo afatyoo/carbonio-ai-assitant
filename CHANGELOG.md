@@ -33,6 +33,11 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 - Binary and document attachment bodies remain metadata-only.
 - Site-specific retrieval quality, large-mailbox latency, and PostgreSQL HA gates remain documented.
 
+### Verified
+
+- Passed production forced-RLS inspection, two-owner isolation, pgvector/HNSW, encrypted live
+  worker lifecycle, immediate removal, full backup, catalog validation, and disposable restore.
+
 - See the [detailed v2.0.0 report](docs/releases/v2.0.0.md).
 
 ## [1.1.0] - 2026-08-08

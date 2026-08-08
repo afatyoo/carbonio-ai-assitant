@@ -158,6 +158,8 @@ The stable production-pilot evidence was collected on:
 - Carbonio Shell UI 15.1.0.
 - a single Carbonio Proxy/Web UI/Mailstore host.
 - PostgreSQL 16 on the same pilot host.
+- pgvector 0.8.6 and pg_trgm 1.6 in the `carbonio_ai` database.
+- separate active gateway and restricted RAG worker systemd services.
 - Chrome with the internal Carbonio CA trusted.
 - packaged Node.js v22.22.0 for the gateway.
 
