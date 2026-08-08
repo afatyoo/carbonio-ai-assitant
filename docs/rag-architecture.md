@@ -23,7 +23,9 @@ account ID.
    chunks survive output validation.
 
 The worker uses the dedicated `carbonio_ai_worker` database login, which is granted only DML
-access to RAG tables. It never performs Carbonio reads and cannot use a Carbonio session. Writes remain in
+access to RAG tables. A separate root-only `carbonio_ai_backup` login has `BYPASSRLS` solely so
+verified full backups and restores remain possible after forced RLS. Neither role is used by
+interactive gateway requests. The worker never performs Carbonio reads and cannot use a Carbonio session. Writes remain in
 the existing live tool framework with exact previews, one-time confirmation, idempotency,
 stale-version checks, and audit records. RAG never executes a mutation.
 

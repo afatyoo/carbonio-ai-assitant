@@ -11,11 +11,15 @@ assert.equal(lexicalEmbedding('same text').length, 384);
 
 const postgresSource = await fs.readFile(new URL('../src/rag-postgres.js', import.meta.url), 'utf8');
 const serverSource = await fs.readFile(new URL('../src/server.js', import.meta.url), 'utf8');
+const backupSource = await fs.readFile(new URL('../../deploy/backup-postgres.sh', import.meta.url), 'utf8');
+const restoreSource = await fs.readFile(new URL('../../deploy/restore-postgres.sh', import.meta.url), 'utf8');
 assert.match(postgresSource, /FORCE ROW LEVEL SECURITY/);
 assert.match(postgresSource, /current_setting\('carbonio_ai\.owner_id'/);
 assert.doesNotMatch(postgresSource.match(/CREATE TABLE IF NOT EXISTS rag_jobs[\s\S]*?;/)?.[0] ?? '', /cookie/i);
 assert.match(serverSource, /assertAvailableRagModule/);
 assert.match(serverSource, /storesSessionCookies: false/);
+assert.match(backupSource, /AI_BACKUP_DATABASE_URL/);
+assert.match(restoreSource, /AI_BACKUP_DATABASE_URL/);
 
 if (process.env.AI_DATABASE_URL && process.env.AI_HISTORY_ENCRYPTION_KEY) {
 	const {

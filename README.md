@@ -319,9 +319,10 @@ sudo /opt/carbonio-ai-assistant/bin/setup-rag-postgres.sh
 sudo systemctl restart carbonio-ai-gateway.service carbonio-ai-rag-worker.service
 ```
 
-This enables pgvector and `pg_trgm`, creates the restricted worker database role, and stores
-its rotated connection URL in the root-only environment file. It must complete before users
-opt into private sources.
+This enables pgvector and `pg_trgm`, creates the restricted worker role and root-only RLS-aware
+backup role, and stores their rotated connection URLs in the mode `0600` environment file.
+Neither credential is returned to the browser. Setup must complete before users opt into
+private sources.
 
 Example non-secret policy:
 

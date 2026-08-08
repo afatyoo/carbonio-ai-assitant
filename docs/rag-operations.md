@@ -10,7 +10,9 @@ sudo /opt/carbonio-ai-assistant/bin/setup-rag-postgres.sh
 
 The helper installs `postgresql-16-pgvector` when required, enables `vector` and `pg_trgm`,
 creates or rotates the restricted `carbonio_ai_worker` login, saves its URL in the root-only
-environment file, and restarts the worker. It does not alter user source selections.
+environment file, and restarts the worker. It also rotates a root-only `carbonio_ai_backup`
+login with `BYPASSRLS` for complete backup/restore. That credential is never loaded by either
+application service. The helper does not alter user source selections.
 
 ## Services and health
 

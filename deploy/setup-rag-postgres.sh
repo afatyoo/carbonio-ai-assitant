@@ -41,6 +41,17 @@ runuser -u postgres -- psql -v ON_ERROR_STOP=1 -c \
 runuser -u postgres -- psql -v ON_ERROR_STOP=1 -d "$db_name" -c \
 	"GRANT CONNECT ON DATABASE ${db_name} TO ${worker_user}; GRANT USAGE ON SCHEMA public TO ${worker_user}; GRANT SELECT, INSERT, UPDATE, DELETE ON rag_sources, rag_documents, rag_chunks, rag_tombstones, rag_jobs TO ${worker_user}"
 
+backup_user="carbonio_ai_backup"
+backup_password="$(openssl rand -hex 24)"
+if ! runuser -u postgres -- psql -Atqc "SELECT 1 FROM pg_roles WHERE rolname='${backup_user}'" | grep -qx 1; then
+	runuser -u postgres -- psql -v ON_ERROR_STOP=1 -c \
+		"CREATE ROLE ${backup_user} LOGIN BYPASSRLS NOSUPERUSER NOCREATEDB NOCREATEROLE"
+fi
+runuser -u postgres -- psql -v ON_ERROR_STOP=1 -c \
+	"ALTER ROLE ${backup_user} LOGIN BYPASSRLS PASSWORD '${backup_password}'; GRANT carbonio_ai TO ${backup_user}"
+runuser -u postgres -- psql -v ON_ERROR_STOP=1 -d "$db_name" -c \
+	"GRANT CONNECT ON DATABASE ${db_name} TO ${backup_user}; GRANT USAGE, CREATE ON SCHEMA public TO ${backup_user}; GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ${backup_user}; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ${backup_user}"
+
 config_file="/etc/carbonio-ai-assistant/gateway.env"
 backup_root="/var/lib/carbonio-ai-assistant/install-backups"
 install -d -o carbonio-ai -g carbonio-ai -m 0700 "$backup_root"
@@ -48,10 +59,11 @@ backup_stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 cp -a "$config_file" "$backup_root/gateway.env.pre-rag.${backup_stamp}"
 config_tmp="$(mktemp /tmp/carbonio-ai-rag-env.XXXXXX)"
 trap 'rm -f "$config_tmp" "${config_tmp}.next"' EXIT
-grep -Ev '^AI_RAG_WORKER_DATABASE_URL=' "$config_file" >"$config_tmp" || true
+grep -Ev '^AI_(RAG_WORKER|BACKUP)_DATABASE_URL=' "$config_file" >"$config_tmp" || true
 {
 	cat "$config_tmp"
 	printf '%s\n' "AI_RAG_WORKER_DATABASE_URL=postgresql://${worker_user}:${worker_password}@127.0.0.1:5432/${db_name}"
+	printf '%s\n' "AI_BACKUP_DATABASE_URL=postgresql://${backup_user}:${backup_password}@127.0.0.1:5432/${db_name}"
 } >"${config_tmp}.next"
 install -o root -g root -m 0600 "${config_tmp}.next" "$config_file"
 
@@ -63,3 +75,4 @@ fi
 
 echo "PostgreSQL RAG extensions are ready in ${db_name}."
 echo "Dedicated RAG worker role is ready: ${worker_user}."
+echo "Dedicated root-only backup role is ready: ${backup_user}."

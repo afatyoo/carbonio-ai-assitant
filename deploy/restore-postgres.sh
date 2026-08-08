@@ -13,6 +13,7 @@ fi
 
 source /etc/carbonio-ai-assistant/gateway.env
 : "${AI_DATABASE_URL:?AI_DATABASE_URL is not configured}"
+database_url="${AI_BACKUP_DATABASE_URL:-$AI_DATABASE_URL}"
 
 systemctl stop carbonio-ai-rag-worker.service
 systemctl stop carbonio-ai-gateway.service
@@ -27,6 +28,6 @@ restart_gateway() {
 trap restart_gateway EXIT
 
 pg_restore --clean --if-exists --no-owner --no-privileges \
-	--dbname "$AI_DATABASE_URL" "$2"
+	--dbname "$database_url" "$2"
 restore_succeeded=1
 echo "Restore completed from: $2"
