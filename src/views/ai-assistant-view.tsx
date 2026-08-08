@@ -18,7 +18,8 @@ import {
 import { useAppTranslation } from '../i18n/use-app-translation';
 import {
 	getActionResultMessage,
-	getConfirmationPresentation
+	getConfirmationPresentation,
+	getGenericConfirmationFields
 } from '../utils/action-confirmation';
 import { getAppointmentResultMessage } from '../utils/appointment-result';
 import { normalizeAssistantDisplayText } from '../utils/plain-text-answer';
@@ -36,6 +37,7 @@ type PendingConfirmation = {
 	idempotencyKey: string;
 	input: Record<string, string | number>;
 	preview: {
+		[key: string]: unknown;
 		to?: string;
 		cc?: string;
 		bcc?: string;
@@ -742,6 +744,9 @@ export const AiAssistantView = (): React.JSX.Element => {
 	const isEmailContentConfirmation = Boolean(
 		pendingConfirmation?.preview.kind?.startsWith('email_')
 	);
+	const genericConfirmationFields = pendingConfirmation
+		? getGenericConfirmationFields(pendingConfirmation.preview)
+		: [];
 
 	return (
 		<Page>
@@ -883,32 +888,14 @@ export const AiAssistantView = (): React.JSX.Element => {
 								</DraftField>
 							) : (
 								<>
-									<DraftField>
-										<span>{t('chat.message_id', 'Message ID')}</span>
-										{pendingConfirmation.preview.id ?? '-'}
-									</DraftField>
-									{pendingConfirmation.preview.sender && (
-										<DraftField>
-											<span>{t('chat.sender', 'Sender')}</span>
-											{pendingConfirmation.preview.sender}
+									{genericConfirmationFields.map((field) => (
+										<DraftField key={field.key}>
+											<span>{t(field.labelKey, field.labelFallback)}</span>
+											{field.key === 'date'
+												? new Date(/^\d+$/.test(field.value) ? Number(field.value) : field.value).toLocaleString(locale)
+												: field.value}
 										</DraftField>
-									)}
-									{pendingConfirmation.preview.date && (
-										<DraftField>
-											<span>{t('chat.date', 'Date')}</span>
-											{new Date(
-												/^\d+$/.test(pendingConfirmation.preview.date)
-													? Number(pendingConfirmation.preview.date)
-													: pendingConfirmation.preview.date
-											).toLocaleString(locale)}
-										</DraftField>
-									)}
-									{pendingConfirmation.preview.tagName && (
-										<DraftField><span>{t('chat.tag', 'Tag')}</span>{pendingConfirmation.preview.tagName}</DraftField>
-									)}
-									{(pendingConfirmation.preview.folderName || pendingConfirmation.preview.folderId) && (
-										<DraftField><span>{t('chat.destination', 'Destination')}</span>{pendingConfirmation.preview.folderName || pendingConfirmation.preview.folderId}</DraftField>
-									)}
+									))}
 									{pendingConfirmation.preview.permanent && (
 										<DraftField><span>{t('chat.warning', 'Warning')}</span>{t('chat.permanent_delete_warning', 'This action permanently deletes the email.')}</DraftField>
 									)}

@@ -13,6 +13,54 @@ type ActionResultMessage = {
 	values: { id: string };
 };
 
+export type ConfirmationPreviewField = {
+	key: string;
+	labelKey: string;
+	labelFallback: string;
+	value: string;
+};
+
+const PREVIEW_FIELDS: Array<[string, string, string]> = [
+	['id', 'chat.item_id', 'Item ID'],
+	['messageId', 'chat.message_id', 'Message ID'],
+	['appointmentId', 'chat.appointment_id', 'Appointment ID'],
+	['inviteId', 'chat.invite_id', 'Invite ID'],
+	['revision', 'chat.revision', 'Revision'],
+	['name', 'chat.name', 'Name'],
+	['currentName', 'chat.current_name', 'Current name'],
+	['displayName', 'chat.display_name', 'Display name'],
+	['parentName', 'chat.parent', 'Parent'],
+	['parentId', 'chat.parent_id', 'Parent ID'],
+	['folderName', 'chat.destination', 'Destination'],
+	['folderId', 'chat.folder_id', 'Folder ID'],
+	['tagName', 'chat.tag', 'Tag'],
+	['filename', 'chat.filename', 'Filename'],
+	['part', 'chat.attachment_part', 'Attachment part'],
+	['response', 'chat.response', 'Response'],
+	['recipients', 'chat.recipients', 'Recipients'],
+	['grantee', 'chat.grantee', 'Shared with'],
+	['granteeType', 'chat.grantee_type', 'Grantee type'],
+	['permission', 'chat.permission', 'Permission'],
+	['action', 'chat.action', 'Action'],
+	['at', 'chat.time', 'Time'],
+	['contentType', 'chat.content_type', 'Content type'],
+	['attributesJson', 'chat.contact_fields', 'Contact fields'],
+	['ruleJson', 'chat.filter_definition', 'Filter definition'],
+	['content', 'chat.signature_content', 'Signature content'],
+	['sender', 'chat.sender', 'Sender'],
+	['date', 'chat.date', 'Date']
+];
+
+export const getGenericConfirmationFields = (
+	preview: Record<string, unknown>
+): ConfirmationPreviewField[] =>
+	PREVIEW_FIELDS.flatMap(([key, labelKey, labelFallback]) => {
+		const raw = preview[key];
+		if (raw === undefined || raw === null || raw === '') return [];
+		const value = typeof raw === 'string' ? raw : String(raw);
+		return [{ key, labelKey, labelFallback, value }];
+	});
+
 const PRESENTATIONS: Record<string, ConfirmationPresentation> = {
 	create_email_draft: {
 		ariaKey: 'chat.draft_preview',

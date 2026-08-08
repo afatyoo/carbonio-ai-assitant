@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 
 import {
 	getActionResultMessage,
-	getConfirmationPresentation
+	getConfirmationPresentation,
+	getGenericConfirmationFields
 } from '../src/utils/action-confirmation.ts';
 
 assert.deepEqual(getConfirmationPresentation('send_email', 'email_send'), {
@@ -23,5 +24,18 @@ assert.equal(
 );
 assert.equal(getActionResultMessage('mark_as_read', '12').key, 'chat.email_marked_read');
 assert.equal(getActionResultMessage('send_meeting_invitation', '44').key, 'chat.invitation_sent');
+assert.deepEqual(
+	getGenericConfirmationFields({
+		kind: 'calendar_create',
+		name: 'AI-UAT-DO-NOT-SAVE',
+		parentId: '1',
+		parentName: 'USER_ROOT'
+	}),
+	[
+		{ key: 'name', labelKey: 'chat.name', labelFallback: 'Name', value: 'AI-UAT-DO-NOT-SAVE' },
+		{ key: 'parentName', labelKey: 'chat.parent', labelFallback: 'Parent', value: 'USER_ROOT' },
+		{ key: 'parentId', labelKey: 'chat.parent_id', labelFallback: 'Parent ID', value: '1' }
+	]
+);
 
 console.log('confirmation_copy=ok action_results=ok');
