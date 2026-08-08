@@ -12,6 +12,8 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 - Invalidated stale account model preferences after an effective configuration change.
 - Prevented historical conversations from changing the model used for new requests.
 - Rendered assistant responses as readable plain text and localized labeled timestamps.
+- Patched high-severity build-time dependency advisories by overriding vulnerable Less,
+  fast-uri, js-yaml, and nanoid transitive versions.
 
 ### Verified
 
