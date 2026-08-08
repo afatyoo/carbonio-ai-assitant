@@ -26,7 +26,15 @@ const knownToolPermissions = new Set([
 	'mail.draft',
 	'mail.write',
 	'calendar.read',
-	'calendar.write'
+	'calendar.write',
+	'contacts.read',
+	'contacts.write',
+	'sharing.read',
+	'sharing.write',
+	'preferences.read',
+	'preferences.write',
+	'tasks.read',
+	'tasks.write'
 ]);
 const usage = new Map();
 
@@ -51,13 +59,13 @@ export const areWriteToolsEnabled = (account) =>
 	(writeToolAccounts.size === 0 || matchesAccount(writeToolAccounts, account));
 
 export const getToolPermissions = (account) => {
-	const defaults = ['mail.read', 'calendar.read'];
-	if (areWriteToolsEnabled(account)) defaults.push('mail.draft', 'mail.write', 'calendar.write');
+	const defaults = ['mail.read', 'calendar.read', 'contacts.read', 'sharing.read', 'preferences.read', 'tasks.read'];
+	if (areWriteToolsEnabled(account)) defaults.push('mail.draft', 'mail.write', 'calendar.write', 'contacts.write', 'sharing.write', 'preferences.write', 'tasks.write');
 	const resolved = resolveScopedPolicy(toolPermissionPolicy, account, defaults).filter((permission) =>
 		knownToolPermissions.has(permission)
 	);
 	if (!areWriteToolsEnabled(account)) {
-		return resolved.filter((permission) => !['mail.draft', 'mail.write', 'calendar.write'].includes(permission));
+		return resolved.filter((permission) => !permission.endsWith('.write') && permission !== 'mail.draft');
 	}
 	return resolved;
 };

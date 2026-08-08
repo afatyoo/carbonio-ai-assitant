@@ -149,6 +149,7 @@ if (!listAllAuditEntries(20).some(({ ownerId, tool }) => ownerId === 'owner-a' &
 await import('../src/mail-tools.js');
 await import('../src/calendar-tools.js');
 await import('../src/organization-tools.js');
+await import('../src/extended-user-tools.js');
 const mailDefinitions = listToolDefinitions();
 for (const toolName of [
 	'search_emails',
@@ -174,6 +175,18 @@ for (const toolName of [
 	if (!mailDefinitions.some(({ name }) => name === toolName)) {
 		throw new Error(`Missing registered mail tool: ${toolName}`);
 	}
+}
+for (const toolName of [
+	'archive_email', 'restore_email', 'remove_attachment',
+	'list_contacts', 'get_contact', 'create_contact', 'update_contact', 'move_contact', 'tag_contact', 'delete_contact',
+	'list_calendars', 'create_calendar', 'rename_calendar', 'delete_calendar',
+	'respond_to_invitation', 'forward_appointment', 'dismiss_alarm', 'snooze_alarm',
+	'list_shares', 'grant_share', 'revoke_share', 'send_share_notification',
+	'list_filter_rules', 'create_filter_rule', 'update_filter_rule', 'delete_filter_rule',
+	'list_identities', 'create_identity', 'update_identity', 'delete_identity',
+	'list_signatures', 'create_signature', 'update_signature', 'delete_signature'
+]) {
+	assert.ok(mailDefinitions.some(({ name }) => name === toolName), `Missing extended user tool: ${toolName}`);
 }
 for (const toolName of [
 	'list_folders',
@@ -649,6 +662,7 @@ const {
 	classifyCalendarActionRequest,
 	classifyOrganizationActionRequest,
 	isDraftActionRequest,
+	isExtendedToolRequest,
 	isMeetingActionRequest,
 	zonedLocalToIso
 } = await import('../src/agent.js');
@@ -672,6 +686,9 @@ assert.deepEqual(classifyOrganizationActionRequest('Kosongkan Trash'), {
 	tool: 'empty_trash',
 	input: {}
 });
+assert.equal(isExtendedToolRequest('Tampilkan semua kontak saya'), true);
+assert.equal(isExtendedToolRequest('Create signature named Sales'), true);
+assert.equal(isExtendedToolRequest('Berapa harga kopi hari ini?'), false);
 const { findAvailableMeetingSlots } = await import('../src/calendar.js');
 if (zonedLocalToIso('2026-08-03T10:00:00', 'Asia/Jakarta') !== '2026-08-03T03:00:00.000Z') {
 	throw new Error('Appointment timezone conversion failed');

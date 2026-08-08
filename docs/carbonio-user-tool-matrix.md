@@ -36,54 +36,39 @@ does not impersonate another account, and does not access Carbonio internal data
 | Tags | `list_tags` | `READ` | `GetTag` |
 | Tags | `create_tag`, `rename_tag` | `WRITE` | `CreateTag`, `TagAction` |
 | Tags | `delete_tag` | `DESTRUCTIVE` | `TagAction` |
+| Mail | `archive_email`, `restore_email` | `WRITE` | `GetMsg`, `GetFolder`, `MsgAction` |
+| Mail | `remove_attachment` | `DESTRUCTIVE` | `GetMsg`, `RemoveAttachments` |
 | Calendar | `get_appointment`, `search_appointments` | `READ` | `GetAppointment`, `Search` |
 | Calendar | `check_free_busy`, `propose_meeting_slots` | `READ` | `GetFreeBusy` |
 | Calendar | `create_calendar_draft`, `update_appointment` | `DRAFT` | `SetAppointment`, `GetAppointment`, `ModifyAppointment` |
 | Calendar | `create_appointment`, `send_meeting_invitation` | `WRITE` | `CreateAppointment`, `GetAppointment`, `ModifyAppointment` |
 | Calendar | `cancel_appointment` | `DESTRUCTIVE` | `GetAppointment`, `CancelAppointment` |
 | Contacts | `search_contacts`, `resolve_attendees` | `READ` | `AutoComplete` |
+| Contacts | `list_contacts`, `get_contact` | `READ` | `GetContacts` |
+| Contacts | `create_contact`, `update_contact`, `move_contact`, `tag_contact` | `WRITE` | `CreateContact`, `ModifyContact`, `ContactAction` |
+| Contacts | `delete_contact` | `DESTRUCTIVE` | `GetContacts`, `ContactAction` |
+| Calendar | `list_calendars` | `READ` | `GetFolder` |
+| Calendar | `create_calendar`, `rename_calendar` | `WRITE` | `CreateFolder`, `FolderAction` |
+| Calendar | `delete_calendar` | `DESTRUCTIVE` | `DeleteCalendar` |
+| Calendar | `respond_to_invitation`, `forward_appointment` | `WRITE` | `SendInviteReply`, `ForwardAppointment` |
+| Calendar | `dismiss_alarm`, `snooze_alarm` | `WRITE` | `DismissCalendarItemAlarm`, `SnoozeCalendarItemAlarm` |
+| Sharing | `list_shares` | `READ` | `GetFolder` ACL and mountpoint metadata |
+| Sharing | `grant_share`, `send_share_notification` | `WRITE` | `FolderAction`, `SendShareNotification` |
+| Sharing | `revoke_share` | `DESTRUCTIVE` | `FolderAction` |
+| Preferences | `list_filter_rules`, `list_identities`, `list_signatures` | `READ` | `GetFilterRules`, `GetIdentities`, `GetSignatures` |
+| Preferences | `create_filter_rule`, `update_filter_rule`, `create_identity`, `update_identity`, `create_signature`, `update_signature` | `WRITE` | `ModifyFilterRules`, Identity and Signature account APIs |
+| Preferences | `delete_filter_rule`, `delete_identity`, `delete_signature` | `DESTRUCTIVE` | Filter, Identity, and Signature delete APIs |
 
-## Implementation train
+There are 74 active user-scoped tools. Every mutating tool requires a single-use confirmation,
+and exact existing targets are fetched again after confirmation wherever the API exposes revision
+or stable identity metadata.
 
-### Mail organization
+## Compatibility gates
 
-- Folder listing, creation, rename, move, recoverable deletion to Trash, and permanent Trash
-  emptying are implemented at the gateway boundary
-- Tag listing, creation, rename, deletion, add, and remove are implemented at the gateway boundary
-- Mark unread, flag, unflag, archive, spam, not spam, restore, and attachment removal
-
-### Tasks
-
-- Search and exact retrieval
-- Create, update, complete, reopen, and delete remain compatibility-gated on the target server
+- Task search and exact retrieval use the appointment-backed compatibility fallback but remain
+  gated until authenticated live synchronization passes
+- Task create, update, complete, reopen, and delete remain unavailable on the target server
   because its SOAP dispatcher returns `service.UNKNOWN_DOCUMENT` for the documented task commands
-- Compatibility fallback for servers that store Tasks as appointment-backed records in
-  standard Tasks folder ID 15, including exact retrieval through `GetAppointment` when
-  `GetTask` is unavailable
-
-### Personal contacts
-
-- List and exact retrieval
-- Create, update, move, tag, and delete
-- Contact groups remain subject to exact server compatibility tests
-
-### Calendar
-
-- Calendar listing, creation, rename, and deletion
-- Invitation accept, tentative, decline, and appointment forwarding
-- Alarm dismiss and snooze
-- Existing meeting creation, update, invitation, cancellation, free-busy, and slot proposal
-  remain part of the same confirmation framework
-
-### Sharing and personal preferences
-
-- User-owned share listing, grant, revoke, and notification
-- Incoming and outgoing filter rule management
-- User identity and signature listing, creation, update, and deletion
-- These operations never include domain policy, COS, delegated admin, or server configuration
-
-### Compatibility-gated modules
-
 - Files and Docs remain disabled until an official user-scoped API probe passes on the target
   Carbonio version
 - Chats and rooms remain disabled until an official user-scoped API probe passes on the target

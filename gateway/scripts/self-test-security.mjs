@@ -63,7 +63,11 @@ assert.deepEqual(
 );
 assert.deepEqual(
 	getToolPermissions({ id: 'default-writer-id', name: 'default-writer@other.test', groups: [] }),
-	['mail.read', 'calendar.read', 'mail.draft', 'mail.write', 'calendar.write']
+	[
+		'mail.read', 'calendar.read', 'contacts.read', 'sharing.read', 'preferences.read', 'tasks.read',
+		'mail.draft', 'mail.write', 'calendar.write', 'contacts.write', 'sharing.write',
+		'preferences.write', 'tasks.write'
+	]
 );
 assert.throws(
 	() => requireAdminAccount({ id: 'user-id', name: 'user@example.test' }),
