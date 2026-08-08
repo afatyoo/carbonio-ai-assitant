@@ -328,8 +328,17 @@ const {
 	buildTaskSearchRequest,
 	normalizeAppointmentDetails,
 	normalizeAutocompleteMatches,
-	normalizeTaskForIndex
+	normalizeTaskForIndex,
+	shouldUseAppointmentTaskFallback
 } = await import('../src/calendar.js');
+assert.equal(
+	shouldUseAppointmentTaskFallback(new Error('Carbonio SOAP error: service.UNKNOWN_DOCUMENT')),
+	true
+);
+assert.equal(
+	shouldUseAppointmentTaskFallback(new Error('Carbonio SOAP error: service.AUTH_REQUIRED')),
+	false
+);
 assert.deepEqual(buildTaskSearchRequest({ limit: 100 }), {
 	types: 'task',
 	limit: 100,
