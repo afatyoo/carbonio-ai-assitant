@@ -305,22 +305,27 @@ export const searchEmails = async ({ cookie, query, limit = 10 }) => {
 	return (result.m ?? []).slice(0, boundedLimit).map(normalizeEmail);
 };
 
-export const searchEmailsForIndex = async ({ cookie, query = 'in:anywhere', limit = 200 }) => {
+export const buildIndexEmailSearchRequest = ({ query = '', limit, offset }) => {
+	const normalizedQuery = String(query ?? '').trim();
+	return {
+		limit,
+		needExp: 1,
+		recip: '2',
+		sortBy: 'dateDesc',
+		...(normalizedQuery ? { query: normalizedQuery } : {}),
+		offset,
+		types: 'message'
+	};
+};
+
+export const searchEmailsForIndex = async ({ cookie, query = '', limit = 200 }) => {
 	const boundedLimit = Math.min(Math.max(Number(limit) || 200, 1), 1_000);
 	const messages = [];
 	for (let offset = 0; offset < boundedLimit; offset += 100) {
 		const pageLimit = Math.min(100, boundedLimit - offset);
 		const result = await soapRequest(
 			'Search',
-			{
-				limit: pageLimit,
-				needExp: 1,
-				recip: '2',
-				sortBy: 'dateDesc',
-				query,
-				offset,
-				types: 'message'
-			},
+			buildIndexEmailSearchRequest({ query, limit: pageLimit, offset }),
 			cookie
 		);
 		const page = (result.m ?? []).map(normalizeEmail);

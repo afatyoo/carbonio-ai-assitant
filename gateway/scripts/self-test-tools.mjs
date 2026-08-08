@@ -168,8 +168,30 @@ for (const toolName of [
 		throw new Error(`Missing registered mail tool: ${toolName}`);
 	}
 }
-	const { buildMailMessage, buildMessageActionRequest, normalizeMessageForAgent } = await import(
+const {
+	buildIndexEmailSearchRequest,
+	buildMailMessage,
+	buildMessageActionRequest,
+	normalizeMessageForAgent
+} = await import(
 	'../src/mailbox.js'
+);
+assert.deepEqual(buildIndexEmailSearchRequest({ query: '', limit: 100, offset: 0 }), {
+	limit: 100,
+	needExp: 1,
+	recip: '2',
+	sortBy: 'dateDesc',
+	offset: 0,
+	types: 'message'
+});
+assert.equal(
+	buildIndexEmailSearchRequest({ query: ' has:attachment ', limit: 100, offset: 0 }).query,
+	'has:attachment'
+);
+assert.ok(
+	!JSON.stringify(buildIndexEmailSearchRequest({ query: '', limit: 100, offset: 0 })).includes(
+		'anywhere'
+	)
 );
 if (
 	JSON.stringify(buildMessageActionRequest({ id: '101', operation: 'read' })) !==
@@ -303,9 +325,35 @@ const {
 	buildAppointmentRequest,
 	buildCancelAppointmentRequest,
 	buildModifyAppointmentRequest,
+	buildTaskSearchRequest,
 	normalizeAppointmentDetails,
-	normalizeAutocompleteMatches
+	normalizeAutocompleteMatches,
+	normalizeTaskForIndex
 } = await import('../src/calendar.js');
+assert.deepEqual(buildTaskSearchRequest({ limit: 100 }), {
+	types: 'task',
+	limit: 100,
+	offset: 0,
+	sortBy: 'dateDesc',
+	query: 'inid:15'
+});
+assert.equal(buildTaskSearchRequest({ limit: 100, compatibilityMode: true }).types, 'appointment');
+assert.deepEqual(
+	normalizeTaskForIndex({
+		id: '501',
+		rev: 4,
+		inv: [{ comp: [{ name: 'Task title', desc: 'Task body', status: 'NEED', percentComplete: '25', e: [{ u: 1786000000000 }] }] }]
+	}),
+	{
+		id: '501',
+		title: 'Task title',
+		body: 'Task body',
+		status: 'NEED',
+		percentComplete: 25,
+		due: 1786000000000,
+		revision: '4'
+	}
+);
 assert.equal(
 	buildAppointmentSearchRequest({
 		start: '2026-08-02T00:00:00.000Z',

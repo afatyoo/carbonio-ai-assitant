@@ -173,28 +173,59 @@ export const searchAppointments = async ({ cookie, start, end, query = '', limit
 	return normalized;
 };
 
+export const buildTaskSearchRequest = ({ limit, compatibilityMode = false }) => ({
+	types: compatibilityMode ? 'appointment' : 'task',
+	limit,
+	offset: 0,
+	sortBy: 'dateDesc',
+	query: 'inid:15'
+});
+
+export const normalizeTaskForIndex = (task) => {
+	const invite = asArray(task?.inv)[0] ?? {};
+	const component = asArray(invite.comp)[0] ?? {};
+	const dueDate = firstValue(component.e);
+	return {
+		id: String(task?.id ?? ''),
+		title: String(component.name ?? task?.name ?? task?.su ?? '(No title)').slice(0, 300),
+		body: String(component.desc ?? task?.fr ?? task?.desc ?? '').slice(0, 20_000),
+		status: String(component.status ?? task?.status ?? '').slice(0, 50),
+		percentComplete: Number(component.percentComplete ?? task?.pctComplete ?? 0),
+		due: Number(dueDate.u ?? task?.due ?? 0),
+		revision: String(task?.rev ?? task?.ms ?? task?.d ?? '')
+	};
+};
+
 export const searchTasksForIndex = async ({ cookie, limit = 500 }) => {
 	const boundedLimit = Math.min(Math.max(Number(limit) || 500, 1), 1_000);
-	const result = await soapRequest(
-		'Search',
-		{
-			types: 'task',
-			limit: boundedLimit,
-			offset: 0,
-			sortBy: 'dateDesc',
-			query: 'in:tasks'
-		},
-		cookie
-	);
-	return asArray(result.task).slice(0, boundedLimit).map((task) => ({
-		id: String(task.id ?? ''),
-		title: String(task.name ?? task.su ?? '(No title)').slice(0, 300),
-		body: String(task.fr ?? task.desc ?? '').slice(0, 20_000),
-		status: String(task.status ?? '').slice(0, 50),
-		percentComplete: Number(task.pctComplete ?? 0),
-		due: Number(task.due ?? 0),
-		revision: String(task.rev ?? task.ms ?? task.d ?? '')
-	}));
+	let result;
+	try {
+		result = await soapRequest(
+			'Search',
+			buildTaskSearchRequest({ limit: boundedLimit }),
+			cookie
+		);
+	} catch (error) {
+		if (!(error instanceof Error) || !/invalid item type:\s*task/i.test(error.message)) throw error;
+		result = await soapRequest(
+			'Search',
+			buildTaskSearchRequest({ limit: boundedLimit, compatibilityMode: true }),
+			cookie
+		);
+	}
+	const matches = (asArray(result.task).length ? asArray(result.task) : asArray(result.appt))
+		.slice(0, boundedLimit);
+	const tasks = [];
+	for (const match of matches) {
+		const details = await soapRequest(
+			'GetTask',
+			{ id: String(match.id ?? ''), sync: 1, includeContent: 1, includeInvites: 1 },
+			cookie
+		);
+		const task = asArray(details.appt)[0] ?? details.appt;
+		if (task) tasks.push(normalizeTaskForIndex(task));
+	}
+	return tasks;
 };
 
 export const getPersonalContactsForIndex = async ({ cookie, limit = 1_000 }) => {

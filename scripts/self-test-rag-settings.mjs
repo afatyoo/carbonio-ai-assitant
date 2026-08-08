@@ -9,6 +9,8 @@ assert.match(settings, /Enable all supported sources/);
 assert.match(settings, /source\.available/);
 assert.match(settings, /source\.enabled/);
 assert.match(settings, /source\.unavailableReason/);
+assert.match(settings, /sourceStatus === 'syncing'/);
+assert.match(settings, /setTimeout\(loadRagSources, 1_500\)/);
 
 const server = await fs.readFile('gateway/src/server.js', 'utf8');
 assert.match(server, /storesSessionCookies: false/);

@@ -38,7 +38,7 @@ const mailDocument = (message) => ({
 const collectMail = async (cookie, attachmentsOnly = false) => {
 	const metadata = await searchEmailsForIndex({
 		cookie,
-		query: attachmentsOnly ? 'in:anywhere has:attachment' : 'in:anywhere',
+		query: attachmentsOnly ? 'has:attachment' : '',
 		limit: Number(process.env.AI_RAG_MAIL_LIMIT ?? 500)
 	});
 	const documents = [];

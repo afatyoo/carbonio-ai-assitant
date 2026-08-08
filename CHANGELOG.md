@@ -2,6 +2,29 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [2.0.1-beta.1] - 2026-08-08
+
+### Fixed
+
+- Fixed private Mail and attachment synchronization on Carbonio servers that reject the
+  unsupported pseudo-folder query `in:anywhere` as folder path `//anywhere`.
+- All-mail indexing now omits the optional Search query, while attachment indexing uses only
+  the supported `has:attachment` predicate.
+- Added request-builder regression coverage that prevents the invalid pseudo-folder from
+  returning to the RAG collection path.
+- Source status now refreshes automatically while indexing is in progress, so completed
+  document and chunk counts appear without a manual page reload.
+- Added a user-scoped Tasks compatibility fallback for Carbonio servers that reject
+  `types=task`: retry with appointment-backed items in standard Tasks folder ID 15, then
+  retrieve each result through the official `GetTask` operation.
+
+### Verified
+
+- Passed gateway syntax checks, the full gateway regression suite, and release contracts.
+- Authenticated Webmail Mail sync returned HTTP 202, indexed 11 documents into 11 chunks,
+  completed all encrypted worker jobs, and returned the durable queue to zero.
+- See the [detailed v2.0.1-beta.1 report](docs/releases/v2.0.1-beta.1.md).
+
 ## [2.0.0] - 2026-08-08
 
 ### Added

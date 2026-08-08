@@ -1,4 +1,4 @@
-import React, { FormEvent, useEffect, useState } from 'react';
+import React, { FormEvent, useCallback, useEffect, useState } from 'react';
 
 import styled from '@emotion/styled';
 
@@ -254,14 +254,20 @@ export const AiSettingsView = (): React.JSX.Element => {
 	const [ragBusy, setRagBusy] = useState<string[]>([]);
 	const [ragStatus, setRagStatus] = useState('');
 
-	const loadRagSources = (): void => {
+	const loadRagSources = useCallback((): void => {
 		void apiFetch('/api/ai/rag/sources')
 			.then((response) => parseJsonResponse<{ sources: RagSource[] }>(response))
 			.then(({ sources }) => setRagSources(sources))
 			.catch((reason: Error) => setRagStatus(reason.message));
-	};
+	}, []);
 
-	useEffect(loadRagSources, []);
+	useEffect(loadRagSources, [loadRagSources]);
+
+	useEffect(() => {
+		if (!ragSources.some(({ status: sourceStatus }) => sourceStatus === 'syncing')) return undefined;
+		const refreshTimer = window.setTimeout(loadRagSources, 1_500);
+		return (): void => window.clearTimeout(refreshTimer);
+	}, [loadRagSources, ragSources]);
 
 	const updateRagSource = async (module: string, enabled: boolean): Promise<void> => {
 		setRagBusy((current) => [...current, module]);
