@@ -2,6 +2,31 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [1.1.0] - 2026-08-08
+
+### Added
+
+- Added a Carbonio Shell utility panel for context-aware Mail and Calendar assistance.
+- Added explicit per-selection consent, quick email/calendar actions, safe plain-text panel
+  chat, and shared server-side conversation history.
+- Added typed context references for message, conversation, and appointment targets.
+- Added server-side exact-item re-fetch using the authenticated Carbonio session.
+- Added complete context-panel translations for all nine official Carbonio locales.
+
+### Security
+
+- Browser-provided item bodies are discarded. Only validated IDs and bounded metadata cross
+  the UI-to-gateway boundary.
+- Selection changes abort in-flight requests, clear prior context, and reset consent.
+- Compact-panel confirmations are not executable. Write actions remain in the full assistant.
+
+### Verified
+
+- Added regressions for context parsing, unsupported modules/actions, forged identifiers,
+  exact SOAP target use, provider grounding, selection cancellation, i18n, and safe rendering.
+
+- See the [detailed v1.1.0 report](docs/releases/v1.1.0.md).
+
 ## [1.0.2] - 2026-08-08
 
 ### Fixed

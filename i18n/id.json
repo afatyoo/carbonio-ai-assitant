@@ -143,6 +143,26 @@
 		"running_tool": "Menjalankan tool Carbonio...",
 		"contact_error": "Tidak dapat menghubungi agent: {{message}}"
 	},
+	"context": {
+		"panel_title": "Panel konteks AI",
+		"close": "Tutup panel AI",
+		"no_selection": "Buka email atau acara kalender untuk memakai konteks.",
+		"selected_item": "{{type}} terpilih #{{id}}",
+		"include_selected": "Gunakan item terpilih ini",
+		"privacy": "Item dibaca di server hanya setelah Anda menjalankan tindakan. Mengganti pilihan akan membatalkan permintaan.",
+		"refetching": "Membaca item terpilih dengan aman...",
+		"open_full_for_write": "Buka asisten lengkap untuk meninjau dan mengonfirmasi tindakan tulis.",
+		"summarize": "Ringkas email terpilih",
+		"summarize_prompt": "Ringkas email terpilih ini secara singkat.",
+		"action_items": "Ambil item tindakan",
+		"action_items_prompt": "Ambil item tindakan dari email terpilih ini.",
+		"draft_reply": "Buat draf balasan",
+		"draft_reply_prompt": "Buat draf balasan singkat untuk email terpilih ini.",
+		"meeting_prep": "Persiapkan saya untuk rapat ini",
+		"meeting_prep_prompt": "Buat pengarahan singkat untuk rapat ini.",
+		"follow_up": "Sarankan tindak lanjut",
+		"follow_up_prompt": "Sarankan tindak lanjut singkat untuk rapat ini."
+	},
 	"settings": {
 		"admin_only": "Khusus administrator",
 		"admin_status": "Status administrator",

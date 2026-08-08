@@ -1189,7 +1189,16 @@ const prepareExistingAppointmentAction = async ({
 			: 'Perubahan jadwal sudah disiapkan. Periksa diff sebelum menyimpannya.';
 };
 
-export const runAgent = async ({ message, model, cookie, account, permissions = [], emit, signal }) => {
+export const runAgent = async ({
+	message,
+	model,
+	contextReference = null,
+	cookie,
+	account,
+	permissions = [],
+	emit,
+	signal
+}) => {
 	const config = getAgentConfig();
 	const dataAccessOptOut = isAgentDataAccessOptOut(message);
 	const knowledgeStartedAt = Date.now();
@@ -1218,6 +1227,41 @@ export const runAgent = async ({ message, model, cookie, account, permissions = 
 					signal
 				})
 			: localAnswer(message, null, []);
+		for (const chunk of answer.match(/[\s\S]{1,42}/g) ?? [answer]) {
+			emit('message', { text: chunk });
+		}
+		emit('done', {});
+		return;
+	}
+	if (contextReference) {
+		const toolName = contextReference.objectType === 'conversation'
+			? 'get_email_thread'
+			: contextReference.module === 'calendar'
+				? 'get_appointment'
+				: 'get_email';
+		const input = toolName === 'get_email_thread'
+			? { conversationId: contextReference.objectId, maxBodyLength: 8_000 }
+			: toolName === 'get_email'
+				? { id: contextReference.objectId, maxBodyLength: 8_000 }
+				: { id: contextReference.objectId };
+		emit('tool', { name: toolName, status: 'running' });
+		const execution = await executeTool({
+			name: toolName,
+			input,
+			context: { ownerId: account.id, cookie, permissions }
+		});
+		emit('tool', { name: toolName, status: 'completed', count: 1 });
+		const contextMessage = `${message}\n\nThe user explicitly selected this ${contextReference.objectType} and requested the context action ${contextReference.action}. Use only the server-refetched selected item below for private context. Do not search for or substitute another item.`;
+		const answer = config.agentUrl
+			? await remoteAnswer({
+					message: contextMessage,
+					toolResult: { name: toolName, items: [execution.result] },
+					knowledgeResults,
+					requestedModel: model,
+					account,
+					signal
+				})
+			: localAnswer(contextMessage, { name: toolName, items: [execution.result] }, knowledgeResults);
 		for (const chunk of answer.match(/[\s\S]{1,42}/g) ?? [answer]) {
 			emit('message', { text: chunk });
 		}

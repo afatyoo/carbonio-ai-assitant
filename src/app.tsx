@@ -1,12 +1,13 @@
 import { useEffect } from 'react';
 
-import { addRoute, addSettingsView, upsertApp } from '@zextras/carbonio-shell-ui';
+import { addRoute, addSettingsView, addUtilityView, upsertApp } from '@zextras/carbonio-shell-ui';
 
 import { RobotPrimaryBarIcon } from './components/robot-icon';
 import { useAppTranslation } from './i18n/use-app-translation';
 import { AiSettingsView } from './views/ai-settings-view';
 import { AssistantSidebar } from './views/assistant-sidebar';
 import { AiAssistantView } from './views/ai-assistant-view';
+import { ContextAssistantPanel } from './views/context-assistant-panel';
 
 const APP_ID = 'carbonio-ai-assistant-ui';
 
@@ -35,6 +36,22 @@ const App = (): null => {
 			route: 'ai-assistant',
 			label: appName,
 			component: AiSettingsView
+		});
+
+		addUtilityView({
+			id: 'carbonio-ai-context-panel',
+			label: appName,
+			button: 'MessageCircleOutline',
+			component: ContextAssistantPanel,
+			position: 15,
+			panelVisible: true,
+			whitelistRoutes: [
+				'ai-assistant',
+				'calendar',
+				'carbonio-calendar-ui',
+				'carbonio-mails-ui',
+				'mails'
+			]
 		});
 	}, [appName, ready]);
 

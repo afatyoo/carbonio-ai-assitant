@@ -143,6 +143,26 @@
 		"running_tool": "Running Carbonio tool...",
 		"contact_error": "Unable to contact the agent: {{message}}"
 	},
+	"context": {
+		"panel_title": "AI context panel",
+		"close": "Close AI panel",
+		"no_selection": "Open an email or calendar event to use context.",
+		"selected_item": "Selected {{type}} #{{id}}",
+		"include_selected": "Use this selected item",
+		"privacy": "The item is read server-side only after you run an action. Changing selection cancels the request.",
+		"refetching": "Reading the selected item securely...",
+		"open_full_for_write": "Open the full assistant to review and confirm write actions.",
+		"summarize": "Summarize selected email",
+		"summarize_prompt": "Summarize this selected email concisely.",
+		"action_items": "Extract action items",
+		"action_items_prompt": "Extract action items from this selected email.",
+		"draft_reply": "Draft a reply",
+		"draft_reply_prompt": "Draft a concise reply to this selected email.",
+		"meeting_prep": "Prepare me for this meeting",
+		"meeting_prep_prompt": "Prepare a concise briefing for this meeting.",
+		"follow_up": "Suggest follow-up actions",
+		"follow_up_prompt": "Suggest concise follow-up actions for this meeting."
+	},
 	"settings": {
 		"admin_only": "Administrator only",
 		"admin_status": "Administrator status",

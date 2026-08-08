@@ -2,6 +2,7 @@ import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 
 import { runAgent } from './agent.js';
+import { normalizeContextReference } from './context-reference.js';
 import {
 	assertModelAllowed,
 	getAgentConfig,
@@ -381,12 +382,13 @@ const handleRequest = async (request, response) => {
 
 	try {
 		const account = await authenticate(request);
-		await consumeAccountQuota(account.id);
 		const payload = await readJson(request);
 		if (typeof payload.message !== 'string' || !payload.message.trim()) {
 			sendJson(response, 400, { error: 'message is required' });
 			return;
 		}
+		const contextReference = normalizeContextReference(payload.context);
+		await consumeAccountQuota(account.id);
 
 		const wantsEventStream = request.headers.accept
 			?.toLowerCase()
@@ -416,6 +418,7 @@ const handleRequest = async (request, response) => {
 			await runAgent({
 				message: payload.message.trim(),
 				model: typeof payload.model === 'string' ? payload.model.trim() : '',
+				contextReference,
 				cookie: request.headers.cookie ?? '',
 				account,
 				permissions: getToolPermissions(account),
@@ -442,7 +445,7 @@ const handleRequest = async (request, response) => {
 		if (!response.headersSent) {
 			sendJson(
 				response,
-				error.message.includes('authentication') ? 401 : 500,
+				errorStatus(error, 500),
 				{ error: error.message }
 			);
 			return;
