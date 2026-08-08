@@ -196,6 +196,9 @@ export const normalizeTaskForIndex = (task) => {
 	};
 };
 
+export const shouldUseAppointmentTaskFallback = (error) =>
+	error instanceof Error && /(?:service\.)?UNKNOWN_DOCUMENT|unknown document/i.test(error.message);
+
 export const searchTasksForIndex = async ({ cookie, limit = 500 }) => {
 	const boundedLimit = Math.min(Math.max(Number(limit) || 500, 1), 1_000);
 	let result;
@@ -217,11 +220,19 @@ export const searchTasksForIndex = async ({ cookie, limit = 500 }) => {
 		.slice(0, boundedLimit);
 	const tasks = [];
 	for (const match of matches) {
-		const details = await soapRequest(
-			'GetTask',
-			{ id: String(match.id ?? ''), sync: 1, includeContent: 1, includeInvites: 1 },
-			cookie
-		);
+		const request = {
+			id: String(match.id ?? ''),
+			sync: 1,
+			includeContent: 1,
+			includeInvites: 1
+		};
+		let details;
+		try {
+			details = await soapRequest('GetTask', request, cookie);
+		} catch (error) {
+			if (!shouldUseAppointmentTaskFallback(error)) throw error;
+			details = await soapRequest('GetAppointment', request, cookie);
+		}
 		const task = asArray(details.appt)[0] ?? details.appt;
 		if (task) tasks.push(normalizeTaskForIndex(task));
 	}
