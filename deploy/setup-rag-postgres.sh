@@ -7,7 +7,7 @@ if [[ "$EUID" -ne 0 ]]; then
 	exit 1
 fi
 
-for command_name in apt-get createuser install openssl runuser psql systemctl; do
+for command_name in apt-get createuser grep install openssl runuser psql systemctl; do
 	command -v "$command_name" >/dev/null 2>&1 || {
 		echo "Required command is missing: $command_name" >&2
 		exit 1
@@ -55,7 +55,8 @@ grep -Ev '^AI_RAG_WORKER_DATABASE_URL=' "$config_file" >"$config_tmp" || true
 } >"${config_tmp}.next"
 install -o root -g root -m 0600 "${config_tmp}.next" "$config_file"
 
-if systemctl list-unit-files carbonio-ai-rag-worker.service >/dev/null 2>&1; then
+if systemctl list-unit-files carbonio-ai-rag-worker.service --no-legend 2>/dev/null |
+	grep -q '^carbonio-ai-rag-worker\.service'; then
 	systemctl enable carbonio-ai-rag-worker.service >/dev/null
 	systemctl restart carbonio-ai-rag-worker.service
 fi
