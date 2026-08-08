@@ -72,8 +72,8 @@ export const CARBONIO_USER_CAPABILITIES = Object.freeze([
 	planned('restore_email', 'mail', TOOL_RISK.WRITE, 'mail.write', ['GetMsg', 'MsgAction']),
 	planned('remove_attachment', 'mail', TOOL_RISK.DESTRUCTIVE, 'mail.write', ['GetMsg', 'RemoveAttachments']),
 
-	planned('search_tasks', 'tasks', TOOL_RISK.READ, 'tasks.read', ['Search', 'GetTask']),
-	planned('get_task', 'tasks', TOOL_RISK.READ, 'tasks.read', ['GetTask']),
+	gated('search_tasks', 'tasks', TOOL_RISK.READ, 'tasks.read', ['Search', 'GetTask', 'GetAppointment']),
+	gated('get_task', 'tasks', TOOL_RISK.READ, 'tasks.read', ['GetTask', 'GetAppointment']),
 	planned('create_task', 'tasks', TOOL_RISK.WRITE, 'tasks.write', ['CreateAppointment']),
 	planned('update_task', 'tasks', TOOL_RISK.WRITE, 'tasks.write', ['GetTask', 'ModifyAppointment']),
 	planned('complete_task', 'tasks', TOOL_RISK.WRITE, 'tasks.write', ['GetTask', 'ItemAction']),

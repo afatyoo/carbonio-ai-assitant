@@ -15,6 +15,12 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 - Added user tag listing, creation, rename, and deletion through official authenticated
   `GetTag`, `CreateTag`, and `TagAction` operations.
 
+### Fixed
+
+- Added a second Tasks indexing compatibility fallback for Carbonio servers that reject the
+  documented `GetTask` command with `service.UNKNOWN_DOCUMENT`. Appointment-backed records
+  are retrieved through `GetAppointment` without hiding unrelated SOAP errors.
+
 ## [2.0.1] - 2026-08-08
 
 ### Fixed

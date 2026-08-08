@@ -55,9 +55,11 @@ does not impersonate another account, and does not access Carbonio internal data
 ### Tasks
 
 - Search and exact retrieval
-- Create, update, complete, reopen, and delete
+- Create, update, complete, reopen, and delete remain compatibility-gated on the target server
+  because its SOAP dispatcher returns `service.UNKNOWN_DOCUMENT` for the documented task commands
 - Compatibility fallback for servers that store Tasks as appointment-backed records in
-  standard Tasks folder ID 15
+  standard Tasks folder ID 15, including exact retrieval through `GetAppointment` when
+  `GetTask` is unavailable
 
 ### Personal contacts
 
