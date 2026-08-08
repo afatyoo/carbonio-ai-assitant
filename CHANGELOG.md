@@ -14,12 +14,34 @@ All notable changes to Carbonio AI Assistant are documented in this file.
   separately classified permanent Trash emptying.
 - Added user tag listing, creation, rename, and deletion through official authenticated
   `GetTag`, `CreateTag`, and `TagAction` operations.
+- Added archive, restore, and permanent attachment removal with exact message and attachment
+  revalidation.
+- Added personal Contacts list, retrieval, create, update, move, tag, and recoverable delete.
+- Added calendar lifecycle, invitation replies and forwarding, and alarm dismiss and snooze.
+- Added user-owned sharing, filter rule, sending identity, and signature management.
+- Added an allowlisted AI tool planner so the chatbot can select supported user tools without
+  exposing administrative or authentication operations.
 
 ### Fixed
 
 - Added a second Tasks indexing compatibility fallback for Carbonio servers that reject the
   documented `GetTask` command with `service.UNKNOWN_DOCUMENT`. Appointment-backed records
   are retrieved through `GetAppointment` without hiding unrelated SOAP errors.
+
+## [2.0.2] - 2026-08-08
+
+### Fixed
+
+- Fixed Tasks indexing on Carbonio servers that expose task records as appointments and
+  reject the documented `GetTask` command with `service.UNKNOWN_DOCUMENT`.
+- Exact appointment-backed task records now fall back to authenticated `GetAppointment`.
+  Unrelated authentication, permission, network, and SOAP failures remain visible.
+
+### Verified
+
+- The target server capability probe recognized `GetMsg` and `Search`, while `GetTask`,
+  `CreateTask`, and `ModifyTask` returned `service.UNKNOWN_DOCUMENT`.
+- See the [detailed v2.0.2 report](docs/releases/v2.0.2.md).
 
 ## [2.0.1] - 2026-08-08
 
