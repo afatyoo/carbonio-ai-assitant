@@ -2,6 +2,15 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Added exact-target user tools for mark unread, flag, unflag, mark spam, mark not spam,
+  and remove tag.
+- Added English and Indonesian intent routing, one-time confirmation previews, bounded
+  Carbonio `MsgAction` payloads, and regression coverage for every new operation.
+
 ## [2.0.1] - 2026-08-08
 
 ### Fixed

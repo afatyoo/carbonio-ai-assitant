@@ -255,10 +255,10 @@ export const buildMessageActionRequest = ({ id, operation, folderId, tagName }) 
 	if (!itemId || /[\s,]/.test(itemId)) {
 		throw new Error('A single Carbonio item ID is required');
 	}
-	if (!['read', 'tag', 'move', 'delete'].includes(operation)) {
+	if (!['read', '!read', 'flag', '!flag', 'tag', '!tag', 'move', 'spam', '!spam', 'delete'].includes(operation)) {
 		throw new Error(`Unsupported Carbonio message action: ${operation}`);
 	}
-	if (operation === 'tag' && !String(tagName ?? '').trim()) {
+	if (['tag', '!tag'].includes(operation) && !String(tagName ?? '').trim()) {
 		throw new Error('Tag name is required');
 	}
 	if (operation === 'move' && !String(folderId ?? '').trim()) {
@@ -268,7 +268,7 @@ export const buildMessageActionRequest = ({ id, operation, folderId, tagName }) 
 		action: {
 			id: itemId,
 			op: operation,
-			...(operation === 'tag' ? { tn: String(tagName).trim() } : {}),
+			...(['tag', '!tag'].includes(operation) ? { tn: String(tagName).trim() } : {}),
 			...(operation === 'move' ? { l: String(folderId).trim() } : {})
 		}
 	};
@@ -279,8 +279,14 @@ export const messageAction = async ({ cookie, id, operation, folderId, tagName }
 	await soapRequest('MsgAction', request, cookie);
 	const statuses = {
 		read: 'marked_read',
+		'!read': 'marked_unread',
+		flag: 'flagged',
+		'!flag': 'unflagged',
 		tag: 'tag_added',
+		'!tag': 'tag_removed',
 		move: 'moved',
+		spam: 'marked_spam',
+		'!spam': 'marked_not_spam',
 		delete: 'deleted_permanently'
 	};
 	return { id: String(id), operation, status: statuses[operation] };

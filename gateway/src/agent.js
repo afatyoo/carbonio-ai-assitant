@@ -129,11 +129,30 @@ export const classifyActionRequest = (message) => {
 	if (/(perbarui|ubah|edit|update)\b[\s\S]*\b(draft|draf)\b/i.test(value)) {
 		return { tool: 'update_email_draft' };
 	}
+	if (/(tandai|mark)\b[\s\S]*\b(belum\s+dibaca|unread)\b/i.test(value)) {
+		return { tool: 'mark_as_unread' };
+	}
 	if (/(tandai|mark)\b[\s\S]*\b(dibaca|read)\b/i.test(value)) {
 		return { tool: 'mark_as_read' };
 	}
+	if (/(hapus|remove)\s+tag\s+["']?([^"'\s,]+)["']?/i.test(value)) {
+		const tag = value.match(/(?:hapus|remove)\s+tag\s+["']?([^"'\s,]+)["']?/i);
+		return { tool: 'remove_tag', tagName: tag[1] };
+	}
 	const tag = value.match(/(?:tambahkan|beri|add)\s+tag\s+["']?([^"'\s,]+)["']?/i);
 	if (tag) return { tool: 'add_tag', tagName: tag[1] };
+	if (/(hapus\s+bendera|unflag)\b[\s\S]*\bemail\b/i.test(value)) {
+		return { tool: 'unflag_email' };
+	}
+	if (/(beri\s+bendera|tandai\s+penting|flag)\b[\s\S]*\bemail\b/i.test(value)) {
+		return { tool: 'flag_email' };
+	}
+	if (/\b(bukan\s+spam|not\s+spam)\b/i.test(value) && /\bemail\b/i.test(value)) {
+		return { tool: 'mark_as_not_spam' };
+	}
+	if (/(tandai|mark)\b[\s\S]*\b(spam|junk)\b/i.test(value)) {
+		return { tool: 'mark_as_spam' };
+	}
 	if (/(pindahkan|move)\b[\s\S]*\bemail\b/i.test(value)) {
 		const destination = resolveMoveDestination(value);
 		return destination

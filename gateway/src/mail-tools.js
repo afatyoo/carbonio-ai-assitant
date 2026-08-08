@@ -171,6 +171,59 @@ registerTool(
 		messageAction({ cookie: context.cookie, id: input.id, operation: 'read' })
 );
 
+const registerMessageToggle = ({ name, description, operation, previewKind }) =>
+	registerTool(
+		{
+			name,
+			description,
+			inputSchema: {
+				type: 'object',
+				additionalProperties: false,
+				required: ['id'],
+				properties: messageTargetProperties
+			},
+			permission: 'mail.write',
+			risk: TOOL_RISK.WRITE,
+			confirmation: 'required',
+			timeoutMs: 25_000,
+			maxResultBytes: 8_000,
+			resultReference: (result) => String(result.id ?? '').slice(0, 200),
+			preview: (input) => messageTargetPreview(previewKind, input)
+		},
+		(input, context) => messageAction({ cookie: context.cookie, id: input.id, operation })
+	);
+
+registerMessageToggle({
+	name: 'mark_as_unread',
+	description: 'Mark one Carbonio email as unread after explicit user confirmation.',
+	operation: '!read',
+	previewKind: 'mark_as_unread'
+});
+registerMessageToggle({
+	name: 'flag_email',
+	description: 'Flag one Carbonio email after explicit user confirmation.',
+	operation: 'flag',
+	previewKind: 'flag_email'
+});
+registerMessageToggle({
+	name: 'unflag_email',
+	description: 'Remove the flag from one Carbonio email after explicit user confirmation.',
+	operation: '!flag',
+	previewKind: 'unflag_email'
+});
+registerMessageToggle({
+	name: 'mark_as_spam',
+	description: 'Move one Carbonio email through the server spam action after explicit confirmation.',
+	operation: 'spam',
+	previewKind: 'mark_as_spam'
+});
+registerMessageToggle({
+	name: 'mark_as_not_spam',
+	description: 'Remove the spam state from one Carbonio email after explicit confirmation.',
+	operation: '!spam',
+	previewKind: 'mark_as_not_spam'
+});
+
 registerTool(
 	{
 		name: 'add_tag',
@@ -200,6 +253,39 @@ registerTool(
 			cookie: context.cookie,
 			id: input.id,
 			operation: 'tag',
+			tagName: input.tagName
+		})
+);
+
+registerTool(
+	{
+		name: 'remove_tag',
+		description: 'Remove one existing Carbonio tag from one email after explicit confirmation.',
+		inputSchema: {
+			type: 'object',
+			additionalProperties: false,
+			required: ['id', 'tagName'],
+			properties: {
+				...messageTargetProperties,
+				tagName: { type: 'string', minLength: 1, maxLength: 128 }
+			}
+		},
+		permission: 'mail.write',
+		risk: TOOL_RISK.WRITE,
+		confirmation: 'required',
+		timeoutMs: 25_000,
+		maxResultBytes: 8_000,
+		resultReference: (result) => String(result.id ?? '').slice(0, 200),
+		preview: (input) => ({
+			...messageTargetPreview('remove_tag', input),
+			tagName: input.tagName
+		})
+	},
+	(input, context) =>
+		messageAction({
+			cookie: context.cookie,
+			id: input.id,
+			operation: '!tag',
 			tagName: input.tagName
 		})
 );

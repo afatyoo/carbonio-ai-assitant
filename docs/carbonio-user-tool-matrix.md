@@ -27,7 +27,8 @@ does not impersonate another account, and does not access Carbonio internal data
 | Mail | `get_email_thread` | `READ` | `GetConv` |
 | Mail | `create_email_draft`, `update_email_draft`, `forward_as_draft` | `DRAFT` | `SaveDraft` |
 | Mail | `send_email` | `WRITE` | `SendMsg` |
-| Mail | `mark_as_read`, `add_tag`, `move_email` | `WRITE` | `GetMsg`, `MsgAction` |
+| Mail | `mark_as_read`, `mark_as_unread`, `flag_email`, `unflag_email` | `WRITE` | `GetMsg`, `MsgAction` |
+| Mail | `mark_as_spam`, `mark_as_not_spam`, `add_tag`, `remove_tag`, `move_email` | `WRITE` | `GetMsg`, `MsgAction` |
 | Mail | `delete_email` | `DESTRUCTIVE` | `GetMsg`, `MsgAction` |
 | Calendar | `get_appointment`, `search_appointments` | `READ` | `GetAppointment`, `Search` |
 | Calendar | `check_free_busy`, `propose_meeting_slots` | `READ` | `GetFreeBusy` |

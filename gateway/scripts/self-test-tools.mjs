@@ -160,7 +160,13 @@ for (const toolName of [
 	'forward_as_draft',
 	'send_email',
 	'mark_as_read',
+	'mark_as_unread',
+	'flag_email',
+	'unflag_email',
+	'mark_as_spam',
+	'mark_as_not_spam',
 	'add_tag',
+	'remove_tag',
 	'move_email',
 	'delete_email'
 ]) {
@@ -219,6 +225,14 @@ if (
 ) {
 	throw new Error('MsgAction delete payload is incorrect');
 }
+for (const operation of ['!read', 'flag', '!flag', 'spam', '!spam']) {
+	assert.deepEqual(buildMessageActionRequest({ id: '105', operation }), {
+		action: { id: '105', op: operation }
+	});
+}
+assert.deepEqual(buildMessageActionRequest({ id: '106', operation: '!tag', tagName: 'Later' }), {
+	action: { id: '106', op: '!tag', tn: 'Later' }
+});
 assert.throws(
 	() => buildMessageActionRequest({ id: '101,102', operation: 'read' }),
 	/single Carbonio item ID/
@@ -622,8 +636,23 @@ assert.deepEqual(classifyActionRequest('Perbarui draft email terakhir agar lebih
 assert.deepEqual(classifyActionRequest('Tandai email terakhir sudah dibaca'), {
 	tool: 'mark_as_read'
 });
+assert.deepEqual(classifyActionRequest('Tandai email terakhir belum dibaca'), {
+	tool: 'mark_as_unread'
+});
+assert.deepEqual(classifyActionRequest('Flag email terakhir'), { tool: 'flag_email' });
+assert.deepEqual(classifyActionRequest('Unflag email terakhir'), { tool: 'unflag_email' });
+assert.deepEqual(classifyActionRequest('Tandai email terakhir sebagai spam'), {
+	tool: 'mark_as_spam'
+});
+assert.deepEqual(classifyActionRequest('Tandai email terakhir bukan spam'), {
+	tool: 'mark_as_not_spam'
+});
 assert.deepEqual(classifyActionRequest('Tambahkan tag Important ke email terakhir'), {
 	tool: 'add_tag',
+	tagName: 'Important'
+});
+assert.deepEqual(classifyActionRequest('Hapus tag Important dari email terakhir'), {
+	tool: 'remove_tag',
 	tagName: 'Important'
 });
 assert.deepEqual(classifyActionRequest('Pindahkan email terakhir ke Trash'), {
