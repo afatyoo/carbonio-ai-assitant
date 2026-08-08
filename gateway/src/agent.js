@@ -1,5 +1,6 @@
 import './mail-tools.js';
 import './calendar-tools.js';
+import './organization-tools.js';
 
 import { randomUUID } from 'node:crypto';
 
@@ -183,6 +184,38 @@ export const classifyCalendarActionRequest = (message) => {
 	return null;
 };
 
+const quotedName = (value) => value.match(/["“']([^"”']{1,300})["”']/)?.[1]?.trim() ?? '';
+const exactObjectId = (value, object) =>
+	value.match(new RegExp(`\\b${object}(?:\\s+id)?\\s*[:#]?\\s*([A-Z0-9][A-Z0-9._:-]{0,99})`, 'i'))?.[1] ?? '';
+
+export const classifyOrganizationActionRequest = (message) => {
+	const value = String(message ?? '').trim();
+	if (/(bagaimana|cara|panduan|how\s+to)/i.test(value)) return null;
+	if (/(kosongkan|empty)\s+(trash|sampah)/i.test(value)) return { tool: 'empty_trash', input: {} };
+	const name = quotedName(value);
+	if (/(buat|create)\s+(folder|map)/i.test(value) && name) {
+		return { tool: 'create_folder', input: { name, parentId: '1', view: 'message' } };
+	}
+	if (/(buat|create)\s+tag/i.test(value) && name) {
+		return { tool: 'create_tag', input: { name } };
+	}
+	const folderId = exactObjectId(value, 'folder');
+	if (folderId && /(ubah\s+nama|rename)/i.test(value) && name) {
+		return { tool: 'rename_folder', input: { id: folderId, name } };
+	}
+	if (folderId && /(hapus|delete)/i.test(value)) {
+		return { tool: 'delete_folder', input: { id: folderId } };
+	}
+	const moveIds = value.match(/\b(?:pindahkan|move)\s+folder(?:\s+id)?\s*[:#]?\s*([\w.:-]+)[\s\S]*?\b(?:ke|to)\s+folder(?:\s+id)?\s*[:#]?\s*([\w.:-]+)/i);
+	if (moveIds) return { tool: 'move_folder', input: { id: moveIds[1], parentId: moveIds[2] } };
+	const tagId = exactObjectId(value, 'tag');
+	if (tagId && /(ubah\s+nama|rename)/i.test(value) && name) {
+		return { tool: 'rename_tag', input: { id: tagId, name } };
+	}
+	if (tagId && /(hapus|delete)/i.test(value)) return { tool: 'delete_tag', input: { id: tagId } };
+	return null;
+};
+
 const isAttachmentRequest = (message) => /(attachment|attached file|lampiran|file terlampir)/i.test(message);
 const isSummaryRequest = (message) =>
 	/(summari[sz]e|summary|ringkas|rangkuman|action items?|tindakan|people and dates|orang dan tanggal)/i.test(
@@ -192,6 +225,12 @@ const isThreadRequest = (message) => /(thread|conversation|percakapan|utas)/i.te
 
 const selectTool = (message) => {
 	const value = message.toLowerCase();
+	if (/(daftar|list|tampilkan|show).*(folder|map)/i.test(value)) {
+		return { name: 'list_folders', input: {} };
+	}
+	if (/(daftar|list|tampilkan|show).*tag/i.test(value)) {
+		return { name: 'list_tags', input: {} };
+	}
 	if (value.includes('belum dibaca') || value.includes('unread')) {
 		return { name: 'list_unread_emails', input: { query: 'is:unread', limit: 10 } };
 	}
@@ -826,6 +865,44 @@ const prepareLatestEmailMutation = async ({ action, cookie, account, permissions
 		: 'Tindakan email sudah disiapkan. Periksa target dan detailnya sebelum konfirmasi.';
 };
 
+const prepareOrganizationAction = async ({ action, cookie, account, permissions, emit }) => {
+	const input = { ...action.input };
+	if (['rename_folder', 'move_folder', 'delete_folder'].includes(action.tool)) {
+		const listed = await executeTool({
+			name: 'list_folders',
+			input: {},
+			context: { ownerId: account.id, cookie, permissions }
+		});
+		const target = listed.result.find(({ id }) => id === input.id);
+		if (!target) throw new Error('The exact user folder was not found');
+		if (action.tool === 'rename_folder') input.currentName = target.name;
+		else input.name = target.name;
+		if (action.tool === 'move_folder') {
+			const parent = listed.result.find(({ id }) => id === input.parentId);
+			if (!parent) throw new Error('The exact destination folder was not found');
+			input.parentName = parent.name;
+		}
+	}
+	if (['rename_tag', 'delete_tag'].includes(action.tool)) {
+		const listed = await executeTool({
+			name: 'list_tags',
+			input: {},
+			context: { ownerId: account.id, cookie, permissions }
+		});
+		const target = listed.result.find(({ id }) => id === input.id);
+		if (!target) throw new Error('The exact user tag was not found');
+		if (action.tool === 'rename_tag') input.currentName = target.name;
+		else input.name = target.name;
+	}
+	const pending = await executeTool({
+		name: action.tool,
+		input,
+		context: { ownerId: account.id, cookie, permissions }
+	});
+	emitConfirmation({ emit, tool: action.tool, pending, input });
+	return 'Carbonio organization action is ready. Review the exact target before confirmation.';
+};
+
 const prepareMeeting = async ({
 	message,
 	model,
@@ -1315,6 +1392,21 @@ export const runAgent = async ({
 	const calendarAction = isDocumentationOnlyQuery(message)
 		? null
 		: classifyCalendarActionRequest(message);
+	const organizationAction = isDocumentationOnlyQuery(message)
+		? null
+		: classifyOrganizationActionRequest(message);
+	if (organizationAction) {
+		const answer = await prepareOrganizationAction({
+			action: organizationAction,
+			cookie,
+			account,
+			permissions,
+			emit
+		});
+		for (const chunk of answer.match(/[\s\S]{1,42}/g) ?? [answer]) emit('message', { text: chunk });
+		emit('done', {});
+		return;
+	}
 	if (calendarAction?.tool === 'create_calendar_draft') {
 		const answer = await prepareMeeting({
 			message,

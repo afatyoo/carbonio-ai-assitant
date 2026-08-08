@@ -10,6 +10,10 @@ All notable changes to Carbonio AI Assistant are documented in this file.
   and remove tag.
 - Added English and Indonesian intent routing, one-time confirmation previews, bounded
   Carbonio `MsgAction` payloads, and regression coverage for every new operation.
+- Added user folder listing, creation, rename, move, recoverable deletion to Trash, and
+  separately classified permanent Trash emptying.
+- Added user tag listing, creation, rename, and deletion through official authenticated
+  `GetTag`, `CreateTag`, and `TagAction` operations.
 
 ## [2.0.1] - 2026-08-08
 

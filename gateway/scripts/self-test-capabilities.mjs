@@ -11,6 +11,7 @@ import { listToolDefinitions, registerTool, TOOL_RISK } from '../src/tool-regist
 
 await import('../src/mail-tools.js');
 await import('../src/calendar-tools.js');
+await import('../src/organization-tools.js');
 
 const activeCapabilities = listCapabilitiesByStatus(CAPABILITY_STATUS.ACTIVE);
 const registeredTools = listToolDefinitions();

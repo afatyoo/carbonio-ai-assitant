@@ -30,6 +30,12 @@ does not impersonate another account, and does not access Carbonio internal data
 | Mail | `mark_as_read`, `mark_as_unread`, `flag_email`, `unflag_email` | `WRITE` | `GetMsg`, `MsgAction` |
 | Mail | `mark_as_spam`, `mark_as_not_spam`, `add_tag`, `remove_tag`, `move_email` | `WRITE` | `GetMsg`, `MsgAction` |
 | Mail | `delete_email` | `DESTRUCTIVE` | `GetMsg`, `MsgAction` |
+| Folders | `list_folders` | `READ` | `GetFolder` |
+| Folders | `create_folder`, `rename_folder`, `move_folder` | `WRITE` | `CreateFolder`, `FolderAction` |
+| Folders | `delete_folder`, `empty_trash` | `DESTRUCTIVE` | `FolderAction` |
+| Tags | `list_tags` | `READ` | `GetTag` |
+| Tags | `create_tag`, `rename_tag` | `WRITE` | `CreateTag`, `TagAction` |
+| Tags | `delete_tag` | `DESTRUCTIVE` | `TagAction` |
 | Calendar | `get_appointment`, `search_appointments` | `READ` | `GetAppointment`, `Search` |
 | Calendar | `check_free_busy`, `propose_meeting_slots` | `READ` | `GetFreeBusy` |
 | Calendar | `create_calendar_draft`, `update_appointment` | `DRAFT` | `SetAppointment`, `GetAppointment`, `ModifyAppointment` |
@@ -41,8 +47,9 @@ does not impersonate another account, and does not access Carbonio internal data
 
 ### Mail organization
 
-- Folder listing, creation, rename, move, delete, and trash emptying
-- Tag listing, creation, rename, deletion, add, and remove
+- Folder listing, creation, rename, move, recoverable deletion to Trash, and permanent Trash
+  emptying are implemented at the gateway boundary
+- Tag listing, creation, rename, deletion, add, and remove are implemented at the gateway boundary
 - Mark unread, flag, unflag, archive, spam, not spam, restore, and attachment removal
 
 ### Tasks

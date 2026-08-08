@@ -148,6 +148,7 @@ if (!listAllAuditEntries(20).some(({ ownerId, tool }) => ownerId === 'owner-a' &
 
 await import('../src/mail-tools.js');
 await import('../src/calendar-tools.js');
+await import('../src/organization-tools.js');
 const mailDefinitions = listToolDefinitions();
 for (const toolName of [
 	'search_emails',
@@ -174,14 +175,43 @@ for (const toolName of [
 		throw new Error(`Missing registered mail tool: ${toolName}`);
 	}
 }
+for (const toolName of [
+	'list_folders',
+	'create_folder',
+	'rename_folder',
+	'move_folder',
+	'delete_folder',
+	'empty_trash',
+	'list_tags',
+	'create_tag',
+	'rename_tag',
+	'delete_tag'
+]) {
+	assert.ok(mailDefinitions.some(({ name }) => name === toolName), `Missing ${toolName}`);
+}
 const {
+	buildCreateFolderRequest,
+	buildFolderActionRequest,
 	buildIndexEmailSearchRequest,
 	buildMailMessage,
 	buildMessageActionRequest,
+	buildTagActionRequest,
 	normalizeMessageForAgent
 } = await import(
 	'../src/mailbox.js'
 );
+assert.deepEqual(buildCreateFolderRequest({ name: 'Projects', parentId: '1' }), {
+	folder: { name: 'Projects', l: '1', view: 'message' }
+});
+assert.deepEqual(buildFolderActionRequest({ id: '20', operation: 'rename', name: 'Archive' }), {
+	action: { id: '20', op: 'rename', name: 'Archive' }
+});
+assert.deepEqual(buildFolderActionRequest({ id: '3', operation: 'empty' }), {
+	action: { id: '3', op: 'empty', recursive: 1 }
+});
+assert.deepEqual(buildTagActionRequest({ id: '8', operation: 'rename', name: 'Later' }), {
+	action: { id: '8', op: 'rename', name: 'Later' }
+});
 assert.deepEqual(buildIndexEmailSearchRequest({ query: '', limit: 100, offset: 0 }), {
 	limit: 100,
 	needExp: 1,
@@ -608,10 +638,31 @@ if (!invalidAttendeeRejected) throw new Error('Invalid attendee address was acce
 const {
 	classifyActionRequest,
 	classifyCalendarActionRequest,
+	classifyOrganizationActionRequest,
 	isDraftActionRequest,
 	isMeetingActionRequest,
 	zonedLocalToIso
 } = await import('../src/agent.js');
+assert.deepEqual(classifyOrganizationActionRequest('Buat folder "Projects"'), {
+	tool: 'create_folder',
+	input: { name: 'Projects', parentId: '1', view: 'message' }
+});
+assert.deepEqual(classifyOrganizationActionRequest('Rename folder ID 20 menjadi "Archive"'), {
+	tool: 'rename_folder',
+	input: { id: '20', name: 'Archive' }
+});
+assert.deepEqual(classifyOrganizationActionRequest('Move folder ID 20 to folder ID 21'), {
+	tool: 'move_folder',
+	input: { id: '20', parentId: '21' }
+});
+assert.deepEqual(classifyOrganizationActionRequest('Hapus tag ID 8'), {
+	tool: 'delete_tag',
+	input: { id: '8' }
+});
+assert.deepEqual(classifyOrganizationActionRequest('Kosongkan Trash'), {
+	tool: 'empty_trash',
+	input: {}
+});
 const { findAvailableMeetingSlots } = await import('../src/calendar.js');
 if (zonedLocalToIso('2026-08-03T10:00:00', 'Asia/Jakarta') !== '2026-08-03T03:00:00.000Z') {
 	throw new Error('Appointment timezone conversion failed');

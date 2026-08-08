@@ -537,6 +537,129 @@ export const sendEmail = async ({
 	};
 };
 
+const asArray = (value) => (Array.isArray(value) ? value : value ? [value] : []);
+
+const normalizeFolder = (folder) => ({
+	id: String(folder.id ?? ''),
+	name: String(folder.name ?? '').slice(0, 300),
+	path: String(folder.absFolderPath ?? '').slice(0, 1_000),
+	parentId: String(folder.l ?? ''),
+	view: String(folder.view ?? '').slice(0, 40),
+	itemCount: Math.max(Number(folder.n ?? 0) || 0, 0),
+	unreadCount: Math.max(Number(folder.u ?? 0) || 0, 0),
+	deletable: [true, 1, '1'].includes(folder.deletable)
+});
+
+const flattenFolders = (folders, results = []) => {
+	for (const folder of asArray(folders)) {
+		if (folder?.id) results.push(normalizeFolder(folder));
+		flattenFolders(folder?.folder, results);
+	}
+	return results;
+};
+
+export const buildCreateFolderRequest = ({ name, parentId, view = 'message' }) => ({
+	folder: { name: String(name).trim(), l: String(parentId).trim(), view }
+});
+
+export const buildFolderActionRequest = ({ id, operation, name = '', parentId = '' }) => {
+	const folderId = String(id ?? '').trim();
+	if (!folderId || /[\s,]/.test(folderId)) throw new Error('A single Carbonio folder ID is required');
+	if (!['rename', 'move', 'trash', 'empty'].includes(operation)) {
+		throw new Error(`Unsupported Carbonio folder action: ${operation}`);
+	}
+	if (operation === 'rename' && !String(name).trim()) throw new Error('New folder name is required');
+	if (operation === 'move' && !String(parentId).trim()) throw new Error('Parent folder ID is required');
+	return {
+		action: {
+			id: folderId,
+			op: operation,
+			...(operation === 'rename' ? { name: String(name).trim() } : {}),
+			...(operation === 'move' ? { l: String(parentId).trim() } : {}),
+			...(operation === 'empty' ? { recursive: 1 } : {})
+		}
+	};
+};
+
+export const listFolders = async ({ cookie, view = '' }) => {
+	const result = await soapRequest(
+		'GetFolder',
+		{ visible: 1, depth: -1, ...(view ? { view } : {}) },
+		cookie
+	);
+	return flattenFolders(result.folder).slice(0, 500);
+};
+
+export const createFolder = async ({ cookie, name, parentId, view = 'message' }) => {
+	const result = await soapRequest(
+		'CreateFolder',
+		buildCreateFolderRequest({ name, parentId, view }),
+		cookie
+	);
+	const folder = asArray(result.folder)[0] ?? result.folder;
+	if (!folder?.id) throw new Error('Carbonio did not return the created folder ID');
+	return { ...normalizeFolder(folder), status: 'created' };
+};
+
+export const folderAction = async ({ cookie, id, operation, name = '', parentId = '' }) => {
+	await soapRequest(
+		'FolderAction',
+		buildFolderActionRequest({ id, operation, name, parentId }),
+		cookie
+	);
+	return {
+		id: String(id),
+		operation,
+		status: operation === 'trash' ? 'moved_to_trash' : operation === 'empty' ? 'emptied' : `${operation}d`
+	};
+};
+
+const normalizeTag = (tag) => ({
+	id: String(tag.id ?? ''),
+	name: String(tag.name ?? '').slice(0, 128),
+	color: Number(tag.color ?? 0) || 0,
+	rgb: String(tag.rgb ?? '').slice(0, 7),
+	itemCount: Math.max(Number(tag.n ?? 0) || 0, 0),
+	unreadCount: Math.max(Number(tag.u ?? 0) || 0, 0)
+});
+
+export const buildTagActionRequest = ({ id, operation, name = '' }) => {
+	const tagId = String(id ?? '').trim();
+	if (!tagId || /[\s,]/.test(tagId)) throw new Error('A single Carbonio tag ID is required');
+	if (!['rename', 'delete'].includes(operation)) {
+		throw new Error(`Unsupported Carbonio tag action: ${operation}`);
+	}
+	if (operation === 'rename' && !String(name).trim()) throw new Error('New tag name is required');
+	return {
+		action: {
+			id: tagId,
+			op: operation,
+			...(operation === 'rename' ? { name: String(name).trim() } : {})
+		}
+	};
+};
+
+export const listTags = async ({ cookie }) => {
+	const result = await soapRequest('GetTag', {}, cookie);
+	return asArray(result.tag).slice(0, 500).map(normalizeTag);
+};
+
+export const createTag = async ({ cookie, name, rgb = '' }) => {
+	const result = await soapRequest(
+		'CreateTag',
+		{ tag: { name: String(name).trim(), ...(rgb ? { rgb } : {}) } },
+		cookie
+	);
+	const tag = asArray(result.tag)[0] ?? result.tag;
+	if (!tag?.id) throw new Error('Carbonio did not return the created tag ID');
+	return { ...normalizeTag(tag), status: 'created' };
+};
+
+export const tagAction = async ({ cookie, id, operation, name = '' }) => {
+	await soapRequest('TagAction', buildTagActionRequest({ id, operation, name }), cookie);
+	return { id: String(id), operation, status: operation === 'delete' ? 'deleted' : 'renamed' };
+};
+
 export const getCurrentAccount = async (cookie) => {
 	if (!cookie) throw new Error('Carbonio authentication is required');
 	const result = await soapRequest('GetInfo', {}, cookie, 'urn:zimbraAccount');
