@@ -14,10 +14,12 @@ fi
 source /etc/carbonio-ai-assistant/gateway.env
 : "${AI_DATABASE_URL:?AI_DATABASE_URL is not configured}"
 
+systemctl stop carbonio-ai-rag-worker.service
 systemctl stop carbonio-ai-gateway.service
 restore_succeeded=0
 restart_gateway() {
 	systemctl start carbonio-ai-gateway.service
+	systemctl start carbonio-ai-rag-worker.service
 	if [[ "$restore_succeeded" != "1" ]]; then
 		echo "Restore failed; gateway was restarted against the current database." >&2
 	fi

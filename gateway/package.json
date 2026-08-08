@@ -1,14 +1,14 @@
 {
 	"name": "carbonio-ai-agent-gateway",
-	"version": "1.1.0",
+	"version": "2.0.0",
 	"license": "MIT",
 	"private": true,
 	"type": "module",
 	"scripts": {
 		"start": "node src/server.js",
-		"check": "node --check src/server.js && node --check src/agent.js && node --check src/context-reference.js && node --check src/knowledge.js && node --check src/mailbox.js && node --check src/mail-tools.js && node --check src/calendar.js && node --check src/calendar-tools.js && node --check src/tool-registry.js && node --check src/tool-audit.js && node --check src/tool-runner.js && node --check src/account-policy.js && node --check src/config.js && node --check src/models.js && node --check src/history.js && node --check src/history-sqlite.js && node --check src/history-postgres.js && node --check src/history-crypto.js && node --check src/postgres-pool-resilience.js && node --check src/fetch-with-retry.js && node --check src/provider-circuit-breaker.js && node --check src/logger.js && node --check src/request-context.js && node --check src/security.js && node --check src/metrics.js && node --check src/redaction.js && node --check src/output-safety.js",
+		"check": "node --check src/server.js && node --check src/agent.js && node --check src/context-reference.js && node --check src/knowledge.js && node --check src/mailbox.js && node --check src/mail-tools.js && node --check src/calendar.js && node --check src/calendar-tools.js && node --check src/tool-registry.js && node --check src/tool-audit.js && node --check src/tool-runner.js && node --check src/account-policy.js && node --check src/config.js && node --check src/models.js && node --check src/history.js && node --check src/history-sqlite.js && node --check src/history-postgres.js && node --check src/history-crypto.js && node --check src/rag.js && node --check src/rag-postgres.js && node --check src/rag-crypto.js && node --check src/rag-embeddings.js && node --check src/rag-modules.js && node --check src/rag-sources.js && node --check src/rag-text.js && node --check src/rag-worker.js && node --check src/postgres-pool-resilience.js && node --check src/fetch-with-retry.js && node --check src/provider-circuit-breaker.js && node --check src/logger.js && node --check src/request-context.js && node --check src/security.js && node --check src/metrics.js && node --check src/redaction.js && node --check src/output-safety.js",
 		"self-test:postgres": "node scripts/integration-test-postgres-restart.mjs",
-		"self-test": "node scripts/self-test-tools.mjs && node scripts/self-test-mutation-targeting.mjs && node scripts/self-test-security.mjs && node scripts/self-test-context-reference.mjs && node scripts/self-test-knowledge.mjs && node scripts/self-test-agent-opt-out.mjs && node scripts/self-test-history.mjs && node scripts/self-test-reliability.mjs && node scripts/self-test-postgres-resilience.mjs && node scripts/self-test-provider-privacy.mjs"
+		"self-test": "node scripts/self-test-tools.mjs && node scripts/self-test-mutation-targeting.mjs && node scripts/self-test-security.mjs && node scripts/self-test-context-reference.mjs && node scripts/self-test-knowledge.mjs && node scripts/self-test-agent-opt-out.mjs && node scripts/self-test-history.mjs && node scripts/self-test-reliability.mjs && node scripts/self-test-postgres-resilience.mjs && node scripts/self-test-provider-privacy.mjs && node scripts/self-test-rag.mjs"
 	},
 	"engines": {
 		"node": ">=22"

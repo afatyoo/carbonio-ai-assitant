@@ -2,6 +2,39 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [2.0.0] - 2026-08-08
+
+### Added
+
+- Added explicit user-controlled private indexing for Mail, safe attachment text and metadata,
+  Calendar, Tasks, and personal Contacts.
+- Added localized Manage AI Sources controls across all nine official Carbonio locales.
+- Added a separate hardened RAG worker with encrypted durable jobs, bounded chunking,
+  retry/backoff, deletion finalization, and tombstones.
+- Added PostgreSQL forced RLS, GIN full-text search, pgvector storage, HNSW indexing,
+  reciprocal-rank fusion, and an allowlisted self-hosted embedding endpoint contract.
+- Added architecture, threat model, compatibility, privacy, operations, and evaluation guides.
+
+### Security
+
+- Carbonio session cookies never enter RAG jobs or persistent source data.
+- Every retrieved private record is revalidated live against the authenticated Carbonio
+  session and current revision before provider use.
+- Disabled, deleted, revoked, or stale sources fail closed and cannot be retrieved.
+- Model-generated private citation identifiers are limited to evidence actually retrieved.
+- Safe attachment text extraction enforces MIME allowlists, a 2 MB cap, binary rejection,
+  EICAR quarantine, no redirects, and loopback-only Carbonio content access.
+- Patched newly disclosed moderate PostCSS path-disclosure and DOMPurify detached-subtree
+  advisories in the Carbonio UI build dependency graph.
+
+### Limitations
+
+- Files/Docs and Chats remain fail-visible unavailable until official user-scoped API probes pass.
+- Binary and document attachment bodies remain metadata-only.
+- Site-specific retrieval quality, large-mailbox latency, and PostgreSQL HA gates remain documented.
+
+- See the [detailed v2.0.0 report](docs/releases/v2.0.0.md).
+
 ## [1.1.0] - 2026-08-08
 
 ### Added

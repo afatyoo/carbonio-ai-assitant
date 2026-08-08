@@ -75,6 +75,8 @@ install -o root -g root -m 0600 "${config_tmp}.next" "$config_file"
 rm -f "${config_tmp}.next"
 
 systemctl restart carbonio-ai-gateway.service
+systemctl enable carbonio-ai-rag-worker.service >/dev/null
+systemctl restart carbonio-ai-rag-worker.service
 for attempt in $(seq 1 30); do
 	if health="$(curl -fsS --max-time 2 http://127.0.0.1:8787/api/ai/health 2>/dev/null)"; then
 		if [[ "$health" == *'"historyBackend":"postgresql"'* ]]; then

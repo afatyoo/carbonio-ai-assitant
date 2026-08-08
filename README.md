@@ -4,7 +4,7 @@ Standalone AI assistant for Carbonio Webmail, delivered as an independent Carbon
 microfrontend and a private server-side gateway. It adds a ChatGPT-style workspace without
 replacing or modifying the existing Mail application.
 
-**Stable release:** [`v1.1.0`](https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v1.1.0)
+**Stable release:** [`v2.0.0`](https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v2.0.0)
 
 **Deployment class:** controlled Carbonio production pilot with documented known limitations
 
@@ -13,9 +13,18 @@ replacing or modifying the existing Mail application.
 ![Carbonio AI Assistant interface](docs/assets/carbonio-ai-assistant-overview.png)
 
 For exact release evidence, the closed-bug ledger, and authenticated UAT results, read the
-[v1.1.0 release report](docs/releases/v1.1.0.md).
+[v2.0.0 release report](docs/releases/v2.0.0.md).
 
-## What v1.1.0 includes
+## What v2.0.0 includes
+
+### User-only private RAG
+
+- Explicit per-user opt-in for Mail, attachments, Calendar, Tasks, and personal Contacts.
+- A localized **Manage AI Sources** interface with enable, sync, status, counts, and removal.
+- Encrypted PostgreSQL jobs and text, forced owner RLS, hybrid FTS/vector retrieval, HNSW,
+  live ACL/version revalidation, deletion tombstones, and server-controlled citations.
+- A separately hardened systemd worker and an allowlisted self-hosted embedding contract.
+- Fail-visible official API compatibility gates for Files/Docs and Chats.
 
 ### Urgent model and response fixes
 
@@ -90,23 +99,31 @@ raw external provider errors are not translated automatically.
 
 ## RAG scope
 
-v1.1.0 includes a curated local lexical index of official Carbonio email SOAP API
-documentation. It can ground supported API and email-composition guidance and return source
-metadata for citations.
+v2.0.0 adds opt-in private retrieval for the authenticated user's Mail, safe attachment text
+and metadata, Calendar, Tasks, and personal Contacts. The existing curated official Carbonio
+API documentation corpus remains available for product guidance.
 
-This is documentation grounding, not full mailbox, attachment, file, or workspace vector RAG.
-The release does not:
+- Every private source starts disabled. The user controls it from **Manage AI Sources**.
+- Source ownership comes from the active Carbonio session, never browser input or an admin.
+- Normalized text and durable job payloads use AES-256-GCM encryption at rest.
+- PostgreSQL enforces forced row-level security, owner transaction context, GIN full-text
+  search, pgvector, and an HNSW cosine index.
+- A separate `carbonio-ai-rag-worker.service` handles bounded chunking, embeddings,
+  retry/backoff, and sync finalization without storing a Carbonio session cookie.
+- Retrieval combines lexical and vector ranking with reciprocal-rank fusion and a relevance
+  threshold. Only eight bounded chunks can enter one answer.
+- Every result is revalidated live against Carbonio before provider use. Deleted, revoked,
+  or stale records fail closed.
+- Disabling a source blocks retrieval and deletes its index immediately. Completed syncs
+  propagate missing-record deletions through tombstones.
+- Safe body extraction is limited to text, CSV, Markdown, JSON, and XML up to 2 MB. Other
+  attachments contribute metadata only.
+- GAL is live-only and never vectorized. Files/Docs and Chats fail visibly until their
+  official user-scoped compatibility probes pass on the target Carbonio release.
 
-- create mailbox or attachment embeddings.
-- install or query `pgvector`.
-- index every user's email, Files content, shared folders, or private workspace.
-- synchronize a vector index when source content, permissions, or retention state changes.
-- extract arbitrary attachment bodies for provider upload.
-
-Mailbox and calendar data is fetched on demand through bounded Carbonio SOAP tools using
-the active user's session. Production-ready user/workspace vector RAG, including controlled
-import, ACL revalidation, deletion propagation, hybrid retrieval, reranking, and cross-user
-isolation, is deferred to the separate production RAG plan.
+See the [architecture](docs/rag-architecture.md), [threat model](docs/rag-threat-model.md),
+[compatibility matrix](docs/rag-compatibility-matrix.md), [user guide](docs/rag-user-guide.md),
+[operations runbook](docs/rag-operations.md), and [evaluation scorecard](docs/rag-evaluation.md).
 
 ## Architecture
 
@@ -122,7 +139,11 @@ carbonio-ai-gateway.service (127.0.0.1:8787)
   ├── verifies the Carbonio session with GetInfo
   ├── calls bounded Carbonio SOAP email/calendar tools
   ├── calls the configured AI provider with minimized context
-  └── stores owner-scoped conversation history in PostgreSQL
+  ├── stores owner-scoped conversation history in PostgreSQL
+  └── queues encrypted private RAG documents
+
+carbonio-ai-rag-worker.service
+  └── chunks, embeds, indexes, finalizes deletion, and retries durable jobs
 ```
 
 The browser never receives the provider API key or direct database credentials. The gateway
@@ -146,23 +167,26 @@ part of the current live UAT evidence. See [browser support](docs/browser-suppor
 
 ## Known limitations
 
-The project owner accepted the following external gates for v1.1.0 as known limitations.
-Risk acceptance permitted the stable release. It did **not** convert missing evidence into
-a pass:
+The project owner accepted the remaining environment-dependent gates for v2.0.0 as known
+limitations. Acceptance does not turn missing evidence into a pass:
 
-1. logout/login/login-again persistence with a known pilot password.
-2. authenticated Firefox desktop and narrow-layout coverage.
-3. a real non-administrator Settings boundary test.
-4. large-mailbox bounded-search and performance acceptance.
-5. live attachment handling with a dedicated safe fixture.
-6. the remaining calendar mutation lifecycle and confirmation-replay checks.
-7. Carbonio upgrade rehearsal on a comparison host.
-8. separate staging and PostgreSQL replica/failover rehearsal.
+1. Files/Docs and Chats remain unavailable until official user-scoped compatibility probes pass.
+2. PDF, office, archive, image, and executable attachment bodies are metadata-only. They are
+   not parsed by the text extractor.
+3. The deterministic local vector fallback is private but less semantic than a reviewed
+   self-hosted embedding model.
+4. Recall@8, no-answer precision, and retrieval p95 require a representative opted-in mailbox.
+5. Large-mailbox capacity, PostgreSQL replica/failover, and restore-time objectives require
+   site-specific staging rehearsal.
+6. Authenticated Firefox, Safari, Edge, narrow-layout, and logout/login/login-again coverage
+   remain outside the current live Chrome evidence.
+7. Carbonio upgrade rehearsal requires a separate comparison host.
+8. The optional permanent-delete/replay scenario and complete calendar mutation lifecycle
+   remain skipped/open.
 
-The optional permanent-delete/replay scenario and the `AI-UAT` tag/folder lifecycle also
-remain skipped/open. Do not expand beyond the controlled pilot on the basis of untested
-browsers, mailbox sizes, upgrade paths, or high-availability behavior. The complete risk
-record is in the [v1.1.0 release report](docs/releases/v1.1.0.md#risk-acceptance).
+Do not claim Files, Chats, binary attachment understanding, high availability, or performance
+targets that were not validated. The complete risk record is in the
+[v2.0.0 release report](docs/releases/v2.0.0.md#risk-acceptance).
 
 ## Security and privacy
 
@@ -174,8 +198,12 @@ record is in the [v1.1.0 release report](docs/releases/v1.1.0.md#risk-acceptance
   echoed to the browser.
 - Production history uses a dedicated PostgreSQL database. Message content supports
   AES-256-GCM encryption through `AI_HISTORY_ENCRYPTION_KEY`.
-- Search/list tools return bounded results and do not fetch every message body. Attachment
-  tools expose metadata only unless a future reviewed flow explicitly adds content handling.
+- Private RAG text and jobs use the same encryption boundary. Forced RLS, transaction-local
+  owner context, and explicit owner predicates protect every private source query.
+- Carbonio session cookies never enter RAG jobs. Retrieval performs a live exact read and
+  revision check before private evidence can reach the provider.
+- Attachment extraction accepts only bounded safe text types with MIME checks, binary
+  rejection, and the EICAR test signature. All other attachment bodies remain metadata-only.
 - Email and calendar mutations show an exact preview and require an account-bound,
   single-use confirmation token. Preview generation alone never executes a mutation.
 - Explicit English or Indonesian instructions not to access mailbox/calendar data bypass
@@ -227,7 +255,8 @@ The Carbonio Proxy/Web UI host must provide:
 
 - a supported Carbonio installation with Iris at `/opt/zextras/web/iris` and Carbonio Nginx.
 - root access for installation and service management.
-- PostgreSQL plus `psql`, `createuser`, `createdb`, `pg_dump`, and `pg_restore`.
+- PostgreSQL 16 plus `psql`, `createuser`, `createdb`, `pg_dump`, `pg_restore`, and access to
+  the PostgreSQL package repository for `postgresql-16-pgvector`.
 - `curl`, `jq`, `tar`, `sha256sum`, `openssl`, `systemctl`, and `systemd-creds`.
 - outbound HTTPS access to download the pinned Node runtime when it is not already present.
 - outbound HTTPS access to the chosen AI provider.
@@ -236,7 +265,8 @@ The Carbonio Proxy/Web UI host must provide:
 
 The installer downloads and verifies the pinned official Node 22 runtime, installs the UI
 and gateway into versioned directories, registers the Iris component, installs the Nginx
-route, and manages `carbonio-ai-gateway.service` through systemd.
+route, and manages `carbonio-ai-gateway.service` plus `carbonio-ai-rag-worker.service`
+through systemd.
 
 ## Production deployment
 
@@ -244,22 +274,19 @@ Deploy from the public release artifact, not an arbitrary branch checkout. Run t
 inside a dedicated staging directory on the Carbonio Proxy/Web UI host:
 
 ```bash
-mkdir carbonio-ai-v1.1.0
-cd carbonio-ai-v1.1.0
-curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v1.1.0/carbonio-ai-assistant-v1.1.0.tar.gz
-curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v1.1.0/carbonio-ai-assistant-v1.1.0.tar.gz.sha256
-sha256sum --check carbonio-ai-assistant-v1.1.0.tar.gz.sha256
-tar -xzf carbonio-ai-assistant-v1.1.0.tar.gz
-cd carbonio-ai-assistant-v1.1.0
+mkdir carbonio-ai-v2.0.0
+cd carbonio-ai-v2.0.0
+curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.0.0/carbonio-ai-assistant-v2.0.0.tar.gz
+curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.0.0/carbonio-ai-assistant-v2.0.0.tar.gz.sha256
+sha256sum --check carbonio-ai-assistant-v2.0.0.tar.gz.sha256
+tar -xzf carbonio-ai-assistant-v2.0.0.tar.gz
+cd carbonio-ai-assistant-v2.0.0
 ```
 
-Published archive SHA-256:
+Use the signed release asset's `.sha256` file as the checksum authority. The release page
+also records the exact workflow, commit, and artifact digest.
 
-```text
-1f1b1695a3ec4a084627ded3a111f4b29c3a45a82149da10bec22a04404d6e4f
-```
-
-Inspect `release.env` and confirm version `1.1.0`, the approved exact commit, and the Node
+Inspect `release.env` and confirm version `2.0.0`, the approved exact commit, and the Node
 runtime before continuing.
 
 ### Install the application
@@ -285,8 +312,18 @@ and history-encryption key, migrates existing SQLite pilot history when present,
 `/etc/carbonio-ai-assistant/gateway.env` as root-only mode `0600`, and restarts the gateway.
 It replaces database credentials if rerun, so treat reruns as controlled maintenance.
 
-Add site policy to `/etc/carbonio-ai-assistant/gateway.env` without weakening the generated
-database settings. Example non-secret policy:
+Install and enable the private retrieval database extensions after PostgreSQL setup:
+
+```bash
+sudo /opt/carbonio-ai-assistant/bin/setup-rag-postgres.sh
+sudo systemctl restart carbonio-ai-gateway.service carbonio-ai-rag-worker.service
+```
+
+This enables pgvector and `pg_trgm`, creates the restricted worker database role, and stores
+its rotated connection URL in the root-only environment file. It must complete before users
+opt into private sources.
+
+Example non-secret policy:
 
 ```ini
 NODE_ENV=production
@@ -320,13 +357,14 @@ succeeds.
 ```bash
 sudo /opt/carbonio-ai-assistant/bin/smoke-test.sh
 systemctl status carbonio-ai-gateway.service --no-pager
+systemctl status carbonio-ai-rag-worker.service --no-pager
 curl -fsS http://127.0.0.1:8787/api/ai/health
 ```
 
 Strict smoke must finish with:
 
 ```text
-smoke_health=ok headers=ok loopback=ok admin_auth=ok csrf=ok history=postgresql
+smoke_health=ok headers=ok loopback=ok admin_auth=ok csrf=ok history=postgresql rag_worker=ok
 ```
 
 Then hard-refresh authenticated Carbonio Webmail and verify:
@@ -354,8 +392,10 @@ Verify the new archive checksum, extract it, inspect `release.env`, and run its 
 
 ```bash
 sudo ./install.sh
+sudo /opt/carbonio-ai-assistant/bin/setup-rag-postgres.sh
 sudo /opt/carbonio-ai-assistant/bin/smoke-test.sh
 systemctl status carbonio-ai-gateway.service --no-pager
+systemctl status carbonio-ai-rag-worker.service --no-pager
 ```
 
 The installer atomically switches the versioned gateway symlink and updates the Iris UI
@@ -431,6 +471,7 @@ the same request ID.
 
 ```bash
 systemctl status carbonio-ai-gateway.service --no-pager
+journalctl -u carbonio-ai-rag-worker.service --since "15 minutes ago" --no-pager
 journalctl -u carbonio-ai-gateway.service --since "15 minutes ago" --no-pager
 curl -fsS http://127.0.0.1:8787/api/ai/health
 sudo /opt/carbonio-ai-assistant/bin/smoke-test.sh
@@ -508,7 +549,13 @@ through `AI_TEST_DATABASE_URL`. Do not aim it at an unapproved production databa
 
 ## Documentation
 
-- [Stable v1.1.0 report](docs/releases/v1.1.0.md)
+- [Stable v2.0.0 report](docs/releases/v2.0.0.md)
+- [Private RAG architecture](docs/rag-architecture.md)
+- [Private RAG threat model](docs/rag-threat-model.md)
+- [Source compatibility matrix](docs/rag-compatibility-matrix.md)
+- [Manage AI Sources user guide](docs/rag-user-guide.md)
+- [Private RAG operations](docs/rag-operations.md)
+- [Private RAG evaluation](docs/rag-evaluation.md)
 - [Deployment helper reference](deploy/README.md)
 - [Administrator policy](docs/admin-policy.md)
 - [Provider data policy](docs/provider-data-policy.md)
@@ -518,10 +565,9 @@ through `AI_TEST_DATABASE_URL`. Do not aim it at an unapproved production databa
 
 ## Roadmap
 
-The next major data feature is production-ready user/workspace RAG: controlled source
-import, embeddings and hybrid retrieval, per-user/workspace isolation, ACL revalidation,
-retention/deletion propagation, attachment safety, evaluation, and operational monitoring.
-It is deliberately outside v1.1.0.
+Next hardening work covers sandboxed PDF/office extraction with a production malware engine,
+official Files/Docs and Chats adapters after compatibility gates pass, native-language review,
+large-mailbox evaluation, and site-specific PostgreSQL high-availability rehearsal.
 
 ## License
 

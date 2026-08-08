@@ -41,6 +41,7 @@ ui_root="$iris_root/carbonio-ai-assistant-ui"
 ui_target="$ui_root/$CARBONIO_AI_COMMIT"
 ui_marker="$ui_root/.managed-by-carbonio-ai-assistant"
 service_file="/etc/systemd/system/carbonio-ai-gateway.service"
+worker_service_file="/etc/systemd/system/carbonio-ai-rag-worker.service"
 nginx_upstream="$nginx_root/extensions/upstream-carbonio-ai.conf"
 nginx_backend="$nginx_root/extensions/backend-carbonio-ai.conf"
 
@@ -69,6 +70,8 @@ install -o root -g root -m 0755 \
 	"$release_dir/smoke-test.sh" "$app_bin/smoke-test.sh"
 install -o root -g root -m 0755 \
 	"$release_dir/set-api-key.sh" "$app_bin/set-api-key.sh"
+install -o root -g root -m 0755 \
+	"$release_dir/setup-rag-postgres.sh" "$app_bin/setup-rag-postgres.sh"
 
 if ! getent passwd carbonio-ai >/dev/null; then
 	useradd --system \
@@ -115,6 +118,8 @@ mv -Tf "$next_link" "$app_link"
 
 install -o root -g root -m 0644 \
 	"$app_release/deploy/carbonio-ai-gateway.service" "$service_file"
+install -o root -g root -m 0644 \
+	"$app_release/deploy/carbonio-ai-rag-worker.service" "$worker_service_file"
 
 install -d -o zextras -g zextras -m 0755 "$nginx_root/extensions"
 install -o zextras -g zextras -m 0644 \
@@ -187,9 +192,19 @@ if [[ "$gateway_ready" != "1" ]]; then
 	exit 1
 fi
 
+rag_worker_status="pending-postgresql-setup"
+if grep -Eq '^AI_DATABASE_URL=.+$' "$config_root/gateway.env"; then
+	systemctl enable carbonio-ai-rag-worker.service >/dev/null
+	systemctl restart carbonio-ai-rag-worker.service
+	rag_worker_status="$(systemctl is-active carbonio-ai-rag-worker.service)"
+else
+	systemctl disable --now carbonio-ai-rag-worker.service >/dev/null 2>&1 || true
+fi
+
 systemctl reload carbonio-nginx.service
 
 echo "Carbonio AI Assistant installed successfully."
 echo "Commit: $CARBONIO_AI_COMMIT"
 echo "Gateway: $(systemctl is-active carbonio-ai-gateway.service)"
+echo "RAG worker: $rag_worker_status"
 echo "Data directory: $data_root"

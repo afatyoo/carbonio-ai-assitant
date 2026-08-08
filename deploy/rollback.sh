@@ -48,6 +48,7 @@ restore_previous() {
 	set_gateway_link "$current_release"
 	cp -a "$registry_backup" "$registry"
 	systemctl restart carbonio-ai-gateway.service || true
+	systemctl restart carbonio-ai-rag-worker.service || true
 	systemctl reload carbonio-nginx.service || true
 }
 trap restore_previous ERR
@@ -66,6 +67,7 @@ jq -e --arg commit "$target_commit" \
 install -o zextras -g zextras -m 0644 "$registry_tmp" "$registry"
 /opt/zextras/common/sbin/nginx -t -c /opt/zextras/conf/nginx.conf
 systemctl restart carbonio-ai-gateway.service
+systemctl restart carbonio-ai-rag-worker.service
 systemctl reload carbonio-nginx.service
 
 for attempt in $(seq 1 30); do

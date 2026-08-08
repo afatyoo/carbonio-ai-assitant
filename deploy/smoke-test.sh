@@ -15,6 +15,7 @@ grep -Eiq '^cache-control: no-store' "$headers_file"
 
 if [[ "$base_url" == "http://127.0.0.1:8787" ]]; then
 	systemctl is-active --quiet carbonio-ai-gateway.service
+	systemctl is-active --quiet carbonio-ai-rag-worker.service
 	listeners="$(ss -ltnp)"
 	grep -Eq '127\.0\.0\.1:8787' <<<"$listeners"
 	if grep -Eq '(^|[[:space:]])(0\.0\.0\.0|\[::\]):8787' <<<"$listeners"; then
@@ -31,4 +32,4 @@ cross_origin_status="$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
 	--data '{}' "$base_url/api/ai/chat")"
 [[ "$cross_origin_status" == "403" ]]
 
-echo "smoke_health=ok headers=ok loopback=ok admin_auth=ok csrf=ok history=postgresql"
+echo "smoke_health=ok headers=ok loopback=ok admin_auth=ok csrf=ok history=postgresql rag_worker=ok"

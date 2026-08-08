@@ -27,6 +27,7 @@ data_root="/var/lib/carbonio-ai-assistant"
 config_root="/etc/carbonio-ai-assistant"
 ui_root="$iris_root/carbonio-ai-assistant-ui"
 service_file="/etc/systemd/system/carbonio-ai-gateway.service"
+worker_service_file="/etc/systemd/system/carbonio-ai-rag-worker.service"
 nginx_upstream="/opt/zextras/conf/nginx/extensions/upstream-carbonio-ai.conf"
 nginx_backend="/opt/zextras/conf/nginx/extensions/backend-carbonio-ai.conf"
 
@@ -49,8 +50,9 @@ if [[ "$assume_yes" != "1" ]]; then
 	fi
 fi
 
+systemctl disable --now carbonio-ai-rag-worker.service >/dev/null 2>&1 || true
 systemctl disable --now carbonio-ai-gateway.service >/dev/null 2>&1 || true
-rm -f "$service_file"
+rm -f "$service_file" "$worker_service_file"
 systemctl daemon-reload
 
 rm -f "$nginx_upstream" "$nginx_backend"

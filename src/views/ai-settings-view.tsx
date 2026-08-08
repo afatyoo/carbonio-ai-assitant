@@ -43,6 +43,19 @@ type AuditEntry = {
 	createdAt: number;
 };
 
+type RagSource = {
+	module: string;
+	label: string;
+	available: boolean;
+	unavailableReason: string;
+	enabled: boolean;
+	status: string;
+	lastSyncAt: number | null;
+	indexedDocuments: number;
+	indexedChunks: number;
+	lastError: string;
+};
+
 const providers = {
 	openrouter: {
 		label: 'OpenRouter',
@@ -183,6 +196,41 @@ const AuditList = styled.ul`
 	font-size: 0.82rem;
 `;
 
+const SourceList = styled.div`
+	display: grid;
+	gap: 0.75rem;
+`;
+
+const SourceRow = styled.div`
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: 0.75rem;
+	align-items: center;
+	padding: 0.875rem;
+	border: 0.0625rem solid ${({ theme }): string => theme.palette.gray3.regular};
+	border-radius: 0.625rem;
+`;
+
+const SourceActions = styled.div`
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
+`;
+
+const SecondaryButton = styled.button`
+	border: 0.0625rem solid ${({ theme }): string => theme.palette.gray2.regular};
+	border-radius: 0.5rem;
+	padding: 0.5rem 0.75rem;
+	background: ${({ theme }): string => theme.palette.gray5.regular};
+	color: inherit;
+	cursor: pointer;
+
+	&:disabled {
+		opacity: 0.5;
+		cursor: default;
+	}
+`;
+
 export const AiSettingsView = (): React.JSX.Element => {
 	const { t } = useAppTranslation();
 	const [provider, setProvider] = useState<keyof typeof providers>('openrouter');
@@ -202,6 +250,57 @@ export const AiSettingsView = (): React.JSX.Element => {
 	const [adminMetrics, setAdminMetrics] = useState<AdminMetrics | null>(null);
 	const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
 	const [accountUsage, setAccountUsage] = useState<AccountUsage | null>(null);
+	const [ragSources, setRagSources] = useState<RagSource[]>([]);
+	const [ragBusy, setRagBusy] = useState<string[]>([]);
+	const [ragStatus, setRagStatus] = useState('');
+
+	const loadRagSources = (): void => {
+		void apiFetch('/api/ai/rag/sources')
+			.then((response) => parseJsonResponse<{ sources: RagSource[] }>(response))
+			.then(({ sources }) => setRagSources(sources))
+			.catch((reason: Error) => setRagStatus(reason.message));
+	};
+
+	useEffect(loadRagSources, []);
+
+	const updateRagSource = async (module: string, enabled: boolean): Promise<void> => {
+		setRagBusy((current) => [...current, module]);
+		setRagStatus('');
+		try {
+			await parseJsonResponse(
+				await apiFetch('/api/ai/rag/sources', {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ module, enabled })
+				})
+			);
+			loadRagSources();
+		} catch (reason) {
+			setRagStatus(reason instanceof Error ? reason.message : t('settings.rag_error', 'Unable to update AI sources'));
+		} finally {
+			setRagBusy((current) => current.filter((item) => item !== module));
+		}
+	};
+
+	const syncRagSource = async (module: string): Promise<void> => {
+		setRagBusy((current) => [...current, module]);
+		setRagStatus(t('settings.rag_sync_started', 'Collecting your data securely...'));
+		try {
+			const result = await parseJsonResponse<{ queued: number }>(
+				await apiFetch('/api/ai/rag/sources/sync', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ module })
+				})
+			);
+			setRagStatus(t('settings.rag_queued', '{{count}} items queued securely', { count: result.queued }));
+			loadRagSources();
+		} catch (reason) {
+			setRagStatus(reason instanceof Error ? reason.message : t('settings.rag_error', 'Unable to update AI sources'));
+		} finally {
+			setRagBusy((current) => current.filter((item) => item !== module));
+		}
+	};
 
 	useEffect(() => {
 		apiFetch('/api/ai/usage')
@@ -422,6 +521,65 @@ export const AiSettingsView = (): React.JSX.Element => {
 				</Actions>
 				{processingDisclosure ? <Hint>{processingDisclosure}</Hint> : null}
 			</Card>
+			<AdminPanel>
+				<h2>{t('settings.rag_title', 'Manage AI Sources')}</h2>
+				<p>
+					{t(
+						'settings.rag_privacy',
+						'Private indexing is off by default. Data is isolated to your account, encrypted at rest, and Carbonio session cookies are never stored.'
+					)}
+				</p>
+				<Actions>
+					<SecondaryButton
+						type="button"
+						onClick={(): void => {
+							for (const source of ragSources.filter(({ available, enabled }) => available && !enabled)) {
+								void updateRagSource(source.module, true);
+							}
+						}}
+					>
+						{t('settings.rag_enable_all', 'Enable all supported sources')}
+					</SecondaryButton>
+					{ragStatus ? <Status>{ragStatus}</Status> : null}
+				</Actions>
+				<SourceList>
+					{ragSources.map((source) => (
+						<SourceRow key={source.module}>
+							<div>
+								<strong>
+									{t(`settings.rag_module_${source.module}`, source.label)}
+								</strong>
+								<Hint>
+									{source.available
+										? t('settings.rag_source_status', '{{status}} · {{documents}} documents · {{chunks}} chunks', {
+												status: t(`settings.rag_status_${source.status}`, source.status),
+												documents: source.indexedDocuments,
+												chunks: source.indexedChunks
+											})
+										: t(`settings.rag_unavailable_${source.module}`, source.unavailableReason)}
+								</Hint>
+								{source.lastError ? <Status error>{source.lastError}</Status> : null}
+							</div>
+							<SourceActions>
+								<SecondaryButton
+									type="button"
+									disabled={!source.available || ragBusy.includes(source.module)}
+									onClick={(): void => void updateRagSource(source.module, !source.enabled)}
+								>
+									{source.enabled ? t('settings.rag_remove', 'Remove') : t('settings.rag_enable', 'Enable')}
+								</SecondaryButton>
+								<SecondaryButton
+									type="button"
+									disabled={!source.available || !source.enabled || ragBusy.includes(source.module)}
+									onClick={(): void => void syncRagSource(source.module)}
+								>
+									{t('settings.rag_sync', 'Sync now')}
+								</SecondaryButton>
+							</SourceActions>
+						</SourceRow>
+					))}
+				</SourceList>
+			</AdminPanel>
 			{accountUsage ? (
 				<AdminPanel>
 					<h2>{t('settings.usage_title', 'Your AI usage')}</h2>

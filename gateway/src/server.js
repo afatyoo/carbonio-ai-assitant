@@ -29,6 +29,15 @@ import { logEvent } from './logger.js';
 import { getMetricsSnapshot, incrementMetric, observeMetric } from './metrics.js';
 import { listAvailableModels } from './models.js';
 import { getProviderCircuitSnapshot } from './provider-circuit-breaker.js';
+import {
+	closeRagDatabase,
+	enqueueRagDocuments,
+	getRagStatus,
+	listRagSources,
+	setRagSource
+} from './rag.js';
+import { collectRagDocuments } from './rag-sources.js';
+import { assertAvailableRagModule, assertRagModule } from './rag-modules.js';
 import { runWithRequestContext } from './request-context.js';
 import { listAllAuditEntries, listAuditEntries } from './tool-audit.js';
 import { listToolDefinitions } from './tool-registry.js';
@@ -84,11 +93,13 @@ const handleRequest = async (request, response) => {
 	const requestUrl = new URL(request.url, 'http://127.0.0.1');
 
 	if (request.method === 'GET' && request.url === '/api/ai/health') {
+		const rag = await getRagStatus();
 		sendJson(response, 200, {
 			status: 'ok',
 			mode: getPublicAgentConfig().mode,
 			historyBackend,
-			enabled: isAiEnabled()
+			enabled: isAiEnabled(),
+			rag
 		});
 		return;
 	}
@@ -132,6 +143,58 @@ const handleRequest = async (request, response) => {
 			sendJson(response, 200, { usage: await getAccountUsage(account.id) });
 		} catch (error) {
 			sendJson(response, errorStatus(error, 401), { error: error.message });
+		}
+		return;
+	}
+
+	if (requestUrl.pathname === '/api/ai/rag/sources' && request.method === 'GET') {
+		try {
+			const account = await authenticate(request);
+			sendJson(response, 200, {
+				sources: await listRagSources(account.id),
+				privacy: {
+					optIn: true,
+					userScoped: true,
+					storesSessionCookies: false,
+					embeddingMode: 'self-hosted-or-local'
+				}
+			});
+		} catch (error) {
+			sendJson(response, errorStatus(error, 401), { error: error.message });
+		}
+		return;
+	}
+
+	if (requestUrl.pathname === '/api/ai/rag/sources' && request.method === 'PUT') {
+		try {
+			const account = await authenticate(request);
+			const payload = await readJson(request);
+			const module = payload.enabled
+				? assertAvailableRagModule(payload.module)
+				: assertRagModule(payload.module);
+			const source = await setRagSource(account.id, module, Boolean(payload.enabled));
+			incrementMetric(payload.enabled ? 'rag_source_enabled_total' : 'rag_source_disabled_total');
+			sendJson(response, 200, { source });
+		} catch (error) {
+			sendJson(response, errorStatus(error), { error: error.message });
+		}
+		return;
+	}
+
+	if (requestUrl.pathname === '/api/ai/rag/sources/sync' && request.method === 'POST') {
+		try {
+			const account = await authenticate(request);
+			await consumeAccountQuota(account.id);
+			const payload = await readJson(request);
+			const module = assertAvailableRagModule(payload.module);
+			const documents = await collectRagDocuments(module, {
+				cookie: request.headers.cookie ?? ''
+			});
+			const result = await enqueueRagDocuments(account.id, module, documents);
+			incrementMetric('rag_sync_requested_total');
+			sendJson(response, 202, { ...result, source: module });
+		} catch (error) {
+			sendJson(response, errorStatus(error, 500), { error: error.message });
 		}
 		return;
 	}
@@ -505,7 +568,7 @@ server.listen(port, '127.0.0.1', () => {
 const shutdown = (signal) => {
 	logEvent('info', 'gateway_stopping', { signal });
 	server.close(() => {
-		void closeHistoryDatabase().finally(() => process.exit(0));
+		void Promise.all([closeHistoryDatabase(), closeRagDatabase()]).finally(() => process.exit(0));
 	});
 	setTimeout(() => process.exit(1), 10_000).unref();
 };

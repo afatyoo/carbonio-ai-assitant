@@ -106,6 +106,7 @@ export const soapRequest = (operation, body, cookie, namespace = 'urn:zimbraMail
 
 const normalizeEmail = (item) => ({
 	id: item.id,
+	revision: String(item.rev ?? item.ms ?? item.d ?? ''),
 	conversationId: item.cid,
 	subject: String(item.su || '(No subject)').slice(0, 300),
 	preview: String(item.fr || '').slice(0, 500),
@@ -304,6 +305,31 @@ export const searchEmails = async ({ cookie, query, limit = 10 }) => {
 	return (result.m ?? []).slice(0, boundedLimit).map(normalizeEmail);
 };
 
+export const searchEmailsForIndex = async ({ cookie, query = 'in:anywhere', limit = 200 }) => {
+	const boundedLimit = Math.min(Math.max(Number(limit) || 200, 1), 1_000);
+	const messages = [];
+	for (let offset = 0; offset < boundedLimit; offset += 100) {
+		const pageLimit = Math.min(100, boundedLimit - offset);
+		const result = await soapRequest(
+			'Search',
+			{
+				limit: pageLimit,
+				needExp: 1,
+				recip: '2',
+				sortBy: 'dateDesc',
+				query,
+				offset,
+				types: 'message'
+			},
+			cookie
+		);
+		const page = (result.m ?? []).map(normalizeEmail);
+		messages.push(...page);
+		if (page.length < pageLimit || result.more !== true) break;
+	}
+	return messages.slice(0, boundedLimit);
+};
+
 export const getEmail = async ({ cookie, id, maxBodyLength = 12_000 }) => {
 	const boundedLength = Math.min(Math.max(Number(maxBodyLength) || 12_000, 1_000), 24_000);
 	const result = await soapRequest(
@@ -328,6 +354,77 @@ export const getEmailAttachments = async ({ cookie, id }) => {
 	const message = await getEmail({ cookie, id, maxBodyLength: 1_000 });
 	return message.attachments;
 };
+
+const safeTextAttachmentTypes = new Set([
+	'text/plain',
+	'text/csv',
+	'text/markdown',
+	'application/json',
+	'application/xml',
+	'text/xml'
+]);
+
+export const downloadSafeTextAttachment = ({ cookie, messageId, attachment }) =>
+	new Promise((resolve, reject) => {
+		const declaredType = String(attachment.contentType ?? '').split(';')[0].toLowerCase();
+		if (!safeTextAttachmentTypes.has(declaredType)) {
+			resolve({ text: '', extraction: 'unsupported_type' });
+			return;
+		}
+		if (Number(attachment.size ?? 0) > 2_000_000) {
+			resolve({ text: '', extraction: 'size_limit' });
+			return;
+		}
+		const path = `/service/content/get?id=${encodeURIComponent(messageId)}&part=${encodeURIComponent(attachment.part)}`;
+		const request = https.request(
+			{
+				hostname: soapUrl.hostname,
+				port: soapUrl.port || 443,
+				path,
+				method: 'GET',
+				rejectUnauthorized: false,
+				headers: cookie ? { cookie } : {}
+			},
+			(response) => {
+				if ((response.statusCode ?? 500) >= 300) {
+					response.resume();
+					reject(new Error(`Carbonio attachment download returned HTTP ${response.statusCode}`));
+					return;
+				}
+				const responseType = String(response.headers['content-type'] ?? declaredType)
+					.split(';')[0]
+					.toLowerCase();
+				if (!safeTextAttachmentTypes.has(responseType)) {
+					response.resume();
+					resolve({ text: '', extraction: 'mime_mismatch' });
+					return;
+				}
+				const chunks = [];
+				let bytes = 0;
+				response.on('data', (chunk) => {
+					bytes += chunk.length;
+					if (bytes > 2_000_000) request.destroy(new Error('Attachment exceeds extraction limit'));
+					else chunks.push(chunk);
+				});
+				response.on('end', () => {
+					const buffer = Buffer.concat(chunks);
+					if (buffer.includes(0)) {
+						resolve({ text: '', extraction: 'binary_rejected' });
+						return;
+					}
+					const text = buffer.toString('utf8');
+					if (text.includes('EICAR-STANDARD-ANTIVIRUS-TEST-FILE')) {
+						resolve({ text: '', extraction: 'malware_quarantined' });
+						return;
+					}
+					resolve({ text: text.slice(0, 200_000), extraction: 'safe_text' });
+				});
+			}
+		);
+		request.setTimeout(soapTimeoutMs, () => request.destroy(new Error('Attachment extraction timed out')));
+		request.on('error', reject);
+		request.end();
+	});
 
 export const getEmailThread = async ({ cookie, conversationId, maxBodyLength = 8_000 }) => {
 	const boundedLength = Math.min(Math.max(Number(maxBodyLength) || 8_000, 1_000), 12_000);

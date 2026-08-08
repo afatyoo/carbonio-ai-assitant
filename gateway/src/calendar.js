@@ -173,6 +173,64 @@ export const searchAppointments = async ({ cookie, start, end, query = '', limit
 	return normalized;
 };
 
+export const searchTasksForIndex = async ({ cookie, limit = 500 }) => {
+	const boundedLimit = Math.min(Math.max(Number(limit) || 500, 1), 1_000);
+	const result = await soapRequest(
+		'Search',
+		{
+			types: 'task',
+			limit: boundedLimit,
+			offset: 0,
+			sortBy: 'dateDesc',
+			query: 'in:tasks'
+		},
+		cookie
+	);
+	return asArray(result.task).slice(0, boundedLimit).map((task) => ({
+		id: String(task.id ?? ''),
+		title: String(task.name ?? task.su ?? '(No title)').slice(0, 300),
+		body: String(task.fr ?? task.desc ?? '').slice(0, 20_000),
+		status: String(task.status ?? '').slice(0, 50),
+		percentComplete: Number(task.pctComplete ?? 0),
+		due: Number(task.due ?? 0),
+		revision: String(task.rev ?? task.ms ?? task.d ?? '')
+	}));
+};
+
+export const getPersonalContactsForIndex = async ({ cookie, limit = 1_000 }) => {
+	const boundedLimit = Math.min(Math.max(Number(limit) || 1_000, 1), 2_000);
+	const result = await soapRequest(
+		'GetContacts',
+		{ sync: 1 },
+		cookie
+	);
+	return asArray(result.cn).slice(0, boundedLimit).map((contact) => {
+		const attributes = contact._attrs ?? {};
+		const emails = Object.entries(attributes)
+			.filter(([key]) => /^email\d*$/.test(key))
+			.map(([, value]) => String(value ?? '').trim())
+			.filter(Boolean);
+		const phones = Object.entries(attributes)
+			.filter(([key]) => /Phone$/.test(key))
+			.map(([, value]) => String(value ?? '').trim())
+			.filter(Boolean);
+		return {
+			id: String(contact.id ?? ''),
+			title: String(
+				attributes.fullName ??
+				[attributes.firstName, attributes.lastName].filter(Boolean).join(' ') ??
+				emails[0] ??
+				'(Unnamed contact)'
+			).slice(0, 300),
+			emails: emails.slice(0, 20),
+			phones: phones.slice(0, 20),
+			company: String(attributes.company ?? '').slice(0, 300),
+			notes: String(attributes.notes ?? '').slice(0, 10_000),
+			revision: String(contact.rev ?? contact.ms ?? contact.d ?? '')
+		};
+	});
+};
+
 export const getFreeBusy = async ({ cookie, attendees, start, end }) => {
 	const { startMs, endMs } = parseRange(start, end, 31);
 	const addresses = parseAddresses(attendees).slice(0, 50);
