@@ -25,6 +25,9 @@ All notable changes to Carbonio AI Assistant are documented in this file.
   negative examples such as `do not mark as read`, and stopped plural `message IDs` from being
   parsed as the item ID `s`. Folder and tag list intents now require an adjacent command phrase,
   preventing forbidden-operation lists from overriding an unread-mail request.
+- Kept isolated restore drills least-privileged by requiring the `vector` extension as an
+  administrator-provisioned prerequisite and excluding extension ownership operations from the
+  restricted addon-role restore.
 - Granted the restricted RAG worker access to the new heartbeat table during both database
   setup and gateway schema migration, preventing an upgrade-time worker restart loop.
 - Prevented stale saved or conversation models from hiding the effective active model after

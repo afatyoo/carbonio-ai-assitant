@@ -34,8 +34,20 @@ fi
 sha256sum -c "${backup_file}.sha256"
 sha256sum -c "${state_archive}.sha256"
 tar -tzf "$state_archive" | grep -Fx './manifest.json' >/dev/null
+
+# Extensions are cluster-managed prerequisites. The restricted addon role must never receive
+# superuser solely for a rehearsal, and pg_restore must not try to drop or recreate them.
+if ! psql "$AI_RESTORE_DRILL_DATABASE_URL" -v ON_ERROR_STOP=1 -Atc \
+	"SELECT 1 FROM pg_extension WHERE extname = 'vector'" | grep -qx 1; then
+	echo "Restore drill database requires the vector extension to be preinstalled by a PostgreSQL administrator." >&2
+	exit 1
+fi
+restore_list="$(mktemp /tmp/carbonio-ai-restore-list.XXXXXX)"
+trap 'rm -f "$restore_list"' EXIT
+pg_restore --list "$backup_file" |
+	grep -Ev ' EXTENSION - vector | COMMENT - EXTENSION vector ' >"$restore_list"
 pg_restore --clean --if-exists --no-owner --no-privileges --no-comments \
-	--dbname "$AI_RESTORE_DRILL_DATABASE_URL" "$backup_file"
+	--use-list "$restore_list" --dbname "$AI_RESTORE_DRILL_DATABASE_URL" "$backup_file"
 psql "$AI_RESTORE_DRILL_DATABASE_URL" -v ON_ERROR_STOP=1 -Atc \
 	"SELECT CASE WHEN to_regclass('public.conversations') IS NOT NULL AND to_regclass('public.rag_sources') IS NOT NULL THEN 'restore_drill=ok' ELSE 'restore_drill=missing_schema' END" |
 	grep -Fx 'restore_drill=ok'

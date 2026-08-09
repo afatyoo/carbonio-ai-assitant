@@ -122,7 +122,7 @@ try {
 		expectedVersion: '2.2.0'
 	});
 	assert.equal(contract.version, '2.2.0');
-	assert.equal(contract.closedBugCount, 26);
+	assert.equal(contract.closedBugCount, 27);
 
 	const brokenRoot = path.join(workspace, 'broken-repository');
 	const contractFiles = [
@@ -191,7 +191,7 @@ try {
 		projectRoot: brokenRoot,
 		expectedVersion: '2.2.0'
 	});
-	assert.equal(extendedContract.closedBugCount, 27);
+	assert.equal(extendedContract.closedBugCount, 28);
 
 	const brokenWorkflowPath = path.join(brokenRoot, '.github/workflows/release.yml');
 	const brokenWorkflow = (await readFile(brokenWorkflowPath, 'utf8')).replace(

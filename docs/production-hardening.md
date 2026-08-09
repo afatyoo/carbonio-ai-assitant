@@ -64,6 +64,14 @@ match the production or backup connection. The monthly drill verifies checksums 
 latest database dump into that isolated target. It also verifies that a matching runtime archive
 and manifest exist.
 
+Create the isolated database as a PostgreSQL administrator and preinstall `vector`. Keep the
+database owned by the restricted addon role; do not grant it superuser:
+
+```bash
+sudo -u postgres createdb --owner=carbonio_ai carbonio_ai_restore_drill
+sudo -u postgres psql -d carbonio_ai_restore_drill -c 'CREATE EXTENSION IF NOT EXISTS vector'
+```
+
 ```bash
 sudo systemctl start carbonio-ai-restore-drill.service
 journalctl -u carbonio-ai-restore-drill.service --since today --no-pager
