@@ -2,6 +2,17 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [2.3.2] - 2026-08-09
+
+### Fixed
+
+- Streamed Admin Console organization-knowledge uploads directly to the gateway instead of using
+  Carbonio Nginx's unwritable shared client-body temporary directory.
+- Replaced the ambiguous invalid-JSON upload message with an HTTP status and proxy-response type.
+- Added an Admin Console regression contract requiring request buffering to remain disabled.
+
+- See the [detailed v2.3.2 report](docs/releases/v2.3.2.md).
+
 ## [2.3.1] - 2026-08-09
 
 ### Fixed
