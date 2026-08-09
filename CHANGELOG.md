@@ -2,6 +2,25 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [2.3.0] - 2026-08-09
+
+### Added
+
+- Added a localized `Ask AI` action to exact message and conversation menus in Carbonio Mail.
+- Added a URL-based ID-only handoff into a fresh full assistant conversation with contextual
+  suggestions, an explicit context banner, and a clear-context control.
+- Added server-refetched message and thread context to full assistant requests without copying
+  subject or body content into browser storage or navigation state.
+
+### Security
+
+- The compatibility bridge recognizes only bounded Carbonio test IDs and fails closed when the
+  expected menu structure or exact target ID is unavailable.
+- Selected content remains unread until the user sends a question, then the gateway revalidates
+  and retrieves the exact target through the authenticated Carbonio session.
+
+- See the [detailed v2.3.0 report](docs/releases/v2.3.0.md).
+
 ## [2.2.1] - 2026-08-09
 
 ### Fixed

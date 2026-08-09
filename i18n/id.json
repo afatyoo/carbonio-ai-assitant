@@ -192,7 +192,17 @@
 		"meeting_prep": "Persiapkan saya untuk rapat ini",
 		"meeting_prep_prompt": "Buat pengarahan singkat untuk rapat ini.",
 		"follow_up": "Sarankan tindak lanjut",
-		"follow_up_prompt": "Sarankan tindak lanjut singkat untuk rapat ini."
+		"follow_up_prompt": "Sarankan tindak lanjut singkat untuk rapat ini.",
+		"ask_ai": "Tanya AI",
+		"ask_ai_context": "Konteks AI terpilih",
+		"ask_ai_privacy": "Item terpilih dibaca secara aman hanya setelah Anda mengirim pertanyaan.",
+		"ask_ai_placeholder": "Tanyakan sesuatu tentang item terpilih ini...",
+		"clear": "Hapus konteks",
+		"message": "pesan",
+		"conversation": "percakapan",
+		"summarize_thread_prompt": "Ringkas percakapan terpilih ini secara singkat.",
+		"thread_action_items_prompt": "Ambil item tindakan dari percakapan terpilih ini.",
+		"thread_reply_prompt": "Buat draf balasan singkat untuk percakapan terpilih ini."
 	},
 	"settings": {
 		"admin_only": "Khusus administrator",

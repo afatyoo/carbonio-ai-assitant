@@ -192,7 +192,17 @@
 		"meeting_prep": "Prepare me for this meeting",
 		"meeting_prep_prompt": "Prepare a concise briefing for this meeting.",
 		"follow_up": "Suggest follow-up actions",
-		"follow_up_prompt": "Suggest concise follow-up actions for this meeting."
+		"follow_up_prompt": "Suggest concise follow-up actions for this meeting.",
+		"ask_ai": "Ask AI",
+		"ask_ai_context": "Selected AI context",
+		"ask_ai_privacy": "The selected item is read securely only after you send a question.",
+		"ask_ai_placeholder": "Ask something about this selected item...",
+		"clear": "Clear",
+		"message": "message",
+		"conversation": "conversation",
+		"summarize_thread_prompt": "Summarize this selected conversation concisely.",
+		"thread_action_items_prompt": "Extract action items from this selected conversation.",
+		"thread_reply_prompt": "Draft a concise reply to this selected conversation."
 	},
 	"settings": {
 		"admin_only": "Administrator only",

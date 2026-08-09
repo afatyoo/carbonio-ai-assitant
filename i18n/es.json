@@ -192,7 +192,17 @@
 		"meeting_prep": "Prepararme para esta reunión",
 		"meeting_prep_prompt": "Prepare un informe breve para esta reunión.",
 		"follow_up": "Sugerir seguimientos",
-		"follow_up_prompt": "Sugiera seguimientos breves para esta reunión."
+		"follow_up_prompt": "Sugiera seguimientos breves para esta reunión.",
+		"ask_ai": "Preguntar a la IA",
+		"ask_ai_context": "Contexto de IA seleccionado",
+		"ask_ai_privacy": "El elemento seleccionado se lee de forma segura solo después de enviar una pregunta.",
+		"ask_ai_placeholder": "Pregunte algo sobre este elemento seleccionado...",
+		"clear": "Borrar",
+		"message": "mensaje",
+		"conversation": "conversación",
+		"summarize_thread_prompt": "Resuma brevemente esta conversación seleccionada.",
+		"thread_action_items_prompt": "Extraiga elementos de acción de esta conversación seleccionada.",
+		"thread_reply_prompt": "Redacte una respuesta breve para esta conversación seleccionada."
 	},
 	"settings": {
 		"admin_only": "Solo administradores",

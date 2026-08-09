@@ -192,7 +192,17 @@
 		"meeting_prep": "Preparar-me para esta reunião",
 		"meeting_prep_prompt": "Prepare um briefing conciso para esta reunião.",
 		"follow_up": "Sugerir acompanhamentos",
-		"follow_up_prompt": "Sugira acompanhamentos concisos para esta reunião."
+		"follow_up_prompt": "Sugira acompanhamentos concisos para esta reunião.",
+		"ask_ai": "Perguntar à IA",
+		"ask_ai_context": "Contexto de IA selecionado",
+		"ask_ai_privacy": "O item selecionado é lido com segurança somente depois que você envia uma pergunta.",
+		"ask_ai_placeholder": "Pergunte algo sobre este item selecionado...",
+		"clear": "Limpar",
+		"message": "mensagem",
+		"conversation": "conversa",
+		"summarize_thread_prompt": "Resuma esta conversa selecionada de forma concisa.",
+		"thread_action_items_prompt": "Extraia itens de ação desta conversa selecionada.",
+		"thread_reply_prompt": "Crie uma resposta concisa para esta conversa selecionada."
 	},
 	"settings": {
 		"admin_only": "Somente administradores",

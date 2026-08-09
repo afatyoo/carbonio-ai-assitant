@@ -2,9 +2,9 @@
 
 Standalone AI assistant for Carbonio Webmail, delivered as an independent Carbonio
 microfrontend and a private server-side gateway. It adds a ChatGPT-style workspace without
-replacing or modifying the existing Mail application.
+replacing the existing Mail package.
 
-**Current release candidate:** `v2.2.1`
+**Current release candidate:** `v2.3.0`
 
 **Deployment class:** full user-scoped Carbonio release with documented known limitations
 
@@ -13,9 +13,9 @@ replacing or modifying the existing Mail application.
 ![Carbonio AI Assistant interface](docs/assets/carbonio-ai-assistant-overview.png)
 
 For exact release evidence, the closed-bug ledger, and authenticated UAT results, read the
-[v2.2.1 release report](docs/releases/v2.2.1.md).
+[v2.3.0 release report](docs/releases/v2.3.0.md).
 
-## What v2.2.1 includes
+## What v2.3.0 includes
 
 ### Production hardening
 
@@ -62,6 +62,16 @@ For exact release evidence, the closed-bug ledger, and authenticated UAT results
   free-form context questions share the same server-side history as full chat.
 - The compact panel never executes write confirmations. Review write actions in full chat.
 - Every panel label and privacy notice is available in all nine official interface languages.
+
+### Ask AI from Mail
+
+- Exact message and conversation menus expose a localized `Ask AI` action.
+- Selecting it opens a fresh full assistant conversation bound to that exact Carbonio object ID.
+- The handoff URL contains identifiers only. It does not contain the subject, sender, recipients,
+  preview, body, or attachment content.
+- The assistant shows the selected context and contextual suggestions before any request runs.
+- Carbonio data is retrieved server-side only after the user sends a question.
+- A clear-context control removes the URL reference before continuing without the selected item.
 
 ### Languages
 
@@ -123,7 +133,7 @@ raw external provider errors are not translated automatically.
 
 ## RAG scope
 
-v2.2.1 provides opt-in private retrieval for the authenticated user's Mail, safe attachment text
+v2.3.0 provides opt-in private retrieval for the authenticated user's Mail, safe attachment text
 and metadata, Calendar, Tasks, and personal Contacts. The existing curated official Carbonio
 API documentation corpus remains available for product guidance.
 
@@ -193,7 +203,7 @@ part of the current live UAT evidence. See [browser support](docs/browser-suppor
 
 ## Known limitations
 
-Deploying or enabling v2.2.1 means the operator and each participating user accept the
+Deploying or enabling v2.3.0 means the operator and each participating user accept the
 remaining environment-dependent gates below. This project is an independent community addon
 and is not developed, supported, certified, or endorsed by Zextras. Acceptance does not create
 support obligations for Zextras and does not turn missing evidence into a pass:
@@ -217,10 +227,14 @@ support obligations for Zextras and does not turn missing evidence into a pass:
 10. The AI planner is probabilistic. It can propose only allowlisted tools, and every write or
     destructive proposal still requires exact user confirmation. Users remain responsible for
     reviewing recipients, targets, permissions, and destructive effects.
+11. Carbonio Mail does not currently publish a message or conversation menu extension API. The
+    addon uses a fail-closed compatibility bridge against bounded `data-testid` contracts. A Mail
+    UI upgrade can hide `Ask AI` until that exact target release is compatibility-tested. Core Mail
+    actions continue working if the bridge is unavailable.
 
 Do not claim Files, Chats, binary attachment understanding, high availability, or performance
 targets that were not validated. The complete risk record is in the
-[v2.2.1 release report](docs/releases/v2.2.1.md#risk-acceptance).
+[v2.3.0 release report](docs/releases/v2.3.0.md#risk-acceptance).
 
 ## Security and privacy
 
@@ -308,19 +322,19 @@ Deploy from the public release artifact, not an arbitrary branch checkout. Run t
 inside a dedicated staging directory on the Carbonio Proxy/Web UI host:
 
 ```bash
-mkdir carbonio-ai-v2.2.1
-cd carbonio-ai-v2.2.1
-curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.2.1/carbonio-ai-assistant-v2.2.1.tar.gz
-curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.2.1/carbonio-ai-assistant-v2.2.1.tar.gz.sha256
-sha256sum --check carbonio-ai-assistant-v2.2.1.tar.gz.sha256
-tar -xzf carbonio-ai-assistant-v2.2.1.tar.gz
-cd carbonio-ai-assistant-v2.2.1
+mkdir carbonio-ai-v2.3.0
+cd carbonio-ai-v2.3.0
+curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.3.0/carbonio-ai-assistant-v2.3.0.tar.gz
+curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.3.0/carbonio-ai-assistant-v2.3.0.tar.gz.sha256
+sha256sum --check carbonio-ai-assistant-v2.3.0.tar.gz.sha256
+tar -xzf carbonio-ai-assistant-v2.3.0.tar.gz
+cd carbonio-ai-assistant-v2.3.0
 ```
 
 Use the signed release asset's `.sha256` file as the checksum authority. The release page
 also records the exact workflow, commit, and artifact digest.
 
-Inspect `release.env` and confirm version `2.2.1`, the approved exact commit, and the Node
+Inspect `release.env` and confirm version `2.3.0`, the approved exact commit, and the Node
 runtime before continuing.
 
 ### Install the application
@@ -604,7 +618,7 @@ through `AI_TEST_DATABASE_URL`. Do not aim it at an unapproved production databa
 
 ## Documentation
 
-- [v2.2.1 release report](docs/releases/v2.2.1.md)
+- [v2.3.0 release report](docs/releases/v2.3.0.md)
 - [v2.1.0 release report](docs/releases/v2.1.0.md)
 - [Carbonio user tool matrix](docs/carbonio-user-tool-matrix.md)
 - [Private RAG architecture](docs/rag-architecture.md)
