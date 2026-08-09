@@ -50,6 +50,14 @@ nginx_dropin_dir="/etc/systemd/system/carbonio-nginx.service.d"
 nginx_limits_file="$nginx_dropin_dir/carbonio-ai-limits.conf"
 nginx_upstream="$nginx_root/extensions/upstream-carbonio-ai.conf"
 nginx_backend="$nginx_root/extensions/backend-carbonio-ai.conf"
+nginx_admin_backend="$nginx_root/extensions/admin-backend-carbonio-ai.conf"
+nginx_admin_include="    include $nginx_admin_backend;"
+nginx_admin_files=(
+	"$nginx_root/includes/nginx.conf.web.carbonio.admin.default"
+	"$nginx_root/templates/nginx.conf.web.carbonio.admin.default.template"
+)
+admin_ui_root="$app_root/admin-ui"
+admin_ui_target="$admin_ui_root/$CARBONIO_AI_COMMIT"
 
 if [[ ! -d "$iris_root" || ! -f "$iris_root/components.json" ]]; then
 	echo "Carbonio Iris registry was not found at $iris_root." >&2
@@ -157,6 +165,40 @@ install -o zextras -g zextras -m 0644 \
 	"$app_release/deploy/nginx/upstream-carbonio-ai.conf" "$nginx_upstream"
 install -o zextras -g zextras -m 0644 \
 	"$app_release/deploy/nginx/backend-carbonio-ai.conf" "$nginx_backend"
+install -o zextras -g zextras -m 0644 \
+	"$app_release/deploy/nginx/admin-backend-carbonio-ai.conf" "$nginx_admin_backend"
+
+backup_root="$data_root/install-backups"
+install -d -o carbonio-ai -g carbonio-ai -m 0700 "$backup_root"
+backup_stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+
+install_admin_include() {
+	local target_file="$1"
+	if grep -Fq "$nginx_admin_include" "$target_file"; then
+		return
+	fi
+	local patched_file
+	patched_file="$(mktemp /tmp/carbonio-ai-admin-nginx.XXXXXX)"
+	cp -a "$target_file" "$backup_root/$(basename "$target_file").${backup_stamp}"
+	awk -v include_line="$nginx_admin_include" '
+		!inserted && /^[[:space:]]*location = \/favicon\.ico/ {
+			print include_line
+			inserted = 1
+		}
+		{ print }
+		END { if (!inserted) exit 42 }
+	' "$target_file" >"$patched_file"
+	install -o zextras -g zextras -m 0644 "$patched_file" "$target_file"
+	rm -f "$patched_file"
+}
+
+for nginx_admin_file in "${nginx_admin_files[@]}"; do
+	if [[ ! -f "$nginx_admin_file" ]]; then
+		echo "Carbonio Admin Nginx configuration was not found: $nginx_admin_file" >&2
+		exit 1
+	fi
+	install_admin_include "$nginx_admin_file"
+done
 
 if ! /opt/zextras/common/sbin/nginx -t -c /opt/zextras/conf/nginx.conf; then
 	echo "Carbonio Nginx validation failed. The service was not reloaded." >&2
@@ -171,9 +213,14 @@ chown zextras:zextras "$ui_marker"
 chmod 0644 "$ui_marker"
 touch "$ui_target/component.json"
 
-backup_root="$data_root/install-backups"
-install -d -o carbonio-ai -g carbonio-ai -m 0700 "$backup_root"
-backup_stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+install -d -o root -g root -m 0755 "$admin_ui_root" "$admin_ui_target"
+cp -a "$release_dir/admin-ui/." "$admin_ui_target/"
+chown -R root:root "$admin_ui_root"
+next_admin_ui="$app_root/admin-ui.next"
+rm -f "$next_admin_ui"
+ln -s "$admin_ui_target" "$next_admin_ui"
+mv -Tf "$next_admin_ui" "$admin_ui_root/current"
+
 cp -a "$iris_root/components.json" \
 	"$backup_root/components.json.${backup_stamp}"
 

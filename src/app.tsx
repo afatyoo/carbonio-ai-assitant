@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 
 import { addRoute, addSettingsView, addUtilityView, upsertApp } from '@zextras/carbonio-shell-ui';
 
 import { RobotPrimaryBarIcon } from './components/robot-icon';
 import { useAppTranslation } from './i18n/use-app-translation';
+import { MailAskAiMenuBridge } from './integrations/mail-ask-ai-menu';
 import { AiSettingsView } from './views/ai-settings-view';
 import { AssistantSidebar } from './views/assistant-sidebar';
 import { AiAssistantView } from './views/ai-assistant-view';
@@ -11,7 +12,7 @@ import { ContextAssistantPanel } from './views/context-assistant-panel';
 
 const APP_ID = 'carbonio-ai-assistant-ui';
 
-const App = (): null => {
+const App = (): React.JSX.Element => {
 	const { ready, t } = useAppTranslation();
 	const appName = t('app.name', 'AI Assistant');
 
@@ -55,7 +56,7 @@ const App = (): null => {
 		});
 	}, [appName, ready]);
 
-	return null;
+	return <MailAskAiMenuBridge />;
 };
 
 export default App;

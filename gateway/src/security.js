@@ -110,7 +110,8 @@ export const getToolPermissions = (account) => {
 export const isAdminAccount = (account) =>
 	Boolean(
 		account &&
-			(adminAccounts.has(String(account.id).toLowerCase()) ||
+			(account.adminConsoleAuthenticated === true ||
+				adminAccounts.has(String(account.id).toLowerCase()) ||
 				adminAccounts.has(String(account.name).toLowerCase()))
 	);
 

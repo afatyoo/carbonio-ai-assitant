@@ -38,6 +38,7 @@ const knowledgeLimit = Math.min(
 	Math.max(Number(process.env.AI_KNOWLEDGE_LIMIT ?? 4), 1),
 	6
 );
+const organizationKnowledgeOwner = 'organization:global';
 
 const isDocumentationOnlyQuery = (message) =>
 	/(savedraft|sendmsg|soap|api reference|carbonio api)/i.test(message) ||
@@ -398,9 +399,7 @@ const remoteCompletionAttempt = async ({
 												process.env.AI_OPENROUTER_DENY_DATA_COLLECTION === 'false'
 													? 'allow'
 													: 'deny',
-											zdr:
-												process.env.NODE_ENV === 'production' ||
-												process.env.AI_OPENROUTER_ZDR !== 'false'
+											zdr: config.zdrEnabled
 										}
 									}
 								: {}),
@@ -1516,11 +1515,14 @@ export const runAgent = async ({
 	const config = getAgentConfig();
 	const dataAccessOptOut = isAgentDataAccessOptOut(message);
 	const privateKnowledge = account?.id && !dataAccessOptOut && !contextReference
-		? await revalidateRagResults(
-				await retrievePrivateRag(account.id, message, { limit: 8 }),
-				{ cookie }
-			)
-			: [];
+		? [
+				...await revalidateRagResults(
+					await retrievePrivateRag(account.id, message, { limit: 6 }),
+					{ cookie }
+				),
+				...await retrievePrivateRag(organizationKnowledgeOwner, message, { limit: 4 })
+			].slice(0, 8)
+		: [];
 	if (privateKnowledge.length > 0) {
 		emit('sources', {
 			sources: privateKnowledge.map(({ module, sourceId, title, deepLink }) => ({

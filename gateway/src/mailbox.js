@@ -5,6 +5,9 @@ import { logEvent } from './logger.js';
 const soapUrl = new URL(
 	process.env.CARBONIO_SOAP_URL ?? 'https://127.0.0.1:8443/service/soap'
 );
+const adminSoapUrl = new URL(
+	process.env.CARBONIO_ADMIN_SOAP_URL ?? 'https://127.0.0.1:7071/service/admin/soap'
+);
 const soapTimeoutMs = Math.min(
 	Math.max(Number(process.env.CARBONIO_SOAP_TIMEOUT_MS ?? 20_000), 5_000),
 	30_000
@@ -18,7 +21,25 @@ const groupCacheTtlMs = Math.min(
 );
 const groupCache = new Map();
 
-export const soapRequest = (operation, body, cookie, namespace = 'urn:zimbraMail') =>
+const createSoapError = (reason) => {
+	const error = new Error(`Carbonio SOAP error: ${reason}`);
+	if (
+		/auth credentials have expired|no valid auth(?:entication)? token|service\.auth_(?:required|expired)/i.test(
+			String(reason ?? '')
+		)
+	) {
+		error.statusCode = 401;
+	}
+	return error;
+};
+
+export const soapRequest = (
+	operation,
+	body,
+	cookie,
+	namespace = 'urn:zimbraMail',
+	endpoint = soapUrl
+) =>
 	new Promise((resolve, reject) => {
 		const startedAt = Date.now();
 		const payload = JSON.stringify({
@@ -37,9 +58,9 @@ export const soapRequest = (operation, body, cookie, namespace = 'urn:zimbraMail
 
 		const request = https.request(
 			{
-				hostname: soapUrl.hostname,
-				port: soapUrl.port || 443,
-				path: `${soapUrl.pathname}/${operation}Request`,
+				hostname: endpoint.hostname,
+				port: endpoint.port || 443,
+				path: `${endpoint.pathname}/${operation}Request`,
 				method: 'POST',
 				rejectUnauthorized: false,
 				headers: {
@@ -77,7 +98,7 @@ export const soapRequest = (operation, body, cookie, namespace = 'urn:zimbraMail
 							duration_ms: Date.now() - startedAt,
 							error: reason
 						});
-						reject(new Error(`Carbonio SOAP error: ${reason}`));
+						reject(createSoapError(reason));
 						return;
 					}
 					logEvent('info', 'soap_response', {
@@ -678,4 +699,30 @@ export const getCurrentAccount = async (cookie) => {
 	];
 	groupCache.set(account.id, { groups, expiresAt: Date.now() + groupCacheTtlMs });
 	return { ...account, groups };
+};
+
+export const getCurrentAdminSession = async (cookie) => {
+	if (!/(?:^|;\s*)ZM_ADMIN_AUTH_TOKEN=/.test(String(cookie ?? ''))) {
+		throw new Error('Carbonio administrator authentication is required');
+	}
+	await soapRequest('GetAllServers', {}, cookie, 'urn:zimbraAdmin', adminSoapUrl);
+	return {
+		id: 'carbonio-global-admin-session',
+		name: 'carbonio-global-admin-session',
+		groups: [],
+		adminConsoleAuthenticated: true
+	};
+};
+
+export const getAdminAccountNameById = async (cookie, accountId) => {
+	const normalizedId = String(accountId ?? '').trim();
+	if (!normalizedId) return '';
+	const result = await soapRequest(
+		'GetAccount',
+		{ account: { by: 'id', _content: normalizedId } },
+		cookie,
+		'urn:zimbraAdmin',
+		adminSoapUrl
+	);
+	return String(result.name ?? '').trim().slice(0, 320);
 };

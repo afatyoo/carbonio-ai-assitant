@@ -4,6 +4,7 @@ export const RAG_MODULES = Object.freeze([
 	'calendar',
 	'tasks',
 	'contacts',
+	'organization',
 	'files',
 	'chats'
 ]);
@@ -14,6 +15,7 @@ export const RAG_SOURCE_CAPABILITIES = Object.freeze({
 	calendar: { available: true, label: 'Calendar' },
 	tasks: { available: true, label: 'Tasks' },
 	contacts: { available: true, label: 'Personal contacts' },
+	organization: { available: true, adminOnly: true, label: 'Organization knowledge' },
 	files: {
 		available: false,
 		label: 'Files and Docs',
@@ -38,6 +40,11 @@ export const assertRagModule = (value) => {
 
 export const assertAvailableRagModule = (value) => {
 	const module = assertRagModule(value);
+	if (RAG_SOURCE_CAPABILITIES[module].adminOnly) {
+		const error = new Error('Organization knowledge is managed by Carbonio administrators');
+		error.statusCode = 403;
+		throw error;
+	}
 	if (!RAG_SOURCE_CAPABILITIES[module].available) {
 		const error = new Error(RAG_SOURCE_CAPABILITIES[module].reason);
 		error.statusCode = 409;

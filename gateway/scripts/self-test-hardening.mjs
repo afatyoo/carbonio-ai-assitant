@@ -24,8 +24,9 @@ const health = buildOperationalHealth({
 	aiEnabled: true,
 	writeToolsEnabled: false
 });
-assert.equal(health.status, 'degraded');
+assert.equal(health.status, 'healthy');
 assert.equal(health.provider.usedFallback, true);
+assert.equal(health.components.provider, undefined);
 assert.equal(health.components.writes.status, 'disabled');
 
 const workspace = await fs.mkdtemp(path.join(os.tmpdir(), 'carbonio-ai-hardening-'));

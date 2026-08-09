@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="referrer" content="same-origin" />
+		<title>Carbonio AI Administration</title>
+		<link rel="stylesheet" href="/carbonioAdmin/ai-assistant/assets/styles.css" />
+	</head>
+	<body>
+		<header class="topbar">
+			<a class="brand" href="/carbonioAdmin/" aria-label="Carbonio Admin Console">CARBONIO</a>
+			<span class="product">AI Administration</span>
+			<a class="back" href="/carbonioAdmin/">Back to Admin Console</a>
+		</header>
+		<main class="page">
+			<section class="heading">
+				<div>
+					<p class="eyebrow">INDEPENDENT COMMUNITY ADDON</p>
+					<h1 id="page-title">AI Administration</h1>
+					<p id="page-description">Manage gateway privacy policy, health, safety, and operations. User provider credentials remain in Webmail settings.</p>
+				</div>
+				<button id="refresh" class="button secondary" type="button">Refresh</button>
+			</section>
+
+			<div id="notice" class="notice" role="status" aria-live="polite">Loading configuration...</div>
+
+			<section class="card">
+				<h2>Provider privacy policy</h2>
+				<p class="muted">Provider selection, endpoint, API key, model, and fallbacks are configured from the user's Webmail settings.</p>
+				<form id="privacy-form">
+					<label class="toggle-row">
+						<input id="zdr-enabled" name="zdrEnabled" type="checkbox" />
+						<span><strong>Require Zero Data Retention (ZDR)</strong><small>Global OpenRouter privacy policy. Keep enabled for stronger privacy.</small></span>
+					</label>
+					<div id="zdr-risk" class="risk hidden">
+						<strong>Privacy risk</strong>
+						<p>With ZDR disabled, the provider may retain prompts, responses, and Carbonio data according to its own policy.</p>
+						<label class="accept"><input id="zdr-accept" type="checkbox" /> I understand and accept this provider data-retention risk.</label>
+					</div>
+					<div class="actions">
+						<button id="save-privacy" class="button primary" type="submit">Save privacy policy</button>
+					</div>
+				</form>
+			</section>
+
+			<section class="card">
+				<div class="section-title"><div><h2>Gateway and service health</h2><p class="muted">Live status from the addon gateway.</p></div><span id="overall-health" class="badge">loading</span></div>
+				<div id="health-grid" class="health-grid"></div>
+			</section>
+
+			<section class="card" id="organization-knowledge">
+				<h2>Organization knowledge</h2>
+				<p class="muted">Upload company policies, SOPs, and internal guidance for grounded user answers. Documents are encrypted and shared read-only with enabled AI users.</p>
+				<form id="knowledge-form">
+					<label>Document<input id="knowledge-file" type="file" required accept=".txt,.md,.csv,.json,.xml,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" /></label>
+					<div class="actions"><button id="upload-knowledge" class="button primary" type="submit">Upload and index</button></div>
+				</form>
+				<p id="knowledge-capability" class="muted"></p>
+				<div id="knowledge-list" class="document-list"></div>
+			</section>
+
+			<section class="grid two panels">
+				<div class="card">
+					<h2>AI Safety Center</h2>
+					<p id="write-state" class="muted">Loading write-tool state...</p>
+					<button id="toggle-writes" class="button danger" type="button" disabled>Stop all AI writes</button>
+				</div>
+				<div class="card">
+					<h2>Runtime policy</h2>
+					<dl id="policy-list" class="definition-list"></dl>
+				</div>
+			</section>
+
+			<section class="card">
+				<h2>Recent administrator-visible tool activity</h2>
+				<div class="table-wrap"><table><thead><tr><th>Time</th><th>User</th><th>Tool</th><th>Risk</th><th>Status</th><th>Request</th></tr></thead><tbody id="audit-body"></tbody></table></div>
+			</section>
+
+			<footer>This addon is not developed, certified, endorsed, or supported by Zextras.</footer>
+		</main>
+		<script type="module" src="/carbonioAdmin/ai-assistant/assets/app.js"></script>
+	</body>
+</html>

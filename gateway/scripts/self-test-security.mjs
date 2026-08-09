@@ -44,6 +44,7 @@ const { sanitizeModelOutput } = await import('../src/output-safety.js');
 
 assert.equal(isAdminAccount({ id: 'user-id', name: 'ADMIN@example.test' }), true);
 assert.equal(isAdminAccount({ id: 'account-admin-id', name: 'user@example.test' }), true);
+assert.equal(isAdminAccount({ adminConsoleAuthenticated: true }), true);
 assert.equal(isAdminAccount({ id: 'user-id', name: 'user@example.test' }), false);
 assert.equal(isAccountEnabled({ id: 'user-id', name: 'enabled@example.test' }), true);
 assert.equal(isAccountEnabled({ id: 'user-id', name: 'disabled@example.test' }), false);

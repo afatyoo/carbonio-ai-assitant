@@ -35,6 +35,12 @@ restore_drill_timer_file="/etc/systemd/system/carbonio-ai-restore-drill.timer"
 nginx_limits_file="/etc/systemd/system/carbonio-nginx.service.d/carbonio-ai-limits.conf"
 nginx_upstream="/opt/zextras/conf/nginx/extensions/upstream-carbonio-ai.conf"
 nginx_backend="/opt/zextras/conf/nginx/extensions/backend-carbonio-ai.conf"
+nginx_admin_backend="/opt/zextras/conf/nginx/extensions/admin-backend-carbonio-ai.conf"
+nginx_admin_include="    include $nginx_admin_backend;"
+nginx_admin_files=(
+	"/opt/zextras/conf/nginx/includes/nginx.conf.web.carbonio.admin.default"
+	"/opt/zextras/conf/nginx/templates/nginx.conf.web.carbonio.admin.default.template"
+)
 
 if [[ ! -f "$app_root/.managed-by-carbonio-ai-assistant" ]]; then
 	echo "Managed installation marker was not found; refusing to uninstall." >&2
@@ -63,7 +69,15 @@ rm -f "$service_file" "$worker_service_file" "$backup_service_file" "$backup_tim
 	"$restore_drill_service_file" "$restore_drill_timer_file" "$nginx_limits_file"
 systemctl daemon-reload
 
-rm -f "$nginx_upstream" "$nginx_backend"
+for nginx_admin_file in "${nginx_admin_files[@]}"; do
+	if [[ -f "$nginx_admin_file" ]]; then
+		filtered_file="$(mktemp /tmp/carbonio-ai-admin-nginx.XXXXXX)"
+		grep -Fvx "$nginx_admin_include" "$nginx_admin_file" >"$filtered_file"
+		install -o zextras -g zextras -m 0644 "$filtered_file" "$nginx_admin_file"
+		rm -f "$filtered_file"
+	fi
+done
+rm -f "$nginx_upstream" "$nginx_backend" "$nginx_admin_backend"
 if /opt/zextras/common/sbin/nginx -t -c /opt/zextras/conf/nginx.conf; then
 	systemctl reload carbonio-nginx.service
 else

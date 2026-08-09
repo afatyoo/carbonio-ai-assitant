@@ -2,6 +2,37 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [2.3.0] - 2026-08-09
+
+### Added
+
+- Added a localized `Ask AI` action to exact message and conversation menus in Carbonio Mail.
+- Added a URL-based ID-only handoff into a fresh full assistant conversation with contextual
+  suggestions, an explicit context banner, and a clear-context control.
+- Added server-refetched message and thread context to full assistant requests without copying
+  subject or body content into browser storage or navigation state.
+- Added a dedicated AI Administration page on the Carbonio Admin Console port for global ZDR
+  policy, gateway health, safety, metrics, and audit controls. Provider credentials and model
+  selection remain in Webmail Settings.
+- Added an administrator-controlled OpenRouter ZDR setting that defaults on, requires explicit
+  provider data-retention risk acceptance to disable, and persists the acceptance time.
+- Administrator audit rows now show the Carbonio user email while retaining the immutable account
+  UUID as a hover reference. Legacy rows are resolved through authenticated Admin SOAP.
+- Added administrator-managed Organization Knowledge RAG uploads for company policies and SOPs,
+  encrypted shared retrieval, citations, indexing status, and document removal. PDF and Office
+  extraction remains fail-closed unless the hardened extraction chain is configured.
+
+### Security
+
+- The compatibility bridge recognizes only bounded Carbonio test IDs and fails closed when the
+  expected menu structure or exact target ID is unavailable.
+- Selected content remains unread until the user sends a question, then the gateway revalidates
+  and retrieves the exact target through the authenticated Carbonio session.
+- The port 6071 page validates the Admin Console token against Carbonio Admin SOAP before any
+  addon administrator API is authorized. The official Admin Console bundle remains unmodified.
+
+- See the [detailed v2.3.0 report](docs/releases/v2.3.0.md).
+
 ## [2.2.1] - 2026-08-09
 
 ### Fixed

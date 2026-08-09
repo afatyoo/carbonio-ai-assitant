@@ -11,6 +11,7 @@ const databasePath = process.env.AI_AUDIT_DB_PATH
 	: path.join(defaultRuntimeDirectory, 'audit.sqlite');
 fs.mkdirSync(path.dirname(databasePath), { recursive: true, mode: 0o700 });
 const database = new DatabaseSync(databasePath);
+const ownerNames = new Map();
 
 database.exec(`
 	PRAGMA journal_mode = WAL;
@@ -61,10 +62,23 @@ database.exec(`
 if (!database.prepare('PRAGMA table_info(tool_audit)').all().some(({ name }) => name === 'result_ref')) {
 	database.exec('ALTER TABLE tool_audit ADD COLUMN result_ref TEXT');
 }
+if (!database.prepare('PRAGMA table_info(tool_audit)').all().some(({ name }) => name === 'owner_name')) {
+	database.exec('ALTER TABLE tool_audit ADD COLUMN owner_name TEXT');
+}
 fs.chmodSync(databasePath, 0o600);
 
 export const hashToolInput = (input) =>
 	createHash('sha256').update(JSON.stringify(input)).digest('hex');
+
+export const rememberAuditOwner = (ownerId, ownerName) => {
+	const normalizedOwnerId = String(ownerId ?? '').trim();
+	const normalizedOwnerName = String(ownerName ?? '').trim().slice(0, 320);
+	if (!normalizedOwnerId || !normalizedOwnerName) return;
+	ownerNames.set(normalizedOwnerId, normalizedOwnerName);
+	database
+		.prepare('UPDATE tool_audit SET owner_name = ? WHERE owner_id = ? AND owner_name IS NULL')
+		.run(normalizedOwnerName, normalizedOwnerId);
+};
 
 const summarizeValue = (value) => {
 	if (typeof value === 'string') return { type: 'string', length: value.length };
@@ -73,23 +87,29 @@ const summarizeValue = (value) => {
 	return { type: typeof value, value };
 };
 
-export const createAuditEntry = ({ ownerId, toolName, risk, input }) => {
+export const createAuditEntry = ({ ownerId, ownerName = '', toolName, risk, input }) => {
 	const id = randomUUID();
 	const { requestId } = getRequestContext();
 	const inputHash = hashToolInput(input);
+	const normalizedOwnerName =
+		String(ownerName ?? '').trim().slice(0, 320) || ownerNames.get(String(ownerId)) || '';
 	const summary = Object.fromEntries(
 		Object.entries(input).map(([key, value]) => [key, summarizeValue(value)])
 	);
+	if (normalizedOwnerName) {
+		rememberAuditOwner(ownerId, normalizedOwnerName);
+	}
 	database
 		.prepare(
 			`INSERT INTO tool_audit
-			 (id, owner_id, request_id, tool_name, risk, input_hash,
+			 (id, owner_id, owner_name, request_id, tool_name, risk, input_hash,
 			  input_summary_json, status, created_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, 'running', ?)`
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'running', ?)`
 		)
 		.run(
 			id,
 			ownerId,
+			normalizedOwnerName || null,
 			requestId ?? null,
 			toolName,
 			risk,
@@ -265,7 +285,7 @@ export const listAuditEntries = (ownerId, limit = 50) =>
 export const listAllAuditEntries = (limit = 100) =>
 	database
 		.prepare(
-			`SELECT id, owner_id, request_id, tool_name, risk, status, result_count,
+			`SELECT id, owner_id, owner_name, request_id, tool_name, risk, status, result_count,
 			        result_ref, error_code, created_at, completed_at
 			 FROM tool_audit ORDER BY created_at DESC, id DESC LIMIT ?`
 		)
@@ -273,6 +293,7 @@ export const listAllAuditEntries = (limit = 100) =>
 		.map((row) => ({
 			id: row.id,
 			ownerId: row.owner_id,
+			ownerName: row.owner_name,
 			requestId: row.request_id,
 			tool: row.tool_name,
 			risk: row.risk,

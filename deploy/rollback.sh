@@ -18,6 +18,8 @@ app_link="$app_root/gateway"
 target_release="$app_root/releases/$target_commit"
 iris_root="/opt/zextras/web/iris"
 target_ui="$iris_root/carbonio-ai-assistant-ui/$target_commit"
+admin_ui_link="$app_root/admin-ui/current"
+target_admin_ui="$app_root/admin-ui/$target_commit"
 registry="$iris_root/components.json"
 
 if [[ ! -f "$app_root/.managed-by-carbonio-ai-assistant" ]]; then
@@ -31,6 +33,7 @@ fi
 
 current_release="$(readlink -f "$app_link")"
 current_commit="$(basename "$current_release")"
+current_admin_ui="$(readlink -f "$admin_ui_link" 2>/dev/null || true)"
 backup_root="/var/lib/carbonio-ai-assistant/install-backups"
 backup_stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 registry_backup="$backup_root/components.json.pre-rollback.$backup_stamp"
@@ -46,6 +49,11 @@ set_gateway_link() {
 
 restore_previous() {
 	set_gateway_link "$current_release"
+	if [[ -n "$current_admin_ui" && -d "$current_admin_ui" ]]; then
+		ln -sfn "$current_admin_ui" "$admin_ui_link"
+	else
+		rm -f "$admin_ui_link"
+	fi
 	cp -a "$registry_backup" "$registry"
 	systemctl restart carbonio-ai-gateway.service || true
 	systemctl restart carbonio-ai-rag-worker.service || true
@@ -54,6 +62,11 @@ restore_previous() {
 trap restore_previous ERR
 
 set_gateway_link "$target_release"
+if [[ -d "$target_admin_ui" ]]; then
+	ln -sfn "$target_admin_ui" "$admin_ui_link"
+else
+	rm -f "$admin_ui_link"
+fi
 touch "$target_ui/component.json"
 registry_tmp="$(mktemp /tmp/carbonio-ai-rollback-registry.XXXXXX)"
 trap 'rm -f "$registry_tmp"' EXIT

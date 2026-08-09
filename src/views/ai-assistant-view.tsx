@@ -1,4 +1,4 @@
-import React, { FormEvent, useEffect, useRef, useState } from 'react';
+import React, { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import styled from '@emotion/styled';
 
@@ -22,6 +22,11 @@ import {
 	getGenericConfirmationFields
 } from '../utils/action-confirmation';
 import { getAppointmentResultMessage } from '../utils/appointment-result';
+import type { AskAiMailContext } from '../utils/ask-ai-context';
+import {
+	getAskAiContext,
+	removeAskAiContextFromUrl
+} from '../utils/ask-ai-context';
 import { normalizeAssistantDisplayText } from '../utils/plain-text-answer';
 
 type ModelOption = {
@@ -103,6 +108,44 @@ const Status = styled.span`
 	border-radius: 1rem;
 	color: ${({ theme }): string => theme.palette.success.regular};
 	background: ${({ theme }): string => theme.palette.gray4.regular};
+`;
+
+const ContextBanner = styled.section`
+	margin: 0.75rem max(1.5rem, calc((100% - 48rem) / 2)) 0;
+	padding: 0.75rem 1rem;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	border: 0.0625rem solid ${({ theme }): string => theme.palette.primary.regular};
+	border-radius: 0.75rem;
+	background: ${({ theme }): string => theme.palette.gray5.regular};
+
+	@media (max-width: 48rem) {
+		margin: 0.75rem 1rem 0;
+	}
+`;
+
+const ContextCopy = styled.div`
+	min-width: 0;
+	display: grid;
+	gap: 0.2rem;
+	font-size: 0.8rem;
+
+	> strong {
+		font-size: 0.9rem;
+	}
+`;
+
+const ClearContextButton = styled.button`
+	flex: 0 0 auto;
+	padding: 0.4rem 0.65rem;
+	border: 0.0625rem solid ${({ theme }): string => theme.palette.gray2.regular};
+	border-radius: 0.5rem;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
 `;
 
 const HeaderActions = styled.div`
@@ -389,6 +432,10 @@ const Input = styled.textarea`
 
 export const AiAssistantView = (): React.JSX.Element => {
 	const { t, locale } = useAppTranslation();
+	const [askAiContext, setAskAiContext] = useState<AskAiMailContext | null>(() =>
+		typeof window === 'undefined' ? null : getAskAiContext(window.location.href)
+	);
+	const initialAskAiContextRef = useRef(askAiContext);
 	const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
 	const [conversationTitle, setConversationTitle] = useState<string | null>(null);
 	const [input, setInput] = useState('');
@@ -411,12 +458,31 @@ export const AiAssistantView = (): React.JSX.Element => {
 	]);
 	const [selectedModel, setSelectedModel] = useState('openrouter/free');
 	const [preferredModel, setPreferredModel] = useState('openrouter/free');
-	const prompts = [
-		t('chat.suggestion.unread', "Summarize today's unread email"),
-		t('chat.suggestion.important', 'Find important email from this week'),
-		t('chat.suggestion.reply', 'Draft a reply to the latest email'),
-		t('chat.suggestion.actions', 'What needs my attention?')
-	];
+	const prompts = askAiContext
+		? askAiContext.objectType === 'conversation'
+			? [
+					t('context.summarize_thread_prompt', 'Summarize this selected conversation concisely.'),
+					t('context.thread_action_items_prompt', 'Extract action items from this selected conversation.'),
+					t('context.thread_reply_prompt', 'Draft a concise reply to this selected conversation.')
+				]
+			: [
+					t('context.summarize_prompt', 'Summarize this selected email concisely.'),
+					t('context.action_items_prompt', 'Extract action items from this selected email.'),
+					t('context.draft_reply_prompt', 'Draft a concise reply to this selected email.')
+				]
+		: [
+				t('chat.suggestion.unread', "Summarize today's unread email"),
+				t('chat.suggestion.important', 'Find important email from this week'),
+				t('chat.suggestion.reply', 'Draft a reply to the latest email'),
+				t('chat.suggestion.actions', 'What needs my attention?')
+			];
+
+	const clearAskAiContext = useCallback((): void => {
+		setAskAiContext(null);
+		if (typeof window !== 'undefined') {
+			window.history.replaceState({}, '', removeAskAiContextFromUrl(window.location.href));
+		}
+	}, []);
 
 	const toolStatusLabel = (event: AgentEvent): string => {
 		if (event.event !== 'tool') return t('status.waiting_ai', 'Waiting for AI...');
@@ -452,6 +518,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 	}, [messages, processLabel]);
 
 	useEffect(() => {
+		if (initialAskAiContextRef.current) return;
 		getConversations()
 			.then((conversations) => {
 				const latest = conversations[0];
@@ -470,8 +537,9 @@ export const AiAssistantView = (): React.JSX.Element => {
 	}, []);
 
 	useEffect(() => {
-			const reset = (): void => {
-				conversationLoadedRef.current = false;
+		const reset = (): void => {
+			clearAskAiContext();
+			conversationLoadedRef.current = false;
 			setActiveConversationId(null);
 			setConversationTitle(null);
 			setMessages([]);
@@ -479,6 +547,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 				setSelectedModel(preferredModel);
 			};
 		const open = (event: Event): void => {
+			clearAskAiContext();
 			const id = (event as CustomEvent<string>).detail;
 				getConversation(id)
 					.then((conversation) => {
@@ -507,7 +576,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 			window.removeEventListener(OPEN_CHAT_EVENT, open);
 			window.removeEventListener(RENAME_CHAT_EVENT, rename);
 		};
-	}, [activeConversationId, preferredModel, t]);
+	}, [activeConversationId, clearAskAiContext, preferredModel, t]);
 
 	useEffect(() => {
 		if (!activeConversationId || messages.length === 0) return;
@@ -627,7 +696,17 @@ export const AiAssistantView = (): React.JSX.Element => {
 					Accept: 'text/event-stream',
 					'Content-Type': 'application/json'
 				},
-					body: JSON.stringify({ message: prompt, model: selectedModel }),
+					body: JSON.stringify({
+						message: prompt,
+						model: selectedModel,
+						context: askAiContext
+							? {
+									...askAiContext,
+									action: 'ask',
+									selection: [askAiContext.objectId]
+								}
+							: undefined
+					}),
 					signal: controller.signal
 				});
 			await readAgentEvents(response, (event) => {
@@ -803,6 +882,30 @@ export const AiAssistantView = (): React.JSX.Element => {
 						<Status>● {agentStatus}</Status>
 					</HeaderActions>
 				</Header>
+				{askAiContext ? (
+					<ContextBanner aria-label={t('context.ask_ai_context', 'Selected AI context')}>
+						<ContextCopy>
+							<strong>
+								{t('context.selected_item', 'Selected {{type}} #{{id}}', {
+									type:
+										askAiContext.objectType === 'conversation'
+											? t('context.conversation', 'conversation')
+											: t('context.message', 'message'),
+									id: askAiContext.objectId
+								})}
+							</strong>
+							<span>
+								{t(
+									'context.ask_ai_privacy',
+									'The selected item is read securely only after you send a question.'
+								)}
+							</span>
+						</ContextCopy>
+						<ClearContextButton type="button" onClick={clearAskAiContext}>
+							{t('context.clear', 'Clear')}
+						</ClearContextButton>
+					</ContextBanner>
+				) : null}
 				<Messages ref={messagesRef}>
 					{messages.length === 0 ? (
 						<Empty>
@@ -1004,7 +1107,11 @@ export const AiAssistantView = (): React.JSX.Element => {
 				<Composer onSubmit={submit}>
 					<Input
 						aria-label={t('chat.message_label', 'Message for AI Assistant')}
-						placeholder={t('chat.placeholder', 'Ask something about your email...')}
+						placeholder={
+							askAiContext
+								? t('context.ask_ai_placeholder', 'Ask something about this selected item...')
+								: t('chat.placeholder', 'Ask something about your email...')
+						}
 						value={input}
 						onChange={(event): void => setInput(event.target.value)}
 					/>

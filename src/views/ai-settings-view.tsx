@@ -13,8 +13,9 @@ type PublicConfig = {
 	effectiveModel: string;
 	effectiveProvider: string;
 	fallbackModels: string[];
+	zdrEnabled: boolean;
 	configRevision: string;
-	configSource: Record<'provider' | 'agentUrl' | 'model' | 'fallbackModels', 'environment' | 'runtime'>;
+	configSource: Record<'provider' | 'agentUrl' | 'model' | 'fallbackModels' | 'zdrEnabled', 'environment' | 'runtime'>;
 	lockedFields: string[];
 	mode: 'local-agent' | 'remote-agent';
 	modelAllowlist: string[];
@@ -225,6 +226,23 @@ const HealthCard = styled.div`
 	border-radius: 0.625rem;
 `;
 
+const HealthStatus = styled(Status)`
+	margin-left: 0.4rem;
+`;
+
+const CheckRow = styled.label`
+	display: flex;
+	gap: 0.65rem;
+	align-items: flex-start;
+	margin-bottom: 1.25rem;
+	font-weight: 500;
+
+	input {
+		margin-top: 0.2rem;
+		accent-color: ${({ theme }): string => theme.palette.primary.regular};
+	}
+`;
+
 const AuditRow = styled.li`
 	margin-bottom: 0.75rem;
 `;
@@ -264,13 +282,30 @@ const SecondaryButton = styled.button`
 	}
 `;
 
-export const AiSettingsView = (): React.JSX.Element => {
+const AdminConsoleLink = styled.a`
+	display: inline-flex;
+	margin-top: 0.5rem;
+	border-radius: 0.5rem;
+	padding: 0.65rem 0.9rem;
+	background: ${({ theme }): string => theme.palette.primary.regular};
+	color: white;
+	font-weight: 600;
+	text-decoration: none;
+`;
+
+type AiSettingsViewProps = {
+	administration?: boolean;
+};
+
+export const AiSettingsView = ({ administration = false }: AiSettingsViewProps): React.JSX.Element => {
 	const { t } = useAppTranslation();
 	const [provider, setProvider] = useState<keyof typeof providers>('openrouter');
 	const [agentUrl, setAgentUrl] = useState('');
 	const [apiKey, setApiKey] = useState('');
 	const [model, setModel] = useState('~openai/gpt-latest');
 	const [fallbackModels, setFallbackModels] = useState('');
+	const [zdrEnabled, setZdrEnabled] = useState(true);
+	const [savedZdrEnabled, setSavedZdrEnabled] = useState(true);
 	const [hasApiKey, setHasApiKey] = useState(false);
 	const [status, setStatus] = useState(() =>
 		t('settings.loading', 'Loading configuration...')
@@ -278,6 +313,7 @@ export const AiSettingsView = (): React.JSX.Element => {
 	const [error, setError] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [canManageSettings, setCanManageSettings] = useState(false);
+	const [configLoaded, setConfigLoaded] = useState(false);
 	const [modelAllowlist, setModelAllowlist] = useState<string[]>([]);
 	const [lockedFields, setLockedFields] = useState<string[]>([]);
 	const [processingDisclosure, setProcessingDisclosure] = useState('');
@@ -302,7 +338,9 @@ export const AiSettingsView = (): React.JSX.Element => {
 			});
 	}, []);
 
-	useEffect(loadSafetyActivity, [loadSafetyActivity]);
+	useEffect(() => {
+		if (!administration) loadSafetyActivity();
+	}, [administration, loadSafetyActivity]);
 
 	const loadRagSources = useCallback((): void => {
 		void apiFetch('/api/ai/rag/sources')
@@ -311,7 +349,9 @@ export const AiSettingsView = (): React.JSX.Element => {
 			.catch((reason: Error) => setRagStatus(reason.message));
 	}, []);
 
-	useEffect(loadRagSources, [loadRagSources]);
+	useEffect(() => {
+		if (!administration) loadRagSources();
+	}, [administration, loadRagSources]);
 
 	useEffect(() => {
 		if (!ragSources.some(({ status: sourceStatus }) => sourceStatus === 'syncing')) return undefined;
@@ -438,13 +478,14 @@ export const AiSettingsView = (): React.JSX.Element => {
 	};
 
 	useEffect(() => {
+		if (administration) return;
 		apiFetch('/api/ai/usage')
 			.then((response) => parseJsonResponse<{ usage: AccountUsage }>(response))
 			.then(({ usage }) => setAccountUsage(usage))
 			.catch(() => {
 				// Usage remains hidden when the authenticated account cannot load it.
 			});
-	}, []);
+	}, [administration]);
 
 	useEffect(() => {
 		apiFetch('/api/ai/config')
@@ -455,6 +496,8 @@ export const AiSettingsView = (): React.JSX.Element => {
 				setHasApiKey(config.hasApiKey);
 				setModel(config.model || '~openai/gpt-latest');
 				setFallbackModels((config.fallbackModels ?? []).join(', '));
+				setZdrEnabled(config.zdrEnabled !== false);
+				setSavedZdrEnabled(config.zdrEnabled !== false);
 				setLockedFields(config.lockedFields ?? []);
 				setCanManageSettings(config.canManageSettings);
 				setModelAllowlist(config.modelAllowlist ?? []);
@@ -490,10 +533,12 @@ export const AiSettingsView = (): React.JSX.Element => {
 						? t('settings.remote_configured', 'Remote agent configured')
 						: t('settings.local_mode', 'Local agent mode')
 				);
+				setConfigLoaded(true);
 			})
 			.catch((reason: Error) => {
 				setError(true);
 				setStatus(reason.message);
+				setConfigLoaded(true);
 			});
 	}, [t]);
 
@@ -513,6 +558,16 @@ export const AiSettingsView = (): React.JSX.Element => {
 
 	const save = async (event: FormEvent): Promise<void> => {
 		event.preventDefault();
+		let zdrRiskAccepted = false;
+		if (provider === 'openrouter' && savedZdrEnabled && !zdrEnabled) {
+			zdrRiskAccepted = window.confirm(
+				t(
+					'settings.zdr_warning',
+					'Disabling ZDR can allow the AI provider to retain prompts, responses, and Carbonio data sent for your requests according to its own policy. Continue?'
+				)
+			);
+			if (!zdrRiskAccepted) return;
+		}
 		setSaving(true);
 		setError(false);
 		setStatus(t('settings.saving', 'Saving...'));
@@ -524,6 +579,8 @@ export const AiSettingsView = (): React.JSX.Element => {
 					provider,
 					agentUrl,
 					model,
+					zdrEnabled,
+					zdrRiskAccepted,
 					fallbackModels: fallbackModels.split(',').map((item) => item.trim()).filter(Boolean),
 					...(apiKey.trim() ? { apiKey } : {})
 				})
@@ -533,6 +590,8 @@ export const AiSettingsView = (): React.JSX.Element => {
 			setAgentUrl(data.agentUrl);
 			setModel(data.effectiveModel);
 			setFallbackModels((data.fallbackModels ?? []).join(', '));
+			setZdrEnabled(data.zdrEnabled !== false);
+			setSavedZdrEnabled(data.zdrEnabled !== false);
 			setModelAllowlist(data.modelAllowlist ?? []);
 			setLockedFields(data.lockedFields ?? []);
 			setHasApiKey(data.hasApiKey);
@@ -554,10 +613,24 @@ export const AiSettingsView = (): React.JSX.Element => {
 		}
 	};
 
+	if (administration && configLoaded && !canManageSettings) {
+		return (
+			<Page>
+				<h1>{t('settings.admin_page_title', 'AI Administration')}</h1>
+				<p role="alert">
+					{t('settings.admin_access_denied', 'Administrator access is required for this page.')}
+				</p>
+			</Page>
+		);
+	}
+
 	return (
 		<Page>
-			<h1>{t('app.name', 'AI Assistant')}</h1>
-			<p>{t('settings.description', 'Configure the Agent API used by Carbonio AI Assistant.')}</p>
+			<h1>{administration ? t('settings.admin_page_title', 'AI Administration') : t('app.name', 'AI Assistant')}</h1>
+			<p>{administration
+				? t('settings.admin_page_description', 'Manage gateway privacy policy, health, safety, and operations.')
+				: t('settings.description', 'Configure your AI provider, private AI sources, and review your activity.')}</p>
+			{!administration ? (
 			<Card onSubmit={(event): void => void save(event)}>
 				{!canManageSettings ? (
 					<p>
@@ -682,6 +755,29 @@ export const AiSettingsView = (): React.JSX.Element => {
 					/>
 					<Hint>{t('settings.fallback_models_hint', 'Tried in order only for availability, timeout, rate-limit, and server failures. Authentication and invalid requests never fall back.')}</Hint>
 				</Field>
+				<CheckRow>
+					<input
+						type="checkbox"
+						checked={zdrEnabled}
+						disabled={
+							!canManageSettings ||
+							provider !== 'openrouter' ||
+							lockedFields.includes('zdrEnabled')
+						}
+						onChange={(event): void => setZdrEnabled(event.target.checked)}
+					/>
+					<span>
+						{t('settings.zdr_label', 'Enforce Zero Data Retention (ZDR)')}
+						<Hint>
+							{lockedFields.includes('zdrEnabled')
+								? t('settings.managed_by_environment', 'Managed by environment')
+								: t(
+										'settings.zdr_hint',
+										'OpenRouter only. Keep enabled for stronger privacy. Disable only when the selected model has no ZDR-compatible endpoint.'
+									)}
+						</Hint>
+					</span>
+				</CheckRow>
 				<Actions>
 					<Save type="submit" disabled={saving || !canManageSettings}>
 						{saving
@@ -695,6 +791,17 @@ export const AiSettingsView = (): React.JSX.Element => {
 				</Actions>
 				{processingDisclosure ? <Hint>{processingDisclosure}</Hint> : null}
 			</Card>
+			) : null}
+			{!administration && canManageSettings ? (
+				<AdminPanel>
+					<h2>{t('settings.admin_page_title', 'AI Administration')}</h2>
+					<p>{t('settings.admin_console_hint', 'Gateway privacy policy, health, and global safety controls are managed in the Carbonio Admin Console. Provider credentials remain in Webmail settings.')}</p>
+					<AdminConsoleLink href={`${window.location.protocol}//${window.location.hostname}:6071/carbonioAdmin/ai-assistant`}>
+						{t('settings.admin_open_console', 'Open AI Administration')}
+					</AdminConsoleLink>
+				</AdminPanel>
+			) : null}
+			{!administration ? (
 			<AdminPanel>
 				<h2>{t('settings.rag_title', 'Manage AI Sources')}</h2>
 				<p>
@@ -762,7 +869,8 @@ export const AiSettingsView = (): React.JSX.Element => {
 					))}
 				</SourceList>
 			</AdminPanel>
-			{accountUsage ? (
+			) : null}
+			{!administration && accountUsage ? (
 				<AdminPanel>
 					<h2>{t('settings.usage_title', 'Your AI usage')}</h2>
 					<p>
@@ -780,6 +888,7 @@ export const AiSettingsView = (): React.JSX.Element => {
 					<Hint>{accountUsage.date}</Hint>
 				</AdminPanel>
 			) : null}
+			{!administration ? (
 			<AdminPanel>
 				<h2>{t('settings.safety_center', 'AI Safety Center')}</h2>
 				<p>{t('settings.safety_center_hint', 'Review your recent AI tool activity. Recoverable operations can be undone for a limited time and always require confirmation.')}</p>
@@ -798,7 +907,8 @@ export const AiSettingsView = (): React.JSX.Element => {
 					)) : <li>{t('settings.no_tool_activity', 'No AI tool activity recorded yet.')}</li>}
 				</AuditList>
 			</AdminPanel>
-			{canManageSettings ? (
+			) : null}
+			{administration && canManageSettings ? (
 				<AdminPanel>
 					<h2>{t('settings.admin_status', 'Administration status')}</h2>
 					{operationalHealth ? (
@@ -808,7 +918,7 @@ export const AiSettingsView = (): React.JSX.Element => {
 								{Object.entries(operationalHealth.components).map(([name, health]) => (
 									<HealthCard key={name}>
 										<strong>{name}</strong>
-										<Status error={health.status === 'error'}>{health.status}</Status>
+										<HealthStatus error={health.status === 'error'}>{health.status}</HealthStatus>
 										<Hint>{health.detail}</Hint>
 									</HealthCard>
 								))}
@@ -853,3 +963,7 @@ export const AiSettingsView = (): React.JSX.Element => {
 		</Page>
 	);
 };
+
+export const AiAdministrationView = (): React.JSX.Element => (
+	<AiSettingsView administration />
+);

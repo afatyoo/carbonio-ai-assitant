@@ -52,7 +52,7 @@ registerTool(
 const read = await executeTool({
 	name: 'test_read_tool',
 	input: { value: 'ok' },
-	context: { ownerId: 'owner-a', permissions: ['test.read'] }
+	context: { ownerId: 'owner-a', accountName: 'owner-a@example.test', permissions: ['test.read'] }
 });
 if (read.result?.[0]?.value !== 'ok') throw new Error('Read tool result mismatch');
 
@@ -144,6 +144,9 @@ if (listAuditEntries('owner-b', 20).some(({ status }) => status === 'completed')
 }
 if (!listAllAuditEntries(20).some(({ ownerId, tool }) => ownerId === 'owner-a' && tool === 'test_write_tool')) {
 	throw new Error('Administrator audit listing is incomplete');
+}
+if (!listAllAuditEntries(20).some(({ ownerName }) => ownerName === 'owner-a@example.test')) {
+	throw new Error('Administrator audit owner email is missing');
 }
 
 await import('../src/mail-tools.js');

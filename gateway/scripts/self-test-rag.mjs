@@ -18,6 +18,9 @@ assert.match(postgresSource, /current_setting\('carbonio_ai\.owner_id'/);
 assert.doesNotMatch(postgresSource.match(/CREATE TABLE IF NOT EXISTS rag_jobs[\s\S]*?;/)?.[0] ?? '', /cookie/i);
 assert.match(serverSource, /assertAvailableRagModule/);
 assert.match(serverSource, /storesSessionCookies: false/);
+assert.match(serverSource, /organizationKnowledgeOwner/);
+assert.match(serverSource, /organization_knowledge_uploaded/);
+assert.match(postgresSource, /deleteMissing = true/);
 assert.match(backupSource, /AI_BACKUP_DATABASE_URL/);
 assert.match(restoreSource, /AI_BACKUP_DATABASE_URL/);
 

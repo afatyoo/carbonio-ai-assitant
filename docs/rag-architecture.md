@@ -22,6 +22,11 @@ account ID.
 8. The prompt marks evidence as untrusted data. Only citations corresponding to retrieved
    chunks survive output validation.
 
+Administrator-managed organization knowledge uses a dedicated non-mailbox owner. It shares the
+encrypted job, chunking, embedding, thresholding, and citation pipeline, but it is not controlled
+by user source toggles. Users receive only relevant read-only chunks. Administrators manage the
+document lifecycle from the port 6071 addon page.
+
 The worker uses the dedicated `carbonio_ai_worker` database login, which is granted only DML
 access to RAG tables. A separate root-only `carbonio_ai_backup` login has `BYPASSRLS` solely so
 verified full backups and restores remain possible after forced RLS. Neither role is used by

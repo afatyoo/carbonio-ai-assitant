@@ -62,8 +62,9 @@ jq -e --arg commit "$commit" \
 	'.name == "carbonio-ai-assistant-ui" and .commit == $commit' \
 	dist/component.json >/dev/null
 
-mkdir -p "$package_dir/ui" "$package_dir/gateway"
+mkdir -p "$package_dir/ui" "$package_dir/gateway" "$package_dir/admin-ui"
 cp -a dist/. "$package_dir/ui/"
+cp -a admin-ui/. "$package_dir/admin-ui/"
 cp -a gateway/package.json gateway/package-lock.json gateway/node_modules \
 	gateway/src gateway/scripts gateway/deploy gateway/knowledge \
 	gateway/README.md gateway/.env.example "$package_dir/gateway/"

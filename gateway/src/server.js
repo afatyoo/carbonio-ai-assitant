@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 
 import { runAgent, testProviderConnection } from './agent.js';
 import { normalizeContextReference } from './context-reference.js';
@@ -24,16 +24,20 @@ import {
 	saveConversation
 } from './history.js';
 import { getKnowledgeMetadata, retrieveKnowledge } from './knowledge.js';
-import { getCurrentAccount } from './mailbox.js';
+import { getAdminAccountNameById, getCurrentAccount, getCurrentAdminSession } from './mailbox.js';
 import { logEvent } from './logger.js';
 import { formatPrometheusMetrics, getMetricsSnapshot, incrementMetric, observeMetric } from './metrics.js';
 import { buildOperationalHealth } from './operational-health.js';
 import { listAvailableModels } from './models.js';
+import { extractSandboxedDocument, getDocumentExtractionCapability } from './document-extractor.js';
 import { getProviderCircuitSnapshot } from './provider-circuit-breaker.js';
 import {
 	closeRagDatabase,
+	deleteRagDocument,
 	enqueueRagDocuments,
 	getRagStatus,
+	getRagSource,
+	listRagDocuments,
 	listRagSources,
 	retrievePrivateRag,
 	setRagSource
@@ -41,6 +45,7 @@ import {
 import { collectRagDocuments, revalidateRagResults } from './rag-sources.js';
 import { evaluateRagCases } from './rag-evaluation.js';
 import { assertAvailableRagModule, assertRagModule } from './rag-modules.js';
+import { normalizeRagText } from './rag-text.js';
 import { runWithRequestContext } from './request-context.js';
 import {
 	claimUndoAction,
@@ -48,6 +53,7 @@ import {
 	getUndoAction,
 	listAllAuditEntries,
 	listAuditEntries,
+	rememberAuditOwner,
 	releaseUndoAction
 } from './tool-audit.js';
 import { listToolDefinitions } from './tool-registry.js';
@@ -67,6 +73,22 @@ import {
 } from './security.js';
 
 const port = Number(process.env.PORT ?? 8787);
+const organizationKnowledgeOwner = 'organization:global';
+const safeOrganizationTextTypes = new Set([
+	'text/plain',
+	'text/markdown',
+	'text/csv',
+	'application/json',
+	'application/xml',
+	'text/xml'
+]);
+const organizationTypeByExtension = Object.freeze({
+	'.txt': 'text/plain',
+	'.md': 'text/markdown',
+	'.csv': 'text/csv',
+	'.json': 'application/json',
+	'.xml': 'application/xml'
+});
 
 const sendJson = (response, status, body) => {
 	response.setHeader('cache-control', 'no-store');
@@ -92,17 +114,62 @@ const metricsTokenMatches = (request) => {
 	return timingSafeEqual(Buffer.from(expected), Buffer.from(supplied));
 };
 
-const readJson = async (request) => {
+const readJson = async (request, maxBytes = 64_000) => {
 	const chunks = [];
 	for await (const chunk of request) chunks.push(chunk);
-	if (chunks.reduce((size, chunk) => size + chunk.length, 0) > 64_000) {
+	if (chunks.reduce((size, chunk) => size + chunk.length, 0) > maxBytes) {
 		throw new Error('Request body is too large');
 	}
 	return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 };
 
+const organizationDocumentFromUpload = async ({ filename, contentType, dataBase64 }) => {
+	const safeFilename = String(filename ?? '').replace(/[\\/]/g, '_').trim().slice(0, 200);
+	if (!safeFilename || typeof dataBase64 !== 'string') throw new Error('A document file is required');
+	const buffer = Buffer.from(dataBase64, 'base64');
+	if (!buffer.length || buffer.length > 10_000_000) throw new Error('Document exceeds the 10 MB limit');
+	if (buffer.includes(Buffer.from('EICAR-STANDARD-ANTIVIRUS-TEST-FILE'))) {
+		throw new Error('Document was rejected by malware safety policy');
+	}
+	const declaredType = String(contentType ?? '').split(';')[0].toLowerCase();
+	const extension = safeFilename.includes('.') ? safeFilename.slice(safeFilename.lastIndexOf('.')).toLowerCase() : '';
+	const normalizedType =
+		declaredType && declaredType !== 'application/octet-stream'
+			? declaredType
+			: organizationTypeByExtension[extension] ?? 'application/octet-stream';
+	let text = '';
+	let extraction = 'safe_text';
+	if (safeOrganizationTextTypes.has(normalizedType)) {
+		if (buffer.includes(0)) throw new Error('Binary content does not match the declared text type');
+		text = buffer.toString('utf8');
+	} else {
+		const result = await extractSandboxedDocument({ buffer, filename: safeFilename, contentType: normalizedType });
+		if (!result.text) {
+			const error = new Error(`Document extraction unavailable: ${result.extraction}`);
+			error.statusCode = 409;
+			throw error;
+		}
+		text = result.text;
+		extraction = result.extraction;
+	}
+	const content = normalizeRagText(text);
+	if (!content) throw new Error('Document has no indexable text');
+	return {
+		id: randomUUID(),
+		revision: createHash('sha256').update(buffer).digest('hex'),
+		title: safeFilename,
+		deepLink: '',
+		metadata: { filename: safeFilename, contentType: normalizedType, size: buffer.length, extraction },
+		content
+	};
+};
+
 const authenticate = async (request) => {
+	if (request.headers['x-carbonio-ai-admin-console'] === '1') {
+		return getCurrentAdminSession(request.headers.cookie ?? '');
+	}
 	const account = await getCurrentAccount(request.headers.cookie ?? '');
+	rememberAuditOwner(account.id, account.name);
 	requireAiAccess(account);
 	return account;
 };
@@ -359,11 +426,93 @@ const handleRequest = async (request, response) => {
 		try {
 			const account = await authenticate(request);
 			requireAdminAccount(account);
+			let entries = listAllAuditEntries(requestUrl.searchParams.get('limit') ?? 100);
+			const unresolvedOwnerIds = [
+				...new Set(entries.filter(({ ownerName }) => !ownerName).map(({ ownerId }) => ownerId))
+			].slice(0, 25);
+			for (const ownerId of unresolvedOwnerIds) {
+				try {
+					const ownerName = await getAdminAccountNameById(request.headers.cookie ?? '', ownerId);
+					if (ownerName) rememberAuditOwner(ownerId, ownerName);
+				} catch {
+					// Preserve the immutable owner ID when a legacy account no longer resolves.
+				}
+			}
+			if (unresolvedOwnerIds.length) {
+				entries = listAllAuditEntries(requestUrl.searchParams.get('limit') ?? 100);
+			}
 			sendJson(response, 200, {
-				entries: listAllAuditEntries(requestUrl.searchParams.get('limit') ?? 100)
+				entries
 			});
 		} catch (error) {
 			sendJson(response, errorStatus(error, 403), { error: error.message });
+		}
+		return;
+	}
+
+	if (requestUrl.pathname === '/api/ai/admin/knowledge' && request.method === 'GET') {
+		try {
+			const account = await authenticate(request);
+			requireAdminAccount(account);
+			sendJson(response, 200, {
+				documents: await listRagDocuments(organizationKnowledgeOwner, 'organization', 100),
+				source: await getRagSource(organizationKnowledgeOwner, 'organization'),
+				extraction: getDocumentExtractionCapability()
+			});
+		} catch (error) {
+			sendJson(response, errorStatus(error, 500), { error: error.message });
+		}
+		return;
+	}
+
+	if (requestUrl.pathname === '/api/ai/admin/knowledge' && request.method === 'POST') {
+		try {
+			const account = await authenticate(request);
+			requireAdminAccount(account);
+			const payload = await readJson(request, 14_000_000);
+			const document = await organizationDocumentFromUpload(payload);
+			await setRagSource(organizationKnowledgeOwner, 'organization', true);
+			const result = await enqueueRagDocuments(
+				organizationKnowledgeOwner,
+				'organization',
+				[document],
+				{ deleteMissing: false }
+			);
+			incrementMetric('organization_knowledge_uploaded_total');
+			logEvent('info', 'organization_knowledge_uploaded', {
+				administrator: account.name,
+				source_id: document.id,
+				filename: document.title
+			});
+			sendJson(response, 202, { document: { id: document.id, title: document.title }, ...result });
+		} catch (error) {
+			sendJson(response, errorStatus(error, 500), { error: error.message });
+		}
+		return;
+	}
+
+	const organizationKnowledgeDelete = requestUrl.pathname.match(/^\/api\/ai\/admin\/knowledge\/([A-Za-z0-9-]{8,100})$/);
+	if (organizationKnowledgeDelete && request.method === 'DELETE') {
+		try {
+			const account = await authenticate(request);
+			requireAdminAccount(account);
+			const deleted = await deleteRagDocument(
+				organizationKnowledgeOwner,
+				'organization',
+				organizationKnowledgeDelete[1]
+			);
+			if (!deleted) {
+				sendJson(response, 404, { error: 'Organization document not found' });
+				return;
+			}
+			incrementMetric('organization_knowledge_deleted_total');
+			logEvent('info', 'organization_knowledge_deleted', {
+				administrator: account.name,
+				source_id: organizationKnowledgeDelete[1]
+			});
+			sendJson(response, 200, { deleted: true });
+		} catch (error) {
+			sendJson(response, errorStatus(error, 500), { error: error.message });
 		}
 		return;
 	}

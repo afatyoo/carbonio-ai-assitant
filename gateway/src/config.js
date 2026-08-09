@@ -106,7 +106,15 @@ const runtimeConfig = {
 	fallbackModels: parseAllowlist(
 		process.env.AI_MODEL_FALLBACKS ??
 			(Array.isArray(savedConfig.fallbackModels) ? savedConfig.fallbackModels.join(',') : '')
-	).slice(0, 5)
+	).slice(0, 5),
+	zdrEnabled:
+		process.env.AI_OPENROUTER_ZDR_LOCKED === 'true'
+			? process.env.AI_OPENROUTER_ZDR !== 'false'
+			: typeof savedConfig.zdrEnabled === 'boolean'
+			? savedConfig.zdrEnabled
+			: process.env.AI_OPENROUTER_ZDR !== 'false',
+	zdrRiskAcceptedAt:
+		typeof savedConfig.zdrRiskAcceptedAt === 'string' ? savedConfig.zdrRiskAcceptedAt : null
 };
 
 const providerAllowlist = new Set(
@@ -161,7 +169,8 @@ const getConfigSource = () => ({
 	provider: process.env.AI_AGENT_PROVIDER ? 'environment' : 'runtime',
 	agentUrl: process.env.AI_AGENT_URL ? 'environment' : 'runtime',
 	model: process.env.AI_AGENT_MODEL ? 'environment' : 'runtime',
-	fallbackModels: process.env.AI_MODEL_FALLBACKS ? 'environment' : 'runtime'
+	fallbackModels: process.env.AI_MODEL_FALLBACKS ? 'environment' : 'runtime',
+	zdrEnabled: process.env.AI_OPENROUTER_ZDR_LOCKED === 'true' ? 'environment' : 'runtime'
 });
 
 const getLockedFields = () =>
@@ -177,6 +186,8 @@ const getConfigRevision = () =>
 				agentUrl: runtimeConfig.agentUrl,
 				model: runtimeConfig.model,
 				fallbackModels: runtimeConfig.fallbackModels,
+				zdrEnabled: runtimeConfig.zdrEnabled,
+				zdrRiskAcceptedAt: runtimeConfig.zdrRiskAcceptedAt,
 				modelAllowlist: process.env.AI_MODEL_ALLOWLIST ?? '',
 				modelPolicy: process.env.AI_MODEL_POLICY_JSON ?? '',
 				lockedFields: getLockedFields()
@@ -193,21 +204,27 @@ export const getPublicAgentConfig = (account) => ({
 	model: runtimeConfig.model,
 	effectiveModel: runtimeConfig.model,
 	fallbackModels: [...runtimeConfig.fallbackModels],
+	zdrEnabled: runtimeConfig.zdrEnabled,
+	zdrRiskAcceptedAt: runtimeConfig.zdrRiskAcceptedAt,
 	configRevision: getConfigRevision(),
 	configSource: getConfigSource(),
 	lockedFields: getLockedFields(),
 	mode: runtimeConfig.provider === 'custom' && !runtimeConfig.agentUrl ? 'local-agent' : 'remote-agent',
 	modelAllowlist: getModelAllowlist(account),
 	processingDisclosure:
-		'Prompts and only the mailbox data needed for your request may be sent to the configured AI provider.'
+		runtimeConfig.provider === 'openrouter' && !runtimeConfig.zdrEnabled
+			? 'ZDR is disabled. The provider may retain prompts, responses, and the minimized Carbonio data needed for a request according to its policy.'
+			: 'Prompts and only the mailbox data needed for your request may be sent to the configured AI provider.'
 });
 
 export const updateAgentConfig = ({
 	provider,
-	agentUrl = '',
+	agentUrl = runtimeConfig.agentUrl,
 	apiKey,
 	model,
 	fallbackModels,
+	zdrEnabled,
+	zdrRiskAccepted = false,
 	clearApiKey = false
 }) => {
 	const nextProvider = provider ?? runtimeConfig.provider;
@@ -253,12 +270,26 @@ export const updateAgentConfig = ({
 	) {
 		throw new Error('fallbackModels is managed by environment');
 	}
+	const nextZdrEnabled =
+		typeof zdrEnabled === 'boolean' ? zdrEnabled : runtimeConfig.zdrEnabled;
+	if (process.env.AI_OPENROUTER_ZDR_LOCKED === 'true' && nextZdrEnabled !== runtimeConfig.zdrEnabled) {
+		throw new Error('zdrEnabled is managed by environment');
+	}
+	if (runtimeConfig.zdrEnabled && !nextZdrEnabled && zdrRiskAccepted !== true) {
+		throw new Error('Disabling ZDR requires explicit provider data-retention risk acceptance');
+	}
 
 	if (nextProvider !== runtimeConfig.provider && !apiKey) runtimeConfig.apiKey = '';
 	runtimeConfig.provider = nextProvider;
 	runtimeConfig.agentUrl = normalizedUrl;
 	runtimeConfig.model = nextModel;
 	runtimeConfig.fallbackModels = nextFallbackModels;
+	if (runtimeConfig.zdrEnabled && !nextZdrEnabled) {
+		runtimeConfig.zdrRiskAcceptedAt = new Date().toISOString();
+	} else if (nextZdrEnabled) {
+		runtimeConfig.zdrRiskAcceptedAt = null;
+	}
+	runtimeConfig.zdrEnabled = nextZdrEnabled;
 	if (clearApiKey) runtimeConfig.apiKey = '';
 	if (typeof apiKey === 'string' && apiKey.trim()) runtimeConfig.apiKey = apiKey.trim();
 	persistConfig();

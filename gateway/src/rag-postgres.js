@@ -228,7 +228,7 @@ export const setRagSource = (ownerId, moduleValue, enabled) => {
 	});
 };
 
-export const enqueueRagDocuments = (ownerId, moduleValue, documents) => {
+export const enqueueRagDocuments = (ownerId, moduleValue, documents, { deleteMissing = true } = {}) => {
 	const module = assertRagModule(moduleValue);
 	if (!Array.isArray(documents) || documents.length > 2_000) {
 		throw new Error('AI source synchronization exceeds the 2,000 document safety limit');
@@ -263,7 +263,10 @@ export const enqueueRagDocuments = (ownerId, moduleValue, documents) => {
 			[ownerId, module]
 		);
 		const existing = new Map(existingResult.rows.map((row) => [String(row.source_id), String(row.revision)]));
-		const sourceIds = documents.map(({ id }) => String(id));
+		const uploadedSourceIds = documents.map(({ id }) => String(id));
+		const sourceIds = deleteMissing
+			? uploadedSourceIds
+			: [...new Set([...existing.keys(), ...uploadedSourceIds])];
 		const changedDocuments = documents.filter(
 			(document) => existing.get(String(document.id)) !== String(document.revision ?? '')
 		);
@@ -296,6 +299,43 @@ export const enqueueRagDocuments = (ownerId, moduleValue, documents) => {
 			]
 		);
 		return { module, queued: changedDocuments.length, scanned: documents.length, unchanged, deleted };
+	});
+};
+
+export const listRagDocuments = (ownerId, moduleValue, limit = 100) => {
+	const module = assertRagModule(moduleValue);
+	return withOwner(ownerId, async (client) => {
+		const result = await client.query(
+			`SELECT source_id,title,revision,metadata,updated_at
+			 FROM rag_documents WHERE owner_id=$1 AND module=$2
+			 ORDER BY updated_at DESC,source_id DESC LIMIT $3`,
+			[ownerId, module, Math.min(Math.max(Number(limit) || 100, 1), 500)]
+		);
+		return result.rows.map((row) => ({
+			id: row.source_id,
+			title: row.title,
+			revision: row.revision,
+			metadata: row.metadata ?? {},
+			updatedAt: Number(row.updated_at)
+		}));
+	});
+};
+
+export const deleteRagDocument = (ownerId, moduleValue, sourceId) => {
+	const module = assertRagModule(moduleValue);
+	return withOwner(ownerId, async (client) => {
+		const result = await client.query(
+			'DELETE FROM rag_documents WHERE owner_id=$1 AND module=$2 AND source_id=$3',
+			[ownerId, module, String(sourceId)]
+		);
+		await client.query(
+			`UPDATE rag_sources SET updated_at=$3,
+			 indexed_documents=(SELECT COUNT(*) FROM rag_documents WHERE owner_id=$1 AND module=$2),
+			 indexed_chunks=(SELECT COUNT(*) FROM rag_chunks WHERE owner_id=$1 AND module=$2)
+			 WHERE owner_id=$1 AND module=$2`,
+			[ownerId, module, Date.now()]
+		);
+		return result.rowCount === 1;
 	});
 };
 

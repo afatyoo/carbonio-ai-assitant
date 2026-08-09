@@ -2,9 +2,9 @@
 
 Standalone AI assistant for Carbonio Webmail, delivered as an independent Carbonio
 microfrontend and a private server-side gateway. It adds a ChatGPT-style workspace without
-replacing or modifying the existing Mail application.
+replacing the existing Mail package.
 
-**Current release candidate:** `v2.2.1`
+**Current release candidate:** `v2.3.0`
 
 **Deployment class:** full user-scoped Carbonio release with documented known limitations
 
@@ -13,9 +13,9 @@ replacing or modifying the existing Mail application.
 ![Carbonio AI Assistant interface](docs/assets/carbonio-ai-assistant-overview.png)
 
 For exact release evidence, the closed-bug ledger, and authenticated UAT results, read the
-[v2.2.1 release report](docs/releases/v2.2.1.md).
+[v2.3.0 release report](docs/releases/v2.3.0.md).
 
-## What v2.2.1 includes
+## What v2.3.0 includes
 
 ### Production hardening
 
@@ -62,6 +62,16 @@ For exact release evidence, the closed-bug ledger, and authenticated UAT results
   free-form context questions share the same server-side history as full chat.
 - The compact panel never executes write confirmations. Review write actions in full chat.
 - Every panel label and privacy notice is available in all nine official interface languages.
+
+### Ask AI from Mail
+
+- Exact message and conversation menus expose a localized `Ask AI` action.
+- Selecting it opens a fresh full assistant conversation bound to that exact Carbonio object ID.
+- The handoff URL contains identifiers only. It does not contain the subject, sender, recipients,
+  preview, body, or attachment content.
+- The assistant shows the selected context and contextual suggestions before any request runs.
+- Carbonio data is retrieved server-side only after the user sends a question.
+- A clear-context control removes the URL reference before continuing without the selected item.
 
 ### Languages
 
@@ -123,7 +133,7 @@ raw external provider errors are not translated automatically.
 
 ## RAG scope
 
-v2.2.1 provides opt-in private retrieval for the authenticated user's Mail, safe attachment text
+v2.3.0 provides opt-in private retrieval for the authenticated user's Mail, safe attachment text
 and metadata, Calendar, Tasks, and personal Contacts. The existing curated official Carbonio
 API documentation corpus remains available for product guidance.
 
@@ -193,7 +203,7 @@ part of the current live UAT evidence. See [browser support](docs/browser-suppor
 
 ## Known limitations
 
-Deploying or enabling v2.2.1 means the operator and each participating user accept the
+Deploying or enabling v2.3.0 means the operator and each participating user accept the
 remaining environment-dependent gates below. This project is an independent community addon
 and is not developed, supported, certified, or endorsed by Zextras. Acceptance does not create
 support obligations for Zextras and does not turn missing evidence into a pass:
@@ -217,10 +227,14 @@ support obligations for Zextras and does not turn missing evidence into a pass:
 10. The AI planner is probabilistic. It can propose only allowlisted tools, and every write or
     destructive proposal still requires exact user confirmation. Users remain responsible for
     reviewing recipients, targets, permissions, and destructive effects.
+11. Carbonio Mail does not currently publish a message or conversation menu extension API. The
+    addon uses a fail-closed compatibility bridge against bounded `data-testid` contracts. A Mail
+    UI upgrade can hide `Ask AI` until that exact target release is compatibility-tested. Core Mail
+    actions continue working if the bridge is unavailable.
 
 Do not claim Files, Chats, binary attachment understanding, high availability, or performance
 targets that were not validated. The complete risk record is in the
-[v2.2.1 release report](docs/releases/v2.2.1.md#risk-acceptance).
+[v2.3.0 release report](docs/releases/v2.3.0.md#risk-acceptance).
 
 ## Security and privacy
 
@@ -242,8 +256,10 @@ targets that were not validated. The complete risk record is in the
   single-use confirmation token. Preview generation alone never executes a mutation.
 - Explicit English or Indonesian instructions not to access mailbox/calendar data bypass
   Carbonio tools, documentation RAG, and synthetic tool context.
-- Production OpenRouter calls enforce `data_collection: "deny"` and `zdr: true`. Keep
-  provider-side logging, prompt publication, training, and data discounts disabled.
+- OpenRouter calls always enforce `data_collection: "deny"`. ZDR defaults to enabled and can
+  be disabled only by an authenticated Carbonio AI administrator after explicit provider
+  data-retention risk acceptance. Keep provider-side logging, prompt publication, training,
+  and data discounts disabled.
 - Free models are suitable for controlled functional testing, not an SLA-backed or
   confidential-data rollout. Select an approved paid or self-hosted endpoint for production
   workloads after a privacy review.
@@ -274,14 +290,61 @@ Read the [provider data policy](docs/provider-data-policy.md) and
    through `AI_WRITE_TOOL_ACCOUNTS`.
 2. Add administrator identities to `AI_ADMIN_ACCOUNTS`. An empty list grants no one admin
    access.
-3. Configure the provider preset, endpoint policy, model allowlist, scoped model/tool
-   policies, daily quotas, and privacy disclosure in Settings or the root-owned environment.
-4. Install or rotate the provider API key with the encrypted credential helper.
-5. Monitor provider status, usage, metrics, audit records, and request-correlated journald
+3. Users configure the provider, endpoint, API key, model, and fallback models from Webmail
+   Settings. Open `https://<carbonio-host>:6071/carbonioAdmin/ai-assistant` for the global ZDR
+   policy, gateway health, safety controls, metrics, and audit visibility. Webmail Settings shows
+   the admin link only to accounts listed in `AI_ADMIN_ACCOUNTS`.
+4. Keep ZDR enabled for confidential workloads. If a testing model has no compatible endpoint,
+   disabling it requires an explicit warning acknowledgement and records the acceptance time
+   server-side. Provider retention and logging policies then become an operator responsibility.
+5. Install or rotate the provider API key with the encrypted credential helper.
+6. Monitor provider status, usage, metrics, audit records, and request-correlated journald
    output. Use the write kill switch before maintenance or incident investigation.
 
 Example policy values are documented in [admin-policy.md](docs/admin-policy.md). Do not put
 an API key directly in `gateway.env`.
+
+### Carbonio Admin Console page
+
+The addon installs a dedicated administrator page at:
+
+```text
+https://<carbonio-host>:6071/carbonioAdmin/ai-assistant
+```
+
+The route is served by a versioned addon directory and a managed Carbonio Nginx include. It
+does not patch the official Carbonio Admin Console `shell.mjs` bundle. Access requires a valid
+`ZM_ADMIN_AUTH_TOKEN`. The gateway validates that token with Carbonio Admin SOAP before returning
+configuration, metrics, safety state, or audit data. An expired session returns HTTP 401 and sends
+the browser back to the Carbonio administrator login page.
+
+The page intentionally separates global operations from Webmail configuration:
+
+- **Provider privacy policy:** controls the global OpenRouter ZDR requirement. Disabling ZDR
+  requires explicit data-retention risk acceptance. Provider, endpoint, API key, model, and
+  fallback selection remain in Webmail Settings.
+- **Gateway and service health:** shows gateway, history, RAG, and write-control health. Provider
+  status is user-specific and therefore is not represented as a global administrator card.
+- **AI Safety Center:** provides the emergency global stop for write and destructive tools.
+  Read-only tools remain available when the stop is active.
+- **Runtime policy:** displays effective limits and operational policy without returning secrets.
+- **Organization knowledge:** accepts administrator-managed company policies, SOPs, and internal
+  guidance. Safe text is indexed directly. PDF and Office documents are accepted only when the
+  configured malware scanner, no-network sandbox, and extractor are all active.
+- **Recent tool activity:** lists timestamp, Carbonio user email, tool, risk, status, and request
+  correlation ID. Hovering a user email exposes the immutable Carbonio account UUID for technical
+  investigation. Legacy UUID-only rows are resolved through authenticated Admin SOAP and then
+  retained in the protected audit database.
+
+One user request can produce several rows with the same Request ID because an agent may call
+multiple tools in a single turn. Use that ID to correlate all related rows with structured gateway
+logs. The audit view never returns prompt text, email bodies, API keys, or raw tool input values.
+
+Organization knowledge is stored under a dedicated non-mailbox RAG owner. It is encrypted with
+the same AES-256-GCM controls as private RAG, but users cannot enable, upload, replace, or delete
+it. Retrieval combines relevant organization chunks with the authenticated user's private sources.
+The assistant emits citations identifying the organization document. Removing a document deletes
+its encrypted normalized text and chunks from active retrieval.
 
 ## Production prerequisites
 
@@ -299,8 +362,10 @@ The Carbonio Proxy/Web UI host must provide:
 
 The installer downloads and verifies the pinned official Node 22 runtime, installs the UI
 and gateway into versioned directories, registers the Iris component, installs the Nginx
-route, and manages `carbonio-ai-gateway.service` plus `carbonio-ai-rag-worker.service`
-through systemd.
+routes for Webmail and the port 6071 Admin Console, and manages
+`carbonio-ai-gateway.service` plus `carbonio-ai-rag-worker.service` through systemd. The
+installed Admin Console is monolithic and has no public addon registry, so the addon uses a
+separate versioned page and a bounded managed Nginx include instead of modifying `shell.mjs`.
 
 ## Production deployment
 
@@ -308,19 +373,19 @@ Deploy from the public release artifact, not an arbitrary branch checkout. Run t
 inside a dedicated staging directory on the Carbonio Proxy/Web UI host:
 
 ```bash
-mkdir carbonio-ai-v2.2.1
-cd carbonio-ai-v2.2.1
-curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.2.1/carbonio-ai-assistant-v2.2.1.tar.gz
-curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.2.1/carbonio-ai-assistant-v2.2.1.tar.gz.sha256
-sha256sum --check carbonio-ai-assistant-v2.2.1.tar.gz.sha256
-tar -xzf carbonio-ai-assistant-v2.2.1.tar.gz
-cd carbonio-ai-assistant-v2.2.1
+mkdir carbonio-ai-v2.3.0
+cd carbonio-ai-v2.3.0
+curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.3.0/carbonio-ai-assistant-v2.3.0.tar.gz
+curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.3.0/carbonio-ai-assistant-v2.3.0.tar.gz.sha256
+sha256sum --check carbonio-ai-assistant-v2.3.0.tar.gz.sha256
+tar -xzf carbonio-ai-assistant-v2.3.0.tar.gz
+cd carbonio-ai-assistant-v2.3.0
 ```
 
 Use the signed release asset's `.sha256` file as the checksum authority. The release page
 also records the exact workflow, commit, and artifact digest.
 
-Inspect `release.env` and confirm version `2.2.1`, the approved exact commit, and the Node
+Inspect `release.env` and confirm version `2.3.0`, the approved exact commit, and the Node
 runtime before continuing.
 
 ### Install the application
@@ -419,7 +484,7 @@ curl -fsS http://127.0.0.1:8787/api/ai/health
 Strict smoke must finish with:
 
 ```text
-smoke_health=ok headers=ok loopback=ok admin_auth=ok metrics_auth=ok csrf=ok history=postgresql rag_worker=ok
+smoke_health=ok headers=ok loopback=ok admin_auth=ok admin_ui=ok metrics_auth=ok csrf=ok history=postgresql rag_worker=ok
 ```
 
 Then hard-refresh authenticated Carbonio Webmail and verify:
@@ -430,6 +495,13 @@ Then hard-refresh authenticated Carbonio Webmail and verify:
 4. a synthetic prompt that explicitly forbids email/calendar access receives an answer
    without mailbox, calendar, confirmation, or mutation events.
 5. one approved non-mutating mailbox query behaves as expected.
+
+Also sign in to the Carbonio Admin Console and verify:
+
+1. `/carbonioAdmin/ai-assistant` renders as a styled page, not raw HTML.
+2. global ZDR policy, health, safety, metrics, and audit sections load.
+3. the audit User column shows an account email and the Request column provides a correlation ID.
+4. provider credentials and model selection do not appear on the administrator page.
 
 Do not repeat a live email or calendar mutation without separate action-time approval.
 
@@ -546,6 +618,21 @@ journalctl -u carbonio-nginx.service --since "15 minutes ago" --no-pager
 The installer does not reload Nginx when validation fails. Correct the reported host or
 configuration issue before retrying.
 
+### Administrator page shows raw HTML
+
+The exact page route must return `Content-Type: text/html`. Its assets must return `text/css` and
+`application/javascript`. Reinstall the matching release and run the strict smoke test. Do not
+disable `X-Content-Type-Options` as a workaround.
+
+### Administrator authentication expired
+
+`Carbonio SOAP error: auth credentials have expired` means the Carbonio administrator session,
+not the AI provider API key, has expired. Open the port 6071 login page, authenticate again, and
+reload `/carbonioAdmin/ai-assistant`. Current releases convert this SOAP condition to HTTP 401 and
+redirect automatically. If a fresh login still fails, inspect `GetAllServers` and `GetAccount`
+events in the gateway journal and confirm the browser is sending `ZM_ADMIN_AUTH_TOKEN` only over
+the authenticated Admin Console origin.
+
 ### Request-specific investigation
 
 Copy the request ID from the UI and search the structured journal:
@@ -604,7 +691,7 @@ through `AI_TEST_DATABASE_URL`. Do not aim it at an unapproved production databa
 
 ## Documentation
 
-- [v2.2.1 release report](docs/releases/v2.2.1.md)
+- [v2.3.0 release report](docs/releases/v2.3.0.md)
 - [v2.1.0 release report](docs/releases/v2.1.0.md)
 - [Carbonio user tool matrix](docs/carbonio-user-tool-matrix.md)
 - [Private RAG architecture](docs/rag-architecture.md)

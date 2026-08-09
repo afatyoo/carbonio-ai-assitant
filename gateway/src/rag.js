@@ -21,7 +21,9 @@ const backend = process.env.AI_DATABASE_URL ? await import('./rag-postgres.js') 
 
 export const ragBackend = backend ? 'postgresql' : 'disabled';
 export const listRagSources = (ownerId) =>
-	backend ? backend.listRagSources(ownerId) : Promise.resolve(disabledSources());
+	backend
+		? backend.listRagSources(ownerId).then((sources) => sources.filter(({ module }) => module !== 'organization'))
+		: Promise.resolve(disabledSources().filter(({ module }) => module !== 'organization'));
 export const setRagSource = (...args) => {
 	if (!backend) throw new Error('PostgreSQL is required for private AI sources');
 	return backend.setRagSource(...args);
@@ -32,6 +34,18 @@ export const enqueueRagDocuments = (...args) => {
 };
 export const retrievePrivateRag = (ownerId, query, options) =>
 	backend ? backend.retrievePrivateRag(ownerId, query, options) : Promise.resolve([]);
+export const listRagDocuments = (...args) => {
+	if (!backend) throw new Error('PostgreSQL is required for organization knowledge');
+	return backend.listRagDocuments(...args);
+};
+export const deleteRagDocument = (...args) => {
+	if (!backend) throw new Error('PostgreSQL is required for organization knowledge');
+	return backend.deleteRagDocument(...args);
+};
+export const getRagSource = async (ownerId, module) => {
+	if (!backend) throw new Error('PostgreSQL is required for organization knowledge');
+	return (await backend.listRagSources(ownerId)).find((source) => source.module === module) ?? null;
+};
 export const getRagStatus = () =>
 	backend ? backend.getRagStatus() : Promise.resolve({ backend: 'disabled', pgvector: false, queuedJobs: 0, failedJobs: 0, workerHeartbeatAt: null, workerHealthy: false });
 export const closeRagDatabase = () => Promise.resolve(backend?.closeRagDatabase());

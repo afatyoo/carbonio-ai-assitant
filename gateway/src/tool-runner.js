@@ -45,6 +45,7 @@ export const executeTool = async ({ name, input, context }) => {
 	}
 	const audit = createAuditEntry({
 		ownerId: context.ownerId,
+		ownerName: context.accountName,
 		toolName: name,
 		risk: definition.risk,
 		input

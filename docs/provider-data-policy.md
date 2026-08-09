@@ -28,10 +28,13 @@ Operational requirements:
 - Keep OpenRouter Input & Output Logging disabled for the production API key.
 - Keep OpenRouter use of inputs/outputs disabled.
 - Use a dedicated organization/API key with its own budget and guardrail.
-- Do not disable `AI_OPENROUTER_DENY_DATA_COLLECTION` or `AI_OPENROUTER_ZDR`
-  without a documented privacy review.
-- Production mode locks both routing controls to `data_collection: "deny"` and
-  `zdr: true`; environment overrides can relax them only outside production.
+- Do not disable ZDR without a documented privacy review and explicit risk acceptance in the
+  port 6071 AI Administration page. `data_collection: "deny"` remains enforced in production.
+- ZDR defaults to enabled. An authenticated global Carbonio administrator can disable it when
+  a testing model has no ZDR-compatible endpoint. The gateway stores the acceptance time and
+  sends `zdr: false` until it is re-enabled.
+- Set `AI_OPENROUTER_ZDR_LOCKED=true` to lock the environment-selected ZDR value and disable
+  the runtime control.
 - The free router is suitable for functional testing, not for an SLA-backed rollout.
   Move production users to an explicitly selected approved model/provider or a
   self-hosted OpenAI-compatible endpoint.

@@ -23,6 +23,16 @@ if [[ "$base_url" == "http://127.0.0.1:8787" ]]; then
 		exit 1
 	fi
 	/opt/zextras/common/sbin/nginx -t -c /opt/zextras/conf/nginx.conf >/dev/null
+	[[ -f /opt/carbonio-ai-assistant/admin-ui/current/index.html ]]
+	admin_page_status="$(curl -ksS -o /dev/null -w '%{http_code}' \
+		https://127.0.0.1:6071/carbonioAdmin/ai-assistant)"
+	[[ "$admin_page_status" == "307" ]]
+	admin_page_headers="$(curl -kfsSI -H 'Cookie: ZM_ADMIN_AUTH_TOKEN=smoke-route-only' \
+		https://127.0.0.1:6071/carbonioAdmin/ai-assistant)"
+	grep -Eiq '^content-type: text/html' <<<"$admin_page_headers"
+	admin_page_body="$(curl -kfsS -H 'Cookie: ZM_ADMIN_AUTH_TOKEN=smoke-route-only' \
+		https://127.0.0.1:6071/carbonioAdmin/ai-assistant)"
+	grep -Fq 'Carbonio AI Administration' <<<"$admin_page_body"
 fi
 
 unauthorized_status="$(curl -sS -o /dev/null -w '%{http_code}' "$base_url/api/ai/admin/metrics")"
@@ -41,4 +51,4 @@ cross_origin_status="$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
 	--data '{}' "$base_url/api/ai/chat")"
 [[ "$cross_origin_status" == "403" ]]
 
-echo "smoke_health=ok headers=ok loopback=ok admin_auth=ok metrics_auth=$metrics_status csrf=ok history=postgresql rag_worker=ok"
+echo "smoke_health=ok headers=ok loopback=ok admin_auth=ok admin_ui=ok metrics_auth=$metrics_status csrf=ok history=postgresql rag_worker=ok"
