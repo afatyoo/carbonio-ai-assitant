@@ -207,14 +207,40 @@ for (const toolName of [
 }
 const {
 	buildCreateFolderRequest,
+	buildAdminAccountSearchFilter,
 	buildFolderActionRequest,
 	buildIndexEmailSearchRequest,
 	buildMailMessage,
 	buildMessageActionRequest,
 	buildTagActionRequest,
+	normalizeAdminAccount,
 	normalizeMessageForAgent
 } = await import(
 	'../src/mailbox.js'
+);
+assert.equal(
+	buildAdminAccountSearchFilter('rafi'),
+	'(|(mail=*rafi*)(uid=*rafi*)(displayName=*rafi*))'
+);
+assert.equal(
+	buildAdminAccountSearchFilter('*)(mail=*)'),
+	'(|(mail=*\\2a\\29\\28mail=\\2a\\29*)(uid=*\\2a\\29\\28mail=\\2a\\29*)(displayName=*\\2a\\29\\28mail=\\2a\\29*))'
+);
+assert.deepEqual(
+	normalizeAdminAccount({
+		name: 'User@Example.test',
+		a: [
+			{ name: 'zimbraId', _content: 'account-uuid' },
+			{ name: 'zimbraAccountStatus', _content: 'active' }
+		]
+	}),
+	{
+		id: 'account-uuid',
+		name: 'user@example.test',
+		displayName: '',
+		status: 'active',
+		systemResource: false
+	}
 );
 assert.deepEqual(buildCreateFolderRequest({ name: 'Projects', parentId: '1' }), {
 	folder: { name: 'Projects', l: '1', view: 'message' }

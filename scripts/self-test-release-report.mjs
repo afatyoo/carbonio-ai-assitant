@@ -116,13 +116,16 @@ try {
 		'utf8'
 	);
 	assert.match(repositoryReport, /^# Carbonio AI Assistant v2\.3\.0/m);
+	assert.match(repositoryReport, /discovers eligible Carbonio mailbox accounts automatically/i);
+	assert.match(repositoryReport, /protected atomic\s+per-account overrides/i);
+	assert.match(repositoryReport, /PDF upload failure feedback appeared off-screen/i);
 
 	const contract = await validateRepositoryReleaseContract({
 		projectRoot,
 		expectedVersion: '2.3.0'
 	});
 	assert.equal(contract.version, '2.3.0');
-	assert.equal(contract.closedBugCount, 30);
+	assert.equal(contract.closedBugCount, 34);
 
 	const brokenRoot = path.join(workspace, 'broken-repository');
 	const contractFiles = [
@@ -185,13 +188,13 @@ try {
 		/BUG-001 is missing detail: Root cause/
 	);
 	await writeFile(extendedReportPath, originalReport, 'utf8');
-	const extendedReport = `${await readFile(extendedReportPath, 'utf8')}\n### BUG-031 - Additional verified closure\n`;
+	const extendedReport = `${await readFile(extendedReportPath, 'utf8')}\n### BUG-035 - Additional verified closure\n`;
 	await writeFile(extendedReportPath, extendedReport, 'utf8');
 	const extendedContract = await validateRepositoryReleaseContract({
 		projectRoot: brokenRoot,
 		expectedVersion: '2.3.0'
 	});
-	assert.equal(extendedContract.closedBugCount, 31);
+	assert.equal(extendedContract.closedBugCount, 35);
 
 	const brokenWorkflowPath = path.join(brokenRoot, '.github/workflows/release.yml');
 	const brokenWorkflow = (await readFile(brokenWorkflowPath, 'utf8')).replace(

@@ -41,6 +41,7 @@ const knownToolPermissions = new Set([
 ]);
 const usage = new Map();
 const runtimeStatePath = path.resolve('.runtime/security-state.json');
+const accountAccessPath = path.resolve('.runtime/account-access.json');
 const readRuntimeState = () => {
 	try {
 		const parsed = JSON.parse(fs.readFileSync(runtimeStatePath, 'utf8'));
@@ -51,10 +52,29 @@ const readRuntimeState = () => {
 };
 const runtimeState = readRuntimeState();
 
+const readAccountAccessState = () => {
+	try {
+		const parsed = JSON.parse(fs.readFileSync(accountAccessPath, 'utf8'));
+		const overrides = parsed?.overrides && typeof parsed.overrides === 'object' ? parsed.overrides : {};
+		return { version: 1, overrides };
+	} catch {
+		return { version: 1, overrides: {} };
+	}
+};
+const accountAccessState = readAccountAccessState();
+
 const persistRuntimeState = () => {
 	fs.mkdirSync(path.dirname(runtimeStatePath), { recursive: true, mode: 0o700 });
 	fs.writeFileSync(runtimeStatePath, `${JSON.stringify(runtimeState, null, 2)}\n`, { mode: 0o600 });
 	fs.chmodSync(runtimeStatePath, 0o600);
+};
+
+const persistAccountAccessState = () => {
+	fs.mkdirSync(path.dirname(accountAccessPath), { recursive: true, mode: 0o700 });
+	const temporaryPath = `${accountAccessPath}.${process.pid}.tmp`;
+	fs.writeFileSync(temporaryPath, `${JSON.stringify(accountAccessState, null, 2)}\n`, { mode: 0o600 });
+	fs.renameSync(temporaryPath, accountAccessPath);
+	fs.chmodSync(accountAccessPath, 0o600);
 };
 
 export const isAiEnabled = () => process.env.AI_ENABLED !== 'false';
@@ -62,8 +82,61 @@ const matchesAccount = (allowlist, account) =>
 	allowlist.has(String(account?.id ?? '').toLowerCase()) ||
 	allowlist.has(String(account?.name ?? '').toLowerCase());
 
+const accessOverride = (account) => {
+	const byId = accountAccessState.overrides[String(account?.id ?? '').toLowerCase()];
+	if (byId) return byId;
+	const normalizedName = String(account?.name ?? '').toLowerCase();
+	return Object.values(accountAccessState.overrides).find(
+		(entry) => String(entry?.name ?? '').toLowerCase() === normalizedName
+	);
+};
+
+export const getAccountAccess = (account) => {
+	const override = accessOverride(account);
+	const defaultAiEnabled = enabledAccounts.size === 0 || matchesAccount(enabledAccounts, account);
+	const defaultWriteToolsEnabled =
+		writeToolAccounts.size === 0 || matchesAccount(writeToolAccounts, account);
+	const aiEnabled = override ? override.aiEnabled === true : defaultAiEnabled;
+	return {
+		aiEnabled,
+		writeToolsEnabled: aiEnabled && (override ? override.writeToolsEnabled === true : defaultWriteToolsEnabled),
+		managed: Boolean(override),
+		updatedAt: Number(override?.updatedAt) || null,
+		updatedBy: String(override?.updatedBy ?? '')
+	};
+};
+
+export const updateAccountAccess = (accounts, updatedBy = 'carbonio-global-admin-session') => {
+	if (!Array.isArray(accounts) || accounts.length < 1 || accounts.length > 100) {
+		throw new Error('Account access update requires between 1 and 100 accounts');
+	}
+	const now = Date.now();
+	const normalizedUpdatedBy = String(updatedBy ?? '').trim().slice(0, 320);
+	const updated = accounts.map((account) => {
+		const id = String(account?.id ?? '').trim().toLowerCase();
+		const name = String(account?.name ?? '').trim().toLowerCase();
+		if (!/^[a-z0-9-]{8,100}$/.test(id) || !name.includes('@') || name.length > 320) {
+			throw new Error('Invalid Carbonio account access target');
+		}
+		if (typeof account.aiEnabled !== 'boolean' || typeof account.writeToolsEnabled !== 'boolean') {
+			throw new Error('AI access and write-tool access must be boolean values');
+		}
+		const value = {
+			name,
+			aiEnabled: account.aiEnabled,
+			writeToolsEnabled: account.aiEnabled && account.writeToolsEnabled,
+			updatedAt: now,
+			updatedBy: normalizedUpdatedBy
+		};
+		accountAccessState.overrides[id] = value;
+		return { id, ...value, managed: true };
+	});
+	persistAccountAccessState();
+	return updated;
+};
+
 export const isAccountEnabled = (account) =>
-	enabledAccounts.size === 0 || matchesAccount(enabledAccounts, account);
+	getAccountAccess(account).aiEnabled;
 
 export const requireAiAccess = (account) => {
 	if (!isAccountEnabled(account)) {
@@ -76,7 +149,9 @@ export const requireAiAccess = (account) => {
 export const areWriteToolsEnabled = (account) =>
 	process.env.AI_WRITE_TOOLS_ENABLED !== 'false' &&
 	runtimeState.writeToolsEnabled &&
-	(writeToolAccounts.size === 0 || matchesAccount(writeToolAccounts, account));
+	(accessOverride(account)
+		? getAccountAccess(account).writeToolsEnabled
+		: writeToolAccounts.size === 0 || matchesAccount(writeToolAccounts, account));
 
 export const getRuntimeSafetyState = () => ({
 	writeToolsEnabled: process.env.AI_WRITE_TOOLS_ENABLED !== 'false' && runtimeState.writeToolsEnabled,

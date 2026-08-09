@@ -21,6 +21,19 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 - Added administrator-managed Organization Knowledge RAG uploads for company policies and SOPs,
   encrypted shared retrieval, citations, indexing status, and document removal. PDF and Office
   extraction remains fail-closed unless the hardened extraction chain is configured.
+- Added automatic Carbonio mailbox account discovery and administrator checkboxes for per-account
+  AI access and write-tool access. Internal service accounts are excluded, inactive accounts
+  cannot be enabled, and changes take effect without a service restart.
+
+### Fixed
+
+- PDF and Office upload failures now appear inside the Organization Knowledge card instead of in
+  an off-screen global notice. The page explains the required scanner, no-network sandbox, and
+  extractor chain and lists the safe text formats that remain available.
+- Carbonio user search now builds an escaped LDAP filter for mail, UID, and display name instead of
+  passing unstructured text to Admin SOAP.
+- Account access revalidation now accepts Carbonio `GetAccount` response variants with a nested
+  account object or an attribute-provided immutable account ID.
 
 ### Security
 
@@ -30,6 +43,9 @@ All notable changes to Carbonio AI Assistant are documented in this file.
   and retrieves the exact target through the authenticated Carbonio session.
 - The port 6071 page validates the Admin Console token against Carbonio Admin SOAP before any
   addon administrator API is authorized. The official Admin Console bundle remains unmodified.
+- Account access changes revalidate immutable account IDs through Admin SOAP, persist atomically
+  in the protected runtime directory, enforce AI access as a prerequisite for managed write
+  access, and create administrator-visible audit entries.
 
 - See the [detailed v2.3.0 report](docs/releases/v2.3.0.md).
 

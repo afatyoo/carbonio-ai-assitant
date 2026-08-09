@@ -31,6 +31,8 @@ For exact release evidence, the closed-bug ledger, and authenticated UAT results
   monthly isolated restore drills, systemd resource limits, and an Nginx open-file limit drop-in.
 - Optional PDF and office extraction that remains disabled unless malware scanning, a
   no-network sandbox wrapper, and a bounded extractor are all configured.
+- Automatic Carbonio mailbox account discovery with administrator-managed AI and write-tool
+  access checkboxes. Changes are server-side, audited, and effective without a restart.
 
 ### User-only private RAG
 
@@ -325,6 +327,9 @@ The page intentionally separates global operations from Webmail configuration:
   fallback selection remain in Webmail Settings.
 - **Gateway and service health:** shows gateway, history, RAG, and write-control health. Provider
   status is user-specific and therefore is not represented as a global administrator card.
+- **User access:** discovers eligible Carbonio mailbox accounts through authenticated Admin SOAP.
+  Administrators can search accounts and grant AI access or the narrower write-tool capability
+  with checkboxes. Internal service accounts are excluded, and inactive accounts fail closed.
 - **AI Safety Center:** provides the emergency global stop for write and destructive tools.
   Read-only tools remain available when the stop is active.
 - **Runtime policy:** displays effective limits and operational policy without returning secrets.
@@ -345,6 +350,12 @@ the same AES-256-GCM controls as private RAG, but users cannot enable, upload, r
 it. Retrieval combines relevant organization chunks with the authenticated user's private sources.
 The assistant emits citations identifying the organization document. Removing a document deletes
 its encrypted normalized text and chunks from active retrieval.
+
+`AI_ENABLED_ACCOUNTS` and `AI_WRITE_TOOL_ACCOUNTS` remain safe deployment defaults and bootstrap
+values. Changes made in the User access panel are stored as per-account overrides in
+`/var/lib/carbonio-ai-assistant/.runtime/account-access.json` with mode `0600`. The gateway writes
+the file atomically and applies the override immediately. Disabling AI access through the panel
+also disables managed write-tool access for that account.
 
 ## Production prerequisites
 

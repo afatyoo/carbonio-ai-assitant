@@ -38,19 +38,39 @@ const savePrivacyButton = byId('save-privacy');
 const toggleWrites = byId('toggle-writes');
 const knowledgeFile = byId('knowledge-file');
 const uploadKnowledgeButton = byId('upload-knowledge');
+const accountSearch = byId('account-search');
+const accountPrevious = byId('accounts-previous');
+const accountNext = byId('accounts-next');
+const saveAccountAccess = byId('save-account-access');
 
 let config = null;
 let safety = null;
+let documentExtraction = {};
+let accountPage = { accounts: [], offset: 0, limit: 50, more: false };
+const accountChanges = new Map();
 
 const setNotice = (message, kind = '') => {
 	notice.textContent = message;
 	notice.className = `notice${kind ? ` ${kind}` : ''}`;
 };
 
+const setKnowledgeNotice = (message = '', kind = '') => {
+	const element = byId('knowledge-notice');
+	element.textContent = message;
+	element.className = `notice compact${kind ? ` ${kind}` : ''}${message ? '' : ' hidden'}`;
+};
+
+const setAccountNotice = (message = '', kind = '') => {
+	const element = byId('account-notice');
+	element.textContent = message;
+	element.className = `notice compact${kind ? ` ${kind}` : ''}${message ? '' : ' hidden'}`;
+};
+
 const setBusy = (busy) => {
 	savePrivacyButton.disabled = busy;
 	uploadKnowledgeButton.disabled = busy;
 	byId('refresh').disabled = busy;
+	saveAccountAccess.disabled = busy || accountChanges.size === 0;
 };
 
 const applyLocks = () => {
@@ -146,6 +166,7 @@ const renderAudit = (entries) => {
 };
 
 const renderKnowledge = ({ documents = [], extraction = {}, source = null }) => {
+	documentExtraction = extraction;
 	const list = byId('knowledge-list');
 	list.replaceChildren();
 	const capability = extraction.enabled
@@ -164,10 +185,10 @@ const renderKnowledge = ({ documents = [], extraction = {}, source = null }) => 
 			if (!window.confirm(`Remove ${entry.title} from organization knowledge?`)) return;
 			try {
 				await api(`/api/ai/admin/knowledge/${encodeURIComponent(entry.id)}`, { method: 'DELETE' });
-				setNotice('Organization document removed.', 'success');
+				setKnowledgeNotice('Organization document removed.', 'success');
 				await load();
 			} catch (error) {
-				setNotice(error.message || 'Unable to remove organization document.', 'error');
+				setKnowledgeNotice(error.message || 'Unable to remove organization document.', 'error');
 			}
 		});
 		row.prepend(details);
@@ -176,17 +197,98 @@ const renderKnowledge = ({ documents = [], extraction = {}, source = null }) => 
 	if (!documents.length) addText(list, 'p', 'No organization documents uploaded yet.', 'muted');
 };
 
+const renderAccounts = (result) => {
+	accountPage = result;
+	const body = byId('account-body');
+	body.replaceChildren();
+	for (const account of result.accounts || []) {
+		const row = document.createElement('tr');
+		const userCell = document.createElement('td');
+		userCell.className = 'account-user';
+		addText(userCell, 'strong', account.name);
+		if (account.displayName) addText(userCell, 'span', account.displayName);
+		row.append(userCell);
+		addText(row, 'td', account.status || 'unknown');
+		const current = accountChanges.get(account.id) || {
+			id: account.id,
+			name: account.name,
+			aiEnabled: account.access?.aiEnabled === true,
+			writeToolsEnabled: account.access?.writeToolsEnabled === true
+		};
+		const active = account.status === 'active';
+		const aiCell = document.createElement('td');
+		const aiToggle = document.createElement('input');
+		aiToggle.type = 'checkbox';
+		aiToggle.className = 'account-toggle';
+		aiToggle.checked = current.aiEnabled;
+		aiToggle.disabled = !active;
+		aiToggle.setAttribute('aria-label', `Enable AI access for ${account.name}`);
+		aiCell.append(aiToggle);
+		row.append(aiCell);
+		const writeCell = document.createElement('td');
+		const writeToggle = document.createElement('input');
+		writeToggle.type = 'checkbox';
+		writeToggle.className = 'account-toggle';
+		writeToggle.checked = current.writeToolsEnabled;
+		writeToggle.disabled = !active || !current.aiEnabled;
+		writeToggle.setAttribute('aria-label', `Enable write tools for ${account.name}`);
+		writeCell.append(writeToggle);
+		row.append(writeCell);
+		const rememberChange = () => {
+			accountChanges.set(account.id, {
+				id: account.id,
+				name: account.name,
+				aiEnabled: aiToggle.checked,
+				writeToolsEnabled: aiToggle.checked && writeToggle.checked
+			});
+			saveAccountAccess.disabled = accountChanges.size === 0;
+		};
+		aiToggle.addEventListener('change', () => {
+			if (!aiToggle.checked) writeToggle.checked = false;
+			writeToggle.disabled = !aiToggle.checked;
+			rememberChange();
+		});
+		writeToggle.addEventListener('change', rememberChange);
+		body.append(row);
+	}
+	if (!result.accounts?.length) {
+		const row = document.createElement('tr');
+		const cell = addText(row, 'td', 'No eligible Carbonio users found.');
+		cell.colSpan = 4;
+		body.append(row);
+	}
+	accountPrevious.disabled = result.offset <= 0;
+	accountNext.disabled = !result.more;
+	byId('accounts-page').textContent = result.accounts?.length
+		? `Showing ${result.offset + 1} to ${result.offset + result.accounts.length}`
+		: 'No accounts to show';
+};
+
+const loadAccounts = async (offset = 0) => {
+	setAccountNotice('Loading Carbonio users...');
+	const params = new URLSearchParams({ offset: String(offset), limit: '50' });
+	if (accountSearch.value.trim()) params.set('query', accountSearch.value.trim());
+	try {
+		const result = await api(`/api/ai/admin/accounts?${params}`);
+		renderAccounts(result);
+		setAccountNotice('Carbonio user list loaded.', 'success');
+	} catch (error) {
+		setAccountNotice(error.message || 'Unable to load Carbonio users.', 'error');
+	}
+};
+
 const load = async () => {
 	setBusy(true);
 	setNotice('Loading administrator configuration...');
 	try {
-		const [nextConfig, health, metrics, safetyResult, audit, knowledge] = await Promise.all([
+		const [nextConfig, health, metrics, safetyResult, audit, knowledge, accounts] = await Promise.all([
 			api('/api/ai/config'),
 			api('/api/ai/admin/health'),
 			api('/api/ai/admin/metrics'),
 			api('/api/ai/admin/safety'),
 			api('/api/ai/admin/audit?limit=25'),
-			api('/api/ai/admin/knowledge')
+			api('/api/ai/admin/knowledge'),
+			api('/api/ai/admin/accounts?offset=0&limit=50')
 		]);
 		if (!nextConfig.canManageSettings) throw new Error('Administrator access is required');
 		renderConfig(nextConfig);
@@ -195,6 +297,7 @@ const load = async () => {
 		renderSafety(safetyResult.safety);
 		renderAudit(audit.entries || []);
 		renderKnowledge(knowledge);
+		renderAccounts(accounts);
 		setNotice('Administrator configuration loaded.', 'success');
 	} catch (error) {
 		setNotice(error.message || 'Unable to load AI administration.', 'error');
@@ -233,12 +336,21 @@ byId('knowledge-form').addEventListener('submit', async (event) => {
 	event.preventDefault();
 	const file = knowledgeFile.files?.[0];
 	if (!file) return;
+	const extension = file.name.includes('.') ? file.name.slice(file.name.lastIndexOf('.')).toLowerCase() : '';
+	const requiresExtractor = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'].includes(extension);
+	if (requiresExtractor && !documentExtraction.enabled) {
+		setKnowledgeNotice(
+			'PDF and Office indexing is not enabled on this server. Configure the malware scanner, no-network sandbox, and document extractor first. TXT, Markdown, CSV, JSON, and XML can be indexed now.',
+			'error'
+		);
+		return;
+	}
 	if (file.size > 10_000_000) {
-		setNotice('Document exceeds the 10 MB upload limit.', 'error');
+		setKnowledgeNotice('Document exceeds the 10 MB upload limit.', 'error');
 		return;
 	}
 	setBusy(true);
-	setNotice('Uploading and queueing organization knowledge...');
+	setKnowledgeNotice('Uploading and queueing organization knowledge...');
 	try {
 		const dataUrl = await new Promise((resolve, reject) => {
 			const reader = new FileReader();
@@ -252,10 +364,46 @@ byId('knowledge-form').addEventListener('submit', async (event) => {
 			body: JSON.stringify({ filename: file.name, contentType: file.type || 'application/octet-stream', dataBase64 })
 		});
 		knowledgeFile.value = '';
-		setNotice('Organization document queued for indexing.', 'success');
+		setKnowledgeNotice('Organization document queued for indexing.', 'success');
 		await load();
 	} catch (error) {
-		setNotice(error.message || 'Unable to upload organization document.', 'error');
+		setKnowledgeNotice(error.message || 'Unable to upload organization document.', 'error');
+	} finally {
+		setBusy(false);
+	}
+});
+
+byId('account-search-form').addEventListener('submit', async (event) => {
+	event.preventDefault();
+	accountChanges.clear();
+	saveAccountAccess.disabled = true;
+	await loadAccounts(0);
+});
+
+accountPrevious.addEventListener('click', () => {
+	void loadAccounts(Math.max(accountPage.offset - accountPage.limit, 0));
+});
+
+accountNext.addEventListener('click', () => {
+	if (accountPage.more) void loadAccounts(accountPage.offset + accountPage.limit);
+});
+
+saveAccountAccess.addEventListener('click', async () => {
+	const accounts = [...accountChanges.values()];
+	if (!accounts.length) return;
+	setBusy(true);
+	setAccountNotice(`Saving access for ${accounts.length} user${accounts.length === 1 ? '' : 's'}...`);
+	try {
+		await api('/api/ai/admin/accounts/access', {
+			method: 'PUT',
+			body: JSON.stringify({ accounts })
+		});
+		accountChanges.clear();
+		saveAccountAccess.disabled = true;
+		setAccountNotice('User access changes saved and are active now.', 'success');
+		await loadAccounts(accountPage.offset);
+	} catch (error) {
+		setAccountNotice(error.message || 'Unable to save user access.', 'error');
 	} finally {
 		setBusy(false);
 	}

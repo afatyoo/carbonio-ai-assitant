@@ -32,8 +32,10 @@ const {
 	isAdminAccount,
 	isAccountEnabled,
 	areWriteToolsEnabled,
+	getAccountAccess,
 	getToolPermissions,
-	requireAdminAccount
+	requireAdminAccount,
+	updateAccountAccess
 } = await import('../src/security.js');
 const { assertModelAllowed, getModelAllowlist, getPublicAgentConfig, updateAgentConfig } = await import(
 	'../src/config.js'
@@ -50,6 +52,43 @@ assert.equal(isAccountEnabled({ id: 'user-id', name: 'enabled@example.test' }), 
 assert.equal(isAccountEnabled({ id: 'user-id', name: 'disabled@example.test' }), false);
 assert.equal(areWriteToolsEnabled({ id: 'user-id', name: 'writer@example.test' }), true);
 assert.equal(areWriteToolsEnabled({ id: 'user-id', name: 'enabled@example.test' }), false);
+const managedAccess = updateAccountAccess(
+	[
+		{
+			id: 'enabled-account-id',
+			name: 'enabled@example.test',
+			aiEnabled: false,
+			writeToolsEnabled: true
+		},
+		{
+			id: 'disabled-account-id',
+			name: 'disabled@example.test',
+			aiEnabled: true,
+			writeToolsEnabled: true
+		}
+	],
+	'admin@example.test'
+);
+assert.equal(managedAccess[0].writeToolsEnabled, false);
+assert.equal(isAccountEnabled({ id: 'enabled-account-id', name: 'enabled@example.test' }), false);
+assert.equal(isAccountEnabled({ id: 'disabled-account-id', name: 'disabled@example.test' }), true);
+assert.equal(areWriteToolsEnabled({ id: 'disabled-account-id', name: 'disabled@example.test' }), true);
+assert.deepEqual(
+	getAccountAccess({ id: 'disabled-account-id', name: 'disabled@example.test' }),
+	{
+		aiEnabled: true,
+		writeToolsEnabled: true,
+		managed: true,
+		updatedAt: managedAccess[1].updatedAt,
+		updatedBy: 'admin@example.test'
+	}
+);
+const accessPath = path.join(testWorkingDirectory, '.runtime', 'account-access.json');
+assert.equal(fs.statSync(accessPath).mode & 0o777, 0o600);
+assert.throws(
+	() => updateAccountAccess([{ id: 'bad', name: 'bad', aiEnabled: true, writeToolsEnabled: false }]),
+	/Invalid Carbonio account/
+);
 assert.deepEqual(
 	getToolPermissions({
 		id: 'writer-id',
@@ -161,7 +200,7 @@ if (fs.existsSync(assistantViewPath)) {
 	assert.match(assistantView, /normalizeAssistantDisplayText\(message\.text, locale\)/);
 }
 
-console.log('admin_auth=ok account_policy=ok group_policy=ok tool_policy=ok csrf=ok quota=ok model_allowlist=ok credential_persistence=ok redaction=ok safe_rendering=ok');
+console.log('admin_auth=ok account_policy=ok managed_access=ok group_policy=ok tool_policy=ok csrf=ok quota=ok model_allowlist=ok credential_persistence=ok redaction=ok safe_rendering=ok');
 await closeHistoryDatabase();
 process.chdir(originalWorkingDirectory);
 fs.rmSync(testWorkingDirectory, { recursive: true, force: true });

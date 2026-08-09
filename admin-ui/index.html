@@ -49,6 +49,22 @@
 				<div id="health-grid" class="health-grid"></div>
 			</section>
 
+			<section class="card" id="user-access">
+				<div class="section-title"><div><h2>User access</h2><p class="muted">Carbonio mailbox accounts are discovered automatically. Internal service accounts are excluded.</p></div></div>
+				<form id="account-search-form" class="search-row">
+					<label>Search users<input id="account-search" type="search" maxlength="200" placeholder="name@example.com" /></label>
+					<button class="button secondary" type="submit">Search</button>
+				</form>
+				<p id="account-notice" class="notice compact hidden" role="status" aria-live="polite"></p>
+				<div class="table-wrap"><table><thead><tr><th>User</th><th>Status</th><th>AI access</th><th>Write tools</th></tr></thead><tbody id="account-body"></tbody></table></div>
+				<div class="actions account-actions">
+					<button id="accounts-previous" class="button secondary" type="button" disabled>Previous</button>
+					<span id="accounts-page" class="muted">Loading accounts...</span>
+					<button id="accounts-next" class="button secondary" type="button" disabled>Next</button>
+					<button id="save-account-access" class="button primary push-right" type="button" disabled>Save access changes</button>
+				</div>
+			</section>
+
 			<section class="card" id="organization-knowledge">
 				<h2>Organization knowledge</h2>
 				<p class="muted">Upload company policies, SOPs, and internal guidance for grounded user answers. Documents are encrypted and shared read-only with enabled AI users.</p>
@@ -56,6 +72,7 @@
 					<label>Document<input id="knowledge-file" type="file" required accept=".txt,.md,.csv,.json,.xml,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" /></label>
 					<div class="actions"><button id="upload-knowledge" class="button primary" type="submit">Upload and index</button></div>
 				</form>
+				<p id="knowledge-notice" class="notice compact hidden" role="status" aria-live="polite"></p>
 				<p id="knowledge-capability" class="muted"></p>
 				<div id="knowledge-list" class="document-list"></div>
 			</section>

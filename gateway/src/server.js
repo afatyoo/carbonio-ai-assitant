@@ -24,7 +24,13 @@ import {
 	saveConversation
 } from './history.js';
 import { getKnowledgeMetadata, retrieveKnowledge } from './knowledge.js';
-import { getAdminAccountNameById, getCurrentAccount, getCurrentAdminSession } from './mailbox.js';
+import {
+	getAdminAccountById,
+	getAdminAccountNameById,
+	getCurrentAccount,
+	getCurrentAdminSession,
+	listAdminAccounts
+} from './mailbox.js';
 import { logEvent } from './logger.js';
 import { formatPrometheusMetrics, getMetricsSnapshot, incrementMetric, observeMetric } from './metrics.js';
 import { buildOperationalHealth } from './operational-health.js';
@@ -50,6 +56,8 @@ import { runWithRequestContext } from './request-context.js';
 import {
 	claimUndoAction,
 	completeClaimedUndoAction,
+	completeAuditEntry,
+	createAuditEntry,
 	getUndoAction,
 	listAllAuditEntries,
 	listAuditEntries,
@@ -61,6 +69,7 @@ import { executeTool } from './tool-runner.js';
 import {
 	assertSameOrigin,
 	consumeAccountQuota,
+	getAccountAccess,
 	getAccountUsage,
 	getSecurityPolicy,
 	getToolPermissions,
@@ -69,6 +78,7 @@ import {
 	requireAiAccess,
 	requireAdminAccount,
 	getRuntimeSafetyState,
+	updateAccountAccess,
 	updateRuntimeSafetyState
 } from './security.js';
 
@@ -300,6 +310,69 @@ const handleRequest = async (request, response) => {
 			}
 		} catch (error) {
 			sendJson(response, errorStatus(error, 403), { error: error.message });
+		}
+		return;
+	}
+
+	if (requestUrl.pathname === '/api/ai/admin/accounts' && request.method === 'GET') {
+		try {
+			const account = await authenticate(request);
+			requireAdminAccount(account);
+			const result = await listAdminAccounts(request.headers.cookie ?? '', {
+				query: requestUrl.searchParams.get('query') ?? '',
+				offset: requestUrl.searchParams.get('offset') ?? 0,
+				limit: requestUrl.searchParams.get('limit') ?? 50
+			});
+			sendJson(response, 200, {
+				...result,
+				accounts: result.accounts.map((entry) => ({ ...entry, access: getAccountAccess(entry) }))
+			});
+		} catch (error) {
+			sendJson(response, errorStatus(error, 403), { error: error.message });
+		}
+		return;
+	}
+
+	if (requestUrl.pathname === '/api/ai/admin/accounts/access' && request.method === 'PUT') {
+		let audit = null;
+		try {
+			const administrator = await authenticate(request);
+			requireAdminAccount(administrator);
+			const payload = await readJson(request);
+			if (!Array.isArray(payload.accounts) || payload.accounts.length < 1 || payload.accounts.length > 100) {
+				throw new Error('Select between 1 and 100 account access changes');
+			}
+			audit = createAuditEntry({
+				ownerId: administrator.id,
+				ownerName: administrator.name,
+				toolName: 'admin_update_account_access',
+				risk: 'ADMIN',
+				input: { accountIds: payload.accounts.map(({ id }) => String(id ?? '')) }
+			});
+			const verified = [];
+			for (const requested of payload.accounts) {
+				const target = await getAdminAccountById(request.headers.cookie ?? '', requested.id);
+				if (target.status !== 'active' && requested.aiEnabled === true) {
+					throw new Error(`${target.name} is not active and cannot be enabled`);
+				}
+				verified.push({
+					id: target.id,
+					name: target.name,
+					aiEnabled: requested.aiEnabled,
+					writeToolsEnabled: requested.writeToolsEnabled
+				});
+			}
+			const updated = updateAccountAccess(verified, administrator.name);
+			completeAuditEntry(audit.id, { status: 'completed', resultCount: updated.length });
+			incrementMetric('admin_account_access_updated_total', updated.length);
+			logEvent('info', 'admin_account_access_updated', {
+				administrator: administrator.name,
+				account_count: updated.length
+			});
+			sendJson(response, 200, { accounts: updated });
+		} catch (error) {
+			if (audit) completeAuditEntry(audit.id, { status: 'failed', errorCode: 'ACCOUNT_ACCESS_UPDATE_FAILED' });
+			sendJson(response, errorStatus(error, 400), { error: error.message });
 		}
 		return;
 	}

@@ -726,3 +726,97 @@ export const getAdminAccountNameById = async (cookie, accountId) => {
 	);
 	return String(result.name ?? '').trim().slice(0, 320);
 };
+
+export const normalizeAdminAccount = (account) => {
+	const attributes = {
+		...(account?._attrs ?? {}),
+		...Object.fromEntries(
+			asArray(account?.a)
+				.filter((item) => item?.name)
+				.map((item) => [String(item.name), item._content])
+		)
+	};
+	return {
+		id: String(account?.id ?? attributes.zimbraId ?? '').trim(),
+		name: String(account?.name ?? '').trim().toLowerCase(),
+		displayName: String(attributes.displayName ?? '').trim().slice(0, 320),
+		status: String(attributes.zimbraAccountStatus ?? 'active').trim().toLowerCase(),
+		systemResource: String(attributes.zimbraIsSystemResource ?? '').toLowerCase() === 'true'
+	};
+};
+
+const isInternalCarbonioAccount = ({ name, systemResource }) => {
+	if (systemResource) return true;
+	const localPart = String(name ?? '').split('@')[0];
+	return /^(?:spam\.|ham\.|virus-quarantine\.|galsync\.)/i.test(localPart);
+};
+
+const escapeLdapFilterValue = (value) =>
+	String(value ?? '').replace(/[\\*()\0]/g, (character) => {
+		if (character === '\\') return '\\5c';
+		if (character === '*') return '\\2a';
+		if (character === '(') return '\\28';
+		if (character === ')') return '\\29';
+		return '\\00';
+	});
+
+export const buildAdminAccountSearchFilter = (query) => {
+	const escapedQuery = escapeLdapFilterValue(String(query ?? '').trim().slice(0, 200));
+	return escapedQuery
+		? `(|(mail=*${escapedQuery}*)(uid=*${escapedQuery}*)(displayName=*${escapedQuery}*))`
+		: '';
+};
+
+export const listAdminAccounts = async (cookie, { query = '', offset = 0, limit = 50 } = {}) => {
+	const normalizedQuery = String(query ?? '').trim().slice(0, 200);
+	const searchFilter = buildAdminAccountSearchFilter(normalizedQuery);
+	const normalizedOffset = Math.max(Number.parseInt(offset, 10) || 0, 0);
+	const normalizedLimit = Math.min(Math.max(Number.parseInt(limit, 10) || 50, 1), 100);
+	const result = await soapRequest(
+		'SearchDirectory',
+		{
+			types: 'accounts',
+			limit: normalizedLimit,
+			offset: normalizedOffset,
+			sortBy: 'name',
+			sortAscending: 1,
+			attrs: 'displayName,zimbraAccountStatus,zimbraIsSystemResource',
+			...(searchFilter ? { query: searchFilter } : {})
+		},
+		cookie,
+		'urn:zimbraAdmin',
+		adminSoapUrl
+	);
+	const accounts = asArray(result.account)
+		.map(normalizeAdminAccount)
+		.filter(({ id, name }) => id && name)
+		.filter((account) => !isInternalCarbonioAccount(account));
+	return {
+		accounts,
+		offset: normalizedOffset,
+		limit: normalizedLimit,
+		more: result.more === true || result.more === 1 || result.more === '1',
+		total: Number.isFinite(Number(result.total)) ? Number(result.total) : null
+	};
+};
+
+export const getAdminAccountById = async (cookie, accountId) => {
+	const normalizedId = String(accountId ?? '').trim();
+	if (!normalizedId) throw new Error('Carbonio account ID is required');
+	const result = await soapRequest(
+		'GetAccount',
+		{
+			account: { by: 'id', _content: normalizedId },
+			attrs: 'displayName,zimbraAccountStatus,zimbraIsSystemResource'
+		},
+		cookie,
+		'urn:zimbraAdmin',
+		adminSoapUrl
+	);
+	const responseAccount = asArray(result.account)[0] ?? result.account ?? result;
+	const account = normalizeAdminAccount(responseAccount);
+	if (!account.id || !account.name || isInternalCarbonioAccount(account)) {
+		throw new Error('Carbonio account is not eligible for AI access');
+	}
+	return account;
+};

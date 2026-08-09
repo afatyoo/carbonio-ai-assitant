@@ -33,15 +33,23 @@ for (const endpoint of [
 	'/api/ai/admin/metrics',
 	'/api/ai/admin/safety',
 	'/api/ai/admin/audit',
-	'/api/ai/admin/knowledge'
+	'/api/ai/admin/knowledge',
+	'/api/ai/admin/accounts',
+	'/api/ai/admin/accounts/access'
 ]) assert.ok(app.includes(endpoint), `Missing admin console endpoint: ${endpoint}`);
 assert.doesNotMatch(html, /id="provider"|id="model"|id="api-key"|id="agent-url"/);
 assert.match(html, /Provider privacy policy/);
 assert.match(html, /Organization knowledge/);
+assert.match(html, /User access/);
+assert.match(html, /id="account-body"/);
 assert.match(html, /Upload and index/i);
+assert.match(html, /id="knowledge-notice"/);
 assert.match(app, /organization document queued/i);
+assert.match(app, /PDF and Office indexing is not enabled on this server/);
 assert.match(app, /zdrRiskAccepted:\s*disablingZdr && zdrAccept\.checked/);
 assert.match(app, /entry\.ownerName \|\| entry\.ownerId/);
+assert.match(app, /Enable AI access for/);
+assert.match(app, /User access changes saved and are active now/);
 assert.match(styles, /\.health-item header/);
 
 assert.match(nginx, /ZM_ADMIN_AUTH_TOKEN/);
@@ -63,6 +71,8 @@ assert.match(mailbox, /GetAllServers/);
 assert.match(mailbox, /GetAccount/);
 assert.match(mailbox, /urn:zimbraAdmin/);
 assert.match(server, /unresolvedOwnerIds/);
+assert.match(server, /listAdminAccounts/);
+assert.match(server, /updateAccountAccess/);
 assert.match(mailbox, /auth credentials have expired/);
 assert.match(mailbox, /error\.statusCode = 401/);
 assert.match(config, /Disabling ZDR requires explicit provider data-retention risk acceptance/);
