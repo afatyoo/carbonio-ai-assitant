@@ -28,9 +28,17 @@ Supported permissions are:
 
 - `mail.read`
 - `mail.draft`
-- `mail.write` (reserved for future controlled mail mutations)
+- `mail.write`
 - `calendar.read`
 - `calendar.write`
+- `contacts.read`
+- `contacts.write`
+- `sharing.read`
+- `sharing.write`
+- `preferences.read`
+- `preferences.write`
+- `tasks.read`
+- `tasks.write`
 
 Example:
 
@@ -40,6 +48,17 @@ AI_TOOL_PERMISSION_POLICY_JSON='{"group:ai-writers@example.com":["mail.read","ma
 
 The global write kill switch and `AI_WRITE_TOOL_ACCOUNTS` remain authoritative:
 a scoped policy cannot re-enable write access disabled by either control.
+
+The Safety Center runtime write stop is also authoritative beneath the environment switch.
+Administrators can stop writes without changing the service environment. Re-enabling from the UI
+is refused while `AI_WRITE_TOOLS_ENABLED=false`.
+
+## Provider fallback policy
+
+`AI_MODEL_FALLBACKS` is an ordered comma-separated list. Every candidate must pass the same
+effective model allowlist as the primary model. `AI_MODEL_FALLBACK_ENABLED=false` disables the
+chain. Fallback is limited to retryable provider availability conditions and never bypasses
+authentication, authorization, invalid-input, privacy, or cancellation failures.
 
 Group membership is resolved with the authenticated user's Carbonio session through
 [`GetAccountDistributionLists`](https://docs.zextras.com/apidoc/api-reference/zimbraAccount/GetAccountDistributionLists.html).

@@ -1,0 +1,17 @@
+[Unit]
+Description=Carbonio AI Assistant Scheduled PostgreSQL Backup
+After=network-online.target postgresql.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/opt/carbonio-ai-assistant/bin/backup-policy.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/backups/carbonio-ai-assistant

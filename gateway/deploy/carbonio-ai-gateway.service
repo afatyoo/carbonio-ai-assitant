@@ -16,6 +16,9 @@ ExecStart=/opt/carbonio-ai-assistant/runtime/node-v22.22.0-linux-x64/bin/node /o
 Restart=on-failure
 RestartSec=3
 UMask=0077
+LimitNOFILE=8192
+MemoryMax=1G
+TasksMax=256
 
 NoNewPrivileges=true
 PrivateDevices=true
@@ -33,6 +36,8 @@ RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 RestrictNamespaces=true
 RestrictRealtime=true
 RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
 
 [Install]
 WantedBy=multi-user.target

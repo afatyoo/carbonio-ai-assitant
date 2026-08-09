@@ -41,6 +41,11 @@ export type AgentEvent = {
 			proposedSlots?: Array<{ start: string; end: string }>;
 		};
 		input?: Record<string, string | number>;
+		configuredModel?: string;
+		activeModel?: string;
+		usedFallback?: boolean;
+		latencyMs?: number;
+		sources?: Array<{ module: string; sourceId: string; title: string; deepLink: string }>;
 	};
 };
 

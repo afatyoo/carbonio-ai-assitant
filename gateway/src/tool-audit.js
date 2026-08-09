@@ -47,6 +47,16 @@ database.exec(`
 		created_at INTEGER NOT NULL,
 		PRIMARY KEY (owner_id, tool_name, idempotency_key)
 	);
+	CREATE TABLE IF NOT EXISTS tool_undo (
+		audit_id TEXT PRIMARY KEY,
+		owner_id TEXT NOT NULL,
+		inverse_tool TEXT NOT NULL,
+		inverse_input_json TEXT NOT NULL,
+		expires_at INTEGER NOT NULL,
+		consumed_at INTEGER
+	);
+	CREATE INDEX IF NOT EXISTS tool_undo_owner_expiry
+	ON tool_undo(owner_id, expires_at DESC);
 `);
 if (!database.prepare('PRAGMA table_info(tool_audit)').all().some(({ name }) => name === 'result_ref')) {
 	database.exec('ALTER TABLE tool_audit ADD COLUMN result_ref TEXT');
@@ -160,15 +170,84 @@ export const saveIdempotentResult = ({
 		.run(ownerId, toolName, idempotencyKey, inputHash, JSON.stringify(result), Date.now());
 };
 
+const inverseFor = (toolName, input, result) => {
+	if (['move_email', 'archive_email', 'restore_email'].includes(toolName) && result?.previousFolderId) {
+		return {
+			tool: 'move_email',
+			input: {
+				id: String(input.id),
+				folderId: String(result.previousFolderId)
+			}
+		};
+	}
+	return null;
+};
+
+export const createUndoAction = ({ auditId, ownerId, toolName, input, result, ttlMs = 900_000 }) => {
+	const inverse = inverseFor(toolName, input, result);
+	if (!inverse) return null;
+	const expiresAt = Date.now() + Math.min(Math.max(Number(ttlMs) || 900_000, 60_000), 86_400_000);
+	database
+		.prepare(
+			`INSERT OR REPLACE INTO tool_undo
+			 (audit_id,owner_id,inverse_tool,inverse_input_json,expires_at,consumed_at)
+			 VALUES(?,?,?,?,?,NULL)`
+		)
+		.run(auditId, ownerId, inverse.tool, JSON.stringify(inverse.input), expiresAt);
+	return { auditId, tool: inverse.tool, input: inverse.input, expiresAt };
+};
+
+export const getUndoAction = (ownerId, auditId) => {
+	const row = database
+		.prepare(
+			`SELECT audit_id,inverse_tool,inverse_input_json,expires_at,consumed_at
+			 FROM tool_undo WHERE owner_id=? AND audit_id=?`
+		)
+		.get(ownerId, auditId);
+	if (!row || row.consumed_at || row.expires_at < Date.now()) return null;
+	return {
+		auditId: row.audit_id,
+		tool: row.inverse_tool,
+		input: JSON.parse(row.inverse_input_json),
+		expiresAt: row.expires_at
+	};
+};
+
+export const claimUndoAction = (ownerId, auditId) =>
+	database
+		.prepare(
+			`UPDATE tool_undo SET consumed_at=-1
+			 WHERE owner_id=? AND audit_id=? AND consumed_at IS NULL AND expires_at>=?`
+		)
+		.run(ownerId, auditId, Date.now()).changes === 1;
+
+export const releaseUndoAction = (ownerId, auditId) =>
+	database
+		.prepare(
+			`UPDATE tool_undo SET consumed_at=NULL
+			 WHERE owner_id=? AND audit_id=? AND consumed_at=-1 AND expires_at>=?`
+		)
+		.run(ownerId, auditId, Date.now()).changes === 1;
+
+export const completeClaimedUndoAction = (ownerId, auditId) =>
+	database
+		.prepare(
+			`UPDATE tool_undo SET consumed_at=?
+			 WHERE owner_id=? AND audit_id=? AND consumed_at=-1`
+		)
+		.run(Date.now(), ownerId, auditId).changes === 1;
+
 export const listAuditEntries = (ownerId, limit = 50) =>
 	database
 		.prepare(
-			`SELECT id, request_id, tool_name, risk, status, result_count, result_ref,
-			        error_code, created_at, completed_at
-			 FROM tool_audit WHERE owner_id = ?
-			 ORDER BY created_at DESC, id DESC LIMIT ?`
+			`SELECT a.id, a.request_id, a.tool_name, a.risk, a.status, a.result_count, a.result_ref,
+			        a.error_code, a.created_at, a.completed_at
+			       ,CASE WHEN u.audit_id IS NOT NULL AND u.consumed_at IS NULL AND u.expires_at >= ? THEN 1 ELSE 0 END AS undo_available
+			 FROM tool_audit a LEFT JOIN tool_undo u ON u.audit_id=a.id AND u.owner_id=a.owner_id
+			 WHERE a.owner_id = ?
+			 ORDER BY a.created_at DESC, a.id DESC LIMIT ?`
 		)
-		.all(ownerId, Math.min(Math.max(Number(limit) || 50, 1), 100))
+		.all(Date.now(), ownerId, Math.min(Math.max(Number(limit) || 50, 1), 100))
 		.map((row) => ({
 			id: row.id,
 			requestId: row.request_id,
@@ -179,7 +258,8 @@ export const listAuditEntries = (ownerId, limit = 50) =>
 			resultReference: row.result_ref,
 			errorCode: row.error_code,
 			createdAt: row.created_at,
-			completedAt: row.completed_at
+			completedAt: row.completed_at,
+			undoAvailable: Boolean(row.undo_available)
 		}));
 
 export const listAllAuditEntries = (limit = 100) =>

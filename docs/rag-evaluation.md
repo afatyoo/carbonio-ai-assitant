@@ -16,3 +16,21 @@ Pilot-scale recall@8, no-answer precision, and p95 retrieval latency must be mea
 target mailbox after user opt-in. The acceptance targets are recall@8 of at least 85 percent,
 no-answer precision of at least 90 percent, and retrieval p95 at most 800 ms excluding model
 generation. These environment-dependent targets are not claimed from synthetic unit tests.
+
+An authenticated user can run the same bounded evaluator against only their own enabled index:
+
+```http
+POST /api/ai/rag/evaluate
+Content-Type: application/json
+
+{
+  "cases": [
+    {"query":"unique project term","expectedSourceIds":["message-id"]},
+    {"query":"known absent term","noAnswer":true}
+  ]
+}
+```
+
+The route accepts 1 to 50 cases, retrieves at most eight results for each query, revalidates
+every returned source through the authenticated Carbonio session, and reports recall@8,
+no-answer precision, and retrieval p95. Evaluation queries and expected IDs are not persisted.

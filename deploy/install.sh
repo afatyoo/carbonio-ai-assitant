@@ -19,7 +19,7 @@ if [[ ! "${CARBONIO_AI_NODE_VERSION:-}" =~ ^v22\.[0-9]+\.[0-9]+$ ]]; then
 	exit 1
 fi
 
-for command_name in curl jq tar systemctl sha256sum; do
+for command_name in curl jq openssl tar systemctl sha256sum; do
 	if ! command -v "$command_name" >/dev/null 2>&1; then
 		echo "Required command is missing: $command_name" >&2
 		exit 1
@@ -42,6 +42,12 @@ ui_target="$ui_root/$CARBONIO_AI_COMMIT"
 ui_marker="$ui_root/.managed-by-carbonio-ai-assistant"
 service_file="/etc/systemd/system/carbonio-ai-gateway.service"
 worker_service_file="/etc/systemd/system/carbonio-ai-rag-worker.service"
+backup_service_file="/etc/systemd/system/carbonio-ai-backup.service"
+backup_timer_file="/etc/systemd/system/carbonio-ai-backup.timer"
+restore_drill_service_file="/etc/systemd/system/carbonio-ai-restore-drill.service"
+restore_drill_timer_file="/etc/systemd/system/carbonio-ai-restore-drill.timer"
+nginx_dropin_dir="/etc/systemd/system/carbonio-nginx.service.d"
+nginx_limits_file="$nginx_dropin_dir/carbonio-ai-limits.conf"
 nginx_upstream="$nginx_root/extensions/upstream-carbonio-ai.conf"
 nginx_backend="$nginx_root/extensions/backend-carbonio-ai.conf"
 
@@ -72,6 +78,12 @@ install -o root -g root -m 0755 \
 	"$release_dir/set-api-key.sh" "$app_bin/set-api-key.sh"
 install -o root -g root -m 0755 \
 	"$release_dir/setup-rag-postgres.sh" "$app_bin/setup-rag-postgres.sh"
+install -o root -g root -m 0755 \
+	"$release_dir/backup-policy.sh" "$app_bin/backup-policy.sh"
+install -o root -g root -m 0755 \
+	"$release_dir/restore-drill.sh" "$app_bin/restore-drill.sh"
+install -o root -g root -m 0755 \
+	"$release_dir/set-metrics-token.sh" "$app_bin/set-metrics-token.sh"
 
 if ! getent passwd carbonio-ai >/dev/null; then
 	useradd --system \
@@ -84,6 +96,14 @@ install -d -o carbonio-ai -g carbonio-ai -m 0700 "$data_root"
 install -d -o root -g root -m 0755 "$config_root"
 if [[ ! -f "$config_root/gateway.env" ]]; then
 	install -o root -g root -m 0600 /dev/null "$config_root/gateway.env"
+fi
+if ! grep -Eq '^AI_METRICS_TOKEN=.{32,}$' "$config_root/gateway.env"; then
+	metrics_token="$(openssl rand -hex 32)"
+	printf 'AI_METRICS_TOKEN=%s\n' "$metrics_token" >>"$config_root/gateway.env"
+	printf '%s\n' "$metrics_token" | install -o root -g root -m 0600 /dev/stdin "$config_root/metrics-token"
+elif [[ ! -f "$config_root/metrics-token" ]]; then
+	metrics_token="$(sed -n 's/^AI_METRICS_TOKEN=//p' "$config_root/gateway.env" | tail -1)"
+	printf '%s\n' "$metrics_token" | install -o root -g root -m 0600 /dev/stdin "$config_root/metrics-token"
 fi
 
 if [[ ! -d "$runtime_dir" ]]; then
@@ -120,6 +140,17 @@ install -o root -g root -m 0644 \
 	"$app_release/deploy/carbonio-ai-gateway.service" "$service_file"
 install -o root -g root -m 0644 \
 	"$app_release/deploy/carbonio-ai-rag-worker.service" "$worker_service_file"
+install -o root -g root -m 0644 \
+	"$app_release/deploy/carbonio-ai-backup.service" "$backup_service_file"
+install -o root -g root -m 0644 \
+	"$app_release/deploy/carbonio-ai-backup.timer" "$backup_timer_file"
+install -o root -g root -m 0644 \
+	"$app_release/deploy/carbonio-ai-restore-drill.service" "$restore_drill_service_file"
+install -o root -g root -m 0644 \
+	"$app_release/deploy/carbonio-ai-restore-drill.timer" "$restore_drill_timer_file"
+install -d -o root -g root -m 0755 "$nginx_dropin_dir"
+install -o root -g root -m 0644 \
+	"$app_release/deploy/carbonio-nginx-ai-limits.conf" "$nginx_limits_file"
 
 install -d -o zextras -g zextras -m 0755 "$nginx_root/extensions"
 install -o zextras -g zextras -m 0644 \
@@ -197,6 +228,12 @@ if grep -Eq '^AI_DATABASE_URL=.+$' "$config_root/gateway.env"; then
 	systemctl enable carbonio-ai-rag-worker.service >/dev/null
 	systemctl restart carbonio-ai-rag-worker.service
 	rag_worker_status="$(systemctl is-active carbonio-ai-rag-worker.service)"
+	systemctl enable --now carbonio-ai-backup.timer >/dev/null
+	if grep -Eq '^AI_RESTORE_DRILL_DATABASE_URL=.+$' "$config_root/gateway.env"; then
+		systemctl enable --now carbonio-ai-restore-drill.timer >/dev/null
+	else
+		systemctl disable --now carbonio-ai-restore-drill.timer >/dev/null 2>&1 || true
+	fi
 else
 	systemctl disable --now carbonio-ai-rag-worker.service >/dev/null 2>&1 || true
 fi
@@ -208,3 +245,5 @@ echo "Commit: $CARBONIO_AI_COMMIT"
 echo "Gateway: $(systemctl is-active carbonio-ai-gateway.service)"
 echo "RAG worker: $rag_worker_status"
 echo "Data directory: $data_root"
+echo "Backup timer: $(systemctl is-enabled carbonio-ai-backup.timer 2>/dev/null || true)"
+echo "Nginx open-file limit drop-in installed; restart carbonio-nginx during an approved maintenance window to apply it."

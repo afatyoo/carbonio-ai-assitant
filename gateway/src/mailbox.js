@@ -111,6 +111,7 @@ const normalizeEmail = (item) => ({
 	subject: String(item.su || '(No subject)').slice(0, 300),
 	preview: String(item.fr || '').slice(0, 500),
 	timestamp: item.d,
+	folderId: String(item.l ?? ''),
 	unread: typeof item.f === 'string' && item.f.includes('u'),
 	from: String(
 		item.e?.find((address) => address.t === 'f')?.a ??
@@ -375,17 +376,11 @@ const safeTextAttachmentTypes = new Set([
 	'text/xml'
 ]);
 
-export const downloadSafeTextAttachment = ({ cookie, messageId, attachment }) =>
+export const downloadAttachmentBuffer = ({ cookie, messageId, attachment, maxBytes = 10_000_000 }) =>
 	new Promise((resolve, reject) => {
 		const declaredType = String(attachment.contentType ?? '').split(';')[0].toLowerCase();
-		if (!safeTextAttachmentTypes.has(declaredType)) {
-			resolve({ text: '', extraction: 'unsupported_type' });
-			return;
-		}
-		if (Number(attachment.size ?? 0) > 2_000_000) {
-			resolve({ text: '', extraction: 'size_limit' });
-			return;
-		}
+		const boundedMaxBytes = Math.min(Math.max(Number(maxBytes) || 10_000_000, 1_000), 25_000_000);
+		if (Number(attachment.size ?? 0) > boundedMaxBytes) return reject(new Error('Attachment exceeds extraction limit'));
 		const path = `/service/content/get?id=${encodeURIComponent(messageId)}&part=${encodeURIComponent(attachment.part)}`;
 		const request = https.request(
 			{
@@ -405,30 +400,15 @@ export const downloadSafeTextAttachment = ({ cookie, messageId, attachment }) =>
 				const responseType = String(response.headers['content-type'] ?? declaredType)
 					.split(';')[0]
 					.toLowerCase();
-				if (!safeTextAttachmentTypes.has(responseType)) {
-					response.resume();
-					resolve({ text: '', extraction: 'mime_mismatch' });
-					return;
-				}
 				const chunks = [];
 				let bytes = 0;
 				response.on('data', (chunk) => {
 					bytes += chunk.length;
-					if (bytes > 2_000_000) request.destroy(new Error('Attachment exceeds extraction limit'));
+					if (bytes > boundedMaxBytes) request.destroy(new Error('Attachment exceeds extraction limit'));
 					else chunks.push(chunk);
 				});
 				response.on('end', () => {
-					const buffer = Buffer.concat(chunks);
-					if (buffer.includes(0)) {
-						resolve({ text: '', extraction: 'binary_rejected' });
-						return;
-					}
-					const text = buffer.toString('utf8');
-					if (text.includes('EICAR-STANDARD-ANTIVIRUS-TEST-FILE')) {
-						resolve({ text: '', extraction: 'malware_quarantined' });
-						return;
-					}
-					resolve({ text: text.slice(0, 200_000), extraction: 'safe_text' });
+					resolve({ buffer: Buffer.concat(chunks), declaredType, responseType });
 				});
 			}
 		);
@@ -436,6 +416,25 @@ export const downloadSafeTextAttachment = ({ cookie, messageId, attachment }) =>
 		request.on('error', reject);
 		request.end();
 	});
+
+export const downloadSafeTextAttachment = async ({ cookie, messageId, attachment }) => {
+	const declaredType = String(attachment.contentType ?? '').split(';')[0].toLowerCase();
+	if (!safeTextAttachmentTypes.has(declaredType)) return { text: '', extraction: 'unsupported_type' };
+	if (Number(attachment.size ?? 0) > 2_000_000) return { text: '', extraction: 'size_limit' };
+	const { buffer, responseType } = await downloadAttachmentBuffer({
+		cookie,
+		messageId,
+		attachment,
+		maxBytes: 2_000_000
+	});
+	if (!safeTextAttachmentTypes.has(responseType)) return { text: '', extraction: 'mime_mismatch' };
+	if (buffer.includes(0)) return { text: '', extraction: 'binary_rejected' };
+	const text = buffer.toString('utf8');
+	if (text.includes('EICAR-STANDARD-ANTIVIRUS-TEST-FILE')) {
+		return { text: '', extraction: 'malware_quarantined' };
+	}
+	return { text: text.slice(0, 200_000), extraction: 'safe_text' };
+};
 
 export const getEmailThread = async ({ cookie, conversationId, maxBodyLength = 8_000 }) => {
 	const boundedLength = Math.min(Math.max(Number(maxBodyLength) || 8_000, 1_000), 12_000);

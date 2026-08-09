@@ -37,6 +37,11 @@ Operational requirements:
   self-hosted OpenAI-compatible endpoint.
 - The gateway sends only bounded task context and redacts common secret patterns;
   users still receive a disclosure because email content can contain personal data.
+- Every configured fallback model must meet the same retention, training, regional processing,
+  contractual, and allowlist requirements as the primary model. A successful fallback remains
+  visibly reported as degraded provider state.
+- Treat `PROVIDER_PRIVACY_POLICY_MISMATCH` as a configuration incident. The gateway does not
+  retry that failure through another model.
 
 ## Official references
 

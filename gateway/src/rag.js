@@ -33,5 +33,5 @@ export const enqueueRagDocuments = (...args) => {
 export const retrievePrivateRag = (ownerId, query, options) =>
 	backend ? backend.retrievePrivateRag(ownerId, query, options) : Promise.resolve([]);
 export const getRagStatus = () =>
-	backend ? backend.getRagStatus() : Promise.resolve({ backend: 'disabled', pgvector: false, queuedJobs: 0 });
+	backend ? backend.getRagStatus() : Promise.resolve({ backend: 'disabled', pgvector: false, queuedJobs: 0, failedJobs: 0, workerHeartbeatAt: null, workerHealthy: false });
 export const closeRagDatabase = () => Promise.resolve(backend?.closeRagDatabase());

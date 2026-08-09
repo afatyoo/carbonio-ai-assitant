@@ -23,8 +23,13 @@ journalctl -u carbonio-ai-rag-worker.service --since "15 minutes ago" --no-pager
 curl -fsS http://127.0.0.1:8787/api/ai/health | jq .rag
 ```
 
-Health reports the RAG backend, pgvector availability, and aggregate queue depth. It never
-reports private source text or user source identifiers.
+Health reports the RAG backend, pgvector availability, aggregate queue depth, failed-job count,
+worker heartbeat, and relation storage size. It never reports private source text or user source
+identifiers.
+
+Synchronization is incremental. The gateway compares source ID and revision, queues only changed
+documents, deletes missing records during finalization, and records scanned, changed, unchanged,
+and deleted counts. A source remains visibly degraded if a durable job exhausts its retries.
 
 ## Embeddings
 
@@ -42,9 +47,12 @@ external host without an approved privacy review.
 
 ## Backup, restore, rollback, and incident response
 
-`backup-postgres.sh` and `restore-postgres.sh` cover RAG tables and RLS. Restore stops gateway
-and worker. Application rollback restarts both services and retains forward-only database
-migrations.
+`backup-policy.sh` covers PostgreSQL, the local audit database, saved non-secret provider
+configuration, and the persistent Safety Center state. It verifies the database archive and
+writes SHA-256 checksum records. `restore-postgres.sh` restores RAG tables and RLS while gateway
+and worker are stopped. Application rollback restarts both services and retains forward-only
+database migrations. See [production hardening](production-hardening.md) for timer, offsite,
+retention, and isolated restore-drill procedures.
 
 For suspected leakage, disable the addon with `AI_ENABLED=false`, stop the worker, preserve a
 database and journal snapshot, remove affected sources, rotate the history/RAG encryption key

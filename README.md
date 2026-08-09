@@ -4,7 +4,7 @@ Standalone AI assistant for Carbonio Webmail, delivered as an independent Carbon
 microfrontend and a private server-side gateway. It adds a ChatGPT-style workspace without
 replacing or modifying the existing Mail application.
 
-**Current release:** [`v2.1.0`](https://github.com/afatyoo/carbonio-ai-assitant/releases/tag/v2.1.0)
+**Current release candidate:** `v2.2.0`
 
 **Deployment class:** full user-scoped Carbonio release with documented known limitations
 
@@ -13,9 +13,24 @@ replacing or modifying the existing Mail application.
 ![Carbonio AI Assistant interface](docs/assets/carbonio-ai-assistant-overview.png)
 
 For exact release evidence, the closed-bug ledger, and authenticated UAT results, read the
-[v2.1.0 release report](docs/releases/v2.1.0.md).
+[v2.2.0 release report](docs/releases/v2.2.0.md).
 
-## What v2.1.0 includes
+## What v2.2.0 includes
+
+### Production hardening
+
+- Authenticated Prometheus metrics, alert rules, an administrator health matrix, request IDs,
+  per-tool counters, provider latency, RAG queue health, and capacity indicators.
+- Saved-provider connection tests, ordered model fallback for availability failures, visible
+  active models, and fail-closed OpenRouter privacy-policy mismatch handling.
+- Incremental RAG synchronization, deletion propagation, worker heartbeats, encrypted job
+  lifecycle reporting, structured clickable citations, and a repeatable retrieval scorecard.
+- A Safety Center with owner-scoped activity, emergency write stop, and confirmed time-limited
+  Undo for supported reversible mutations.
+- Verified PostgreSQL plus runtime-state backups, daily retention, optional offsite copies,
+  monthly isolated restore drills, systemd resource limits, and an Nginx open-file limit drop-in.
+- Optional PDF and office extraction that remains disabled unless malware scanning, a
+  no-network sandbox wrapper, and a bounded extractor are all configured.
 
 ### User-only private RAG
 
@@ -108,7 +123,7 @@ raw external provider errors are not translated automatically.
 
 ## RAG scope
 
-v2.1.0 adds opt-in private retrieval for the authenticated user's Mail, safe attachment text
+v2.2.0 provides opt-in private retrieval for the authenticated user's Mail, safe attachment text
 and metadata, Calendar, Tasks, and personal Contacts. The existing curated official Carbonio
 API documentation corpus remains available for product guidance.
 
@@ -178,14 +193,14 @@ part of the current live UAT evidence. See [browser support](docs/browser-suppor
 
 ## Known limitations
 
-Deploying or enabling v2.1.0 means the operator and each participating user accept the
+Deploying or enabling v2.2.0 means the operator and each participating user accept the
 remaining environment-dependent gates below. This project is an independent community addon
 and is not developed, supported, certified, or endorsed by Zextras. Acceptance does not create
 support obligations for Zextras and does not turn missing evidence into a pass:
 
 1. Files/Docs and Chats remain unavailable until official user-scoped compatibility probes pass.
-2. PDF, office, archive, image, and executable attachment bodies are metadata-only. They are
-   not parsed by the text extractor.
+2. PDF and office extraction is optional and fail-closed. Without a reviewed malware scanner,
+   no-network sandbox wrapper, and extractor, these and other binary bodies remain metadata-only.
 3. The deterministic local vector fallback is private but less semantic than a reviewed
    self-hosted embedding model.
 4. Recall@8, no-answer precision, and retrieval p95 require a representative opted-in mailbox.
@@ -205,7 +220,7 @@ support obligations for Zextras and does not turn missing evidence into a pass:
 
 Do not claim Files, Chats, binary attachment understanding, high availability, or performance
 targets that were not validated. The complete risk record is in the
-[v2.1.0 release report](docs/releases/v2.1.0.md#risk-acceptance).
+[v2.2.0 release report](docs/releases/v2.2.0.md#risk-acceptance).
 
 ## Security and privacy
 
@@ -293,19 +308,19 @@ Deploy from the public release artifact, not an arbitrary branch checkout. Run t
 inside a dedicated staging directory on the Carbonio Proxy/Web UI host:
 
 ```bash
-mkdir carbonio-ai-v2.1.0
-cd carbonio-ai-v2.1.0
-curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.1.0/carbonio-ai-assistant-v2.1.0.tar.gz
-curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.1.0/carbonio-ai-assistant-v2.1.0.tar.gz.sha256
-sha256sum --check carbonio-ai-assistant-v2.1.0.tar.gz.sha256
-tar -xzf carbonio-ai-assistant-v2.1.0.tar.gz
-cd carbonio-ai-assistant-v2.1.0
+mkdir carbonio-ai-v2.2.0
+cd carbonio-ai-v2.2.0
+curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.2.0/carbonio-ai-assistant-v2.2.0.tar.gz
+curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.2.0/carbonio-ai-assistant-v2.2.0.tar.gz.sha256
+sha256sum --check carbonio-ai-assistant-v2.2.0.tar.gz.sha256
+tar -xzf carbonio-ai-assistant-v2.2.0.tar.gz
+cd carbonio-ai-assistant-v2.2.0
 ```
 
 Use the signed release asset's `.sha256` file as the checksum authority. The release page
 also records the exact workflow, commit, and artifact digest.
 
-Inspect `release.env` and confirm version `2.1.0`, the approved exact commit, and the Node
+Inspect `release.env` and confirm version `2.2.0`, the approved exact commit, and the Node
 runtime before continuing.
 
 ### Install the application
@@ -372,6 +387,26 @@ For an older installation, the helper also supports `--migrate-env` and
 `--migrate-config`. It deletes legacy plaintext only after encrypted credential creation
 succeeds.
 
+### Configure monitoring and recovery
+
+The installer creates a root-only Prometheus bearer token. Rotate it when monitoring is
+first connected or after suspected exposure:
+
+```bash
+sudo /opt/carbonio-ai-assistant/bin/set-metrics-token.sh
+```
+
+Configure `AI_BACKUP_OFFSITE_PATH`, `AI_BACKUP_RETENTION_DAYS`, and an isolated
+`AI_RESTORE_DRILL_DATABASE_URL` in the root-owned environment file. Then verify both timers:
+
+```bash
+systemctl status carbonio-ai-backup.timer --no-pager
+systemctl status carbonio-ai-restore-drill.timer --no-pager
+```
+
+See [production hardening](docs/production-hardening.md) before enabling Prometheus scraping,
+optional document extraction, or the restore timer.
+
 ### Verify the deployment
 
 ```bash
@@ -384,7 +419,7 @@ curl -fsS http://127.0.0.1:8787/api/ai/health
 Strict smoke must finish with:
 
 ```text
-smoke_health=ok headers=ok loopback=ok admin_auth=ok csrf=ok history=postgresql rag_worker=ok
+smoke_health=ok headers=ok loopback=ok admin_auth=ok metrics_auth=ok csrf=ok history=postgresql rag_worker=ok
 ```
 
 Then hard-refresh authenticated Carbonio Webmail and verify:
@@ -401,11 +436,11 @@ Do not repeat a live email or calendar mutation without separate action-time app
 ## Upgrade
 
 Before installing a newer verified archive, record the current gateway symlink, active UI
-commit, service status, and smoke output. Create and validate a database backup:
+commit, service status, and smoke output. Create and validate a complete recovery point:
 
 ```bash
-sudo /opt/carbonio-ai-assistant/bin/backup-postgres.sh
-sudo pg_restore --list /var/backups/carbonio-ai-assistant/<new-backup-file>.dump
+sudo /opt/carbonio-ai-assistant/bin/backup-policy.sh
+sudo systemctl start carbonio-ai-restore-drill.service
 ```
 
 Verify the new archive checksum, extract it, inspect `release.env`, and run its installer:
@@ -569,6 +604,7 @@ through `AI_TEST_DATABASE_URL`. Do not aim it at an unapproved production databa
 
 ## Documentation
 
+- [v2.2.0 release report](docs/releases/v2.2.0.md)
 - [v2.1.0 release report](docs/releases/v2.1.0.md)
 - [Carbonio user tool matrix](docs/carbonio-user-tool-matrix.md)
 - [Private RAG architecture](docs/rag-architecture.md)
@@ -577,6 +613,7 @@ through `AI_TEST_DATABASE_URL`. Do not aim it at an unapproved production databa
 - [Manage AI Sources user guide](docs/rag-user-guide.md)
 - [Private RAG operations](docs/rag-operations.md)
 - [Private RAG evaluation](docs/rag-evaluation.md)
+- [Production hardening and recovery](docs/production-hardening.md)
 - [Deployment helper reference](deploy/README.md)
 - [Administrator policy](docs/admin-policy.md)
 - [Provider data policy](docs/provider-data-policy.md)
@@ -586,7 +623,7 @@ through `AI_TEST_DATABASE_URL`. Do not aim it at an unapproved production databa
 
 ## Roadmap
 
-Next hardening work covers sandboxed PDF/office extraction with a production malware engine,
+Next work covers reviewed scanner and sandbox packages for optional document extraction,
 official Files/Docs and Chats adapters after compatibility gates pass, native-language review,
 large-mailbox evaluation, and site-specific PostgreSQL high-availability rehearsal.
 

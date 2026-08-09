@@ -16,6 +16,9 @@ Restart=on-failure
 RestartSec=3
 TimeoutStopSec=30
 UMask=0077
+LimitNOFILE=4096
+MemoryMax=1536M
+TasksMax=192
 
 NoNewPrivileges=true
 PrivateDevices=true
@@ -33,6 +36,8 @@ RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 RestrictNamespaces=true
 RestrictRealtime=true
 RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
 
 [Install]
 WantedBy=multi-user.target

@@ -12,8 +12,9 @@ type PublicConfig = {
 	model: string;
 	effectiveModel: string;
 	effectiveProvider: string;
+	fallbackModels: string[];
 	configRevision: string;
-	configSource: Record<'provider' | 'agentUrl' | 'model', 'environment' | 'runtime'>;
+	configSource: Record<'provider' | 'agentUrl' | 'model' | 'fallbackModels', 'environment' | 'runtime'>;
 	lockedFields: string[];
 	mode: 'local-agent' | 'remote-agent';
 	modelAllowlist: string[];
@@ -36,11 +37,26 @@ type AccountUsage = {
 
 type AuditEntry = {
 	id: string;
-	ownerId: string;
+	ownerId?: string;
 	tool: string;
 	risk: string;
 	status: string;
 	createdAt: number;
+	requestId?: string;
+	resultReference?: string;
+	undoAvailable?: boolean;
+};
+
+type OperationalHealth = {
+	status: 'healthy' | 'degraded' | 'error';
+	components: Record<string, { status: string; detail: string; observedAt: number }>;
+	provider: { status: string; model: string; configuredModel: string; usedFallback: boolean; latencyMs: number | null; errorCode: string };
+};
+
+type SafetyState = {
+	writeToolsEnabled: boolean;
+	environmentAllowsWrites: boolean;
+	updatedAt: number | null;
 };
 
 type RagSource = {
@@ -54,6 +70,7 @@ type RagSource = {
 	indexedDocuments: number;
 	indexedChunks: number;
 	lastError: string;
+	lastSyncStats?: { scanned?: number; changed?: number; unchanged?: number; deleted?: number };
 };
 
 const providers = {
@@ -196,6 +213,22 @@ const AuditList = styled.ul`
 	font-size: 0.82rem;
 `;
 
+const HealthGrid = styled.div`
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+	gap: 0.75rem;
+`;
+
+const HealthCard = styled.div`
+	padding: 0.875rem;
+	border: 0.0625rem solid ${({ theme }): string => theme.palette.gray3.regular};
+	border-radius: 0.625rem;
+`;
+
+const AuditRow = styled.li`
+	margin-bottom: 0.75rem;
+`;
+
 const SourceList = styled.div`
 	display: grid;
 	gap: 0.75rem;
@@ -237,6 +270,7 @@ export const AiSettingsView = (): React.JSX.Element => {
 	const [agentUrl, setAgentUrl] = useState('');
 	const [apiKey, setApiKey] = useState('');
 	const [model, setModel] = useState('~openai/gpt-latest');
+	const [fallbackModels, setFallbackModels] = useState('');
 	const [hasApiKey, setHasApiKey] = useState(false);
 	const [status, setStatus] = useState(() =>
 		t('settings.loading', 'Loading configuration...')
@@ -249,10 +283,26 @@ export const AiSettingsView = (): React.JSX.Element => {
 	const [processingDisclosure, setProcessingDisclosure] = useState('');
 	const [adminMetrics, setAdminMetrics] = useState<AdminMetrics | null>(null);
 	const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
+	const [userAuditEntries, setUserAuditEntries] = useState<AuditEntry[]>([]);
+	const [operationalHealth, setOperationalHealth] = useState<OperationalHealth | null>(null);
+	const [safetyState, setSafetyState] = useState<SafetyState | null>(null);
+	const [testingProvider, setTestingProvider] = useState(false);
+	const [undoBusy, setUndoBusy] = useState<string[]>([]);
 	const [accountUsage, setAccountUsage] = useState<AccountUsage | null>(null);
 	const [ragSources, setRagSources] = useState<RagSource[]>([]);
 	const [ragBusy, setRagBusy] = useState<string[]>([]);
 	const [ragStatus, setRagStatus] = useState('');
+
+	const loadSafetyActivity = useCallback((): void => {
+		void apiFetch('/api/ai/audit?limit=25')
+			.then((response) => parseJsonResponse<{ entries: AuditEntry[] }>(response))
+			.then(({ entries }) => setUserAuditEntries(entries))
+			.catch(() => {
+				// Safety activity remains hidden when unavailable.
+			});
+	}, []);
+
+	useEffect(loadSafetyActivity, [loadSafetyActivity]);
 
 	const loadRagSources = useCallback((): void => {
 		void apiFetch('/api/ai/rag/sources')
@@ -308,6 +358,85 @@ export const AiSettingsView = (): React.JSX.Element => {
 		}
 	};
 
+	const testProvider = async (): Promise<void> => {
+		setTestingProvider(true);
+		setError(false);
+		setStatus(t('settings.provider_testing', 'Testing the saved provider and model...'));
+		try {
+			const result = await parseJsonResponse<{
+				activeModel: string;
+				configuredModel: string;
+				usedFallback: boolean;
+				latencyMs: number;
+			}>(await apiFetch('/api/ai/admin/provider/test', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ model })
+			}));
+			setStatus(t('settings.provider_test_ok', 'Connection passed with {{model}} in {{latency}} ms{{fallback}}', {
+				model: result.activeModel,
+				latency: result.latencyMs,
+				fallback: result.usedFallback ? t('settings.provider_test_fallback', ' using fallback') : ''
+			}));
+		} catch (reason) {
+			setError(true);
+			setStatus(reason instanceof Error ? reason.message : t('settings.provider_test_error', 'Provider connection test failed'));
+		} finally {
+			setTestingProvider(false);
+		}
+	};
+
+	const updateSafety = async (writeToolsEnabled: boolean): Promise<void> => {
+		setError(false);
+		try {
+			const { safety } = await parseJsonResponse<{ safety: SafetyState }>(
+				await apiFetch('/api/ai/admin/safety', {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ writeToolsEnabled })
+				})
+			);
+			setSafetyState(safety);
+			setStatus(writeToolsEnabled
+				? t('settings.writes_enabled', 'AI write tools enabled')
+				: t('settings.writes_disabled', 'Emergency write stop enabled'));
+		} catch (reason) {
+			setError(true);
+			setStatus(reason instanceof Error ? reason.message : t('settings.safety_error', 'Unable to update safety controls'));
+		}
+	};
+
+	const undoAuditEntry = async (entry: AuditEntry): Promise<void> => {
+		setUndoBusy((current) => [...current, entry.id]);
+		try {
+			const first = await parseJsonResponse<{
+				status: string;
+				confirmation?: { token: string; preview: Record<string, unknown> };
+			}>(await apiFetch(`/api/ai/audit/${encodeURIComponent(entry.id)}/undo`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: '{}'
+			}));
+			if (first.status !== 'confirmation_required' || !first.confirmation) throw new Error('Undo confirmation was not returned');
+			const accepted = window.confirm(
+				`${t('settings.undo_confirm', 'Confirm this undo operation')}\n\n${JSON.stringify(first.confirmation.preview, null, 2)}`
+			);
+			if (!accepted) return;
+			await parseJsonResponse(await apiFetch(`/api/ai/audit/${encodeURIComponent(entry.id)}/undo`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ confirmationToken: first.confirmation.token, idempotencyKey: crypto.randomUUID() })
+			}));
+			setStatus(t('settings.undo_complete', 'Operation undone successfully'));
+			loadSafetyActivity();
+		} catch (reason) {
+			setError(true);
+			setStatus(reason instanceof Error ? reason.message : t('settings.undo_error', 'Unable to undo operation'));
+		} finally {
+			setUndoBusy((current) => current.filter((id) => id !== entry.id));
+		}
+	};
+
 	useEffect(() => {
 		apiFetch('/api/ai/usage')
 			.then((response) => parseJsonResponse<{ usage: AccountUsage }>(response))
@@ -325,6 +454,7 @@ export const AiSettingsView = (): React.JSX.Element => {
 				setAgentUrl(config.agentUrl);
 				setHasApiKey(config.hasApiKey);
 				setModel(config.model || '~openai/gpt-latest');
+				setFallbackModels((config.fallbackModels ?? []).join(', '));
 				setLockedFields(config.lockedFields ?? []);
 				setCanManageSettings(config.canManageSettings);
 				setModelAllowlist(config.modelAllowlist ?? []);
@@ -336,11 +466,19 @@ export const AiSettingsView = (): React.JSX.Element => {
 						),
 						apiFetch('/api/ai/admin/audit?limit=10').then((response) =>
 							parseJsonResponse<{ entries: AuditEntry[] }>(response)
+						),
+						apiFetch('/api/ai/admin/health').then((response) =>
+							parseJsonResponse<OperationalHealth>(response)
+						),
+						apiFetch('/api/ai/admin/safety').then((response) =>
+							parseJsonResponse<{ safety: SafetyState }>(response)
 						)
 					])
-						.then(([metrics, audit]) => {
+						.then(([metrics, audit, health, safety]) => {
 							setAdminMetrics(metrics);
 							setAuditEntries(audit.entries);
+							setOperationalHealth(health);
+							setSafetyState(safety.safety);
 						})
 						.catch((reason: Error) => {
 							setError(true);
@@ -359,6 +497,20 @@ export const AiSettingsView = (): React.JSX.Element => {
 			});
 	}, [t]);
 
+	useEffect(() => {
+		if (!canManageSettings) return undefined;
+		const refreshHealth = (): void => {
+			void apiFetch('/api/ai/admin/health')
+				.then((response) => parseJsonResponse<OperationalHealth>(response))
+				.then(setOperationalHealth)
+				.catch(() => {
+					// Preserve the last known health snapshot during transient refresh failures.
+				});
+		};
+		const timer = window.setInterval(refreshHealth, 15_000);
+		return (): void => window.clearInterval(timer);
+	}, [canManageSettings]);
+
 	const save = async (event: FormEvent): Promise<void> => {
 		event.preventDefault();
 		setSaving(true);
@@ -372,6 +524,7 @@ export const AiSettingsView = (): React.JSX.Element => {
 					provider,
 					agentUrl,
 					model,
+					fallbackModels: fallbackModels.split(',').map((item) => item.trim()).filter(Boolean),
 					...(apiKey.trim() ? { apiKey } : {})
 				})
 			});
@@ -379,6 +532,7 @@ export const AiSettingsView = (): React.JSX.Element => {
 			setProvider((data.effectiveProvider as keyof typeof providers) || 'custom');
 			setAgentUrl(data.agentUrl);
 			setModel(data.effectiveModel);
+			setFallbackModels((data.fallbackModels ?? []).join(', '));
 			setModelAllowlist(data.modelAllowlist ?? []);
 			setLockedFields(data.lockedFields ?? []);
 			setHasApiKey(data.hasApiKey);
@@ -517,12 +671,26 @@ export const AiSettingsView = (): React.JSX.Element => {
 						)}
 					</Hint>
 				</Field>
+				<Field>
+					{t('settings.fallback_models', 'Fallback models')}
+					<Input
+						type="text"
+						disabled={!canManageSettings || lockedFields.includes('fallbackModels')}
+						placeholder="model-a, model-b"
+						value={fallbackModels}
+						onChange={(event): void => setFallbackModels(event.target.value)}
+					/>
+					<Hint>{t('settings.fallback_models_hint', 'Tried in order only for availability, timeout, rate-limit, and server failures. Authentication and invalid requests never fall back.')}</Hint>
+				</Field>
 				<Actions>
 					<Save type="submit" disabled={saving || !canManageSettings}>
 						{saving
 							? t('settings.saving', 'Saving...')
 							: t('settings.save', 'Save configuration')}
 					</Save>
+					<SecondaryButton type="button" disabled={!canManageSettings || saving || testingProvider} onClick={(): void => void testProvider()}>
+						{testingProvider ? t('settings.provider_testing_short', 'Testing...') : t('settings.provider_test', 'Test saved connection')}
+					</SecondaryButton>
 					<Status error={error}>{status}</Status>
 				</Actions>
 				{processingDisclosure ? <Hint>{processingDisclosure}</Hint> : null}
@@ -564,6 +732,14 @@ export const AiSettingsView = (): React.JSX.Element => {
 											})
 										: t(`settings.rag_unavailable_${source.module}`, source.unavailableReason)}
 								</Hint>
+								{source.lastSyncStats && Object.keys(source.lastSyncStats).length ? (
+									<Hint>{t('settings.rag_incremental_stats', 'Last sync: {{scanned}} scanned · {{changed}} changed · {{unchanged}} unchanged · {{deleted}} deleted', {
+										scanned: source.lastSyncStats.scanned ?? 0,
+										changed: source.lastSyncStats.changed ?? 0,
+										unchanged: source.lastSyncStats.unchanged ?? 0,
+										deleted: source.lastSyncStats.deleted ?? 0
+									})}</Hint>
+								) : null}
 								{source.lastError ? <Status error>{source.lastError}</Status> : null}
 							</div>
 							<SourceActions>
@@ -604,9 +780,52 @@ export const AiSettingsView = (): React.JSX.Element => {
 					<Hint>{accountUsage.date}</Hint>
 				</AdminPanel>
 			) : null}
+			<AdminPanel>
+				<h2>{t('settings.safety_center', 'AI Safety Center')}</h2>
+				<p>{t('settings.safety_center_hint', 'Review your recent AI tool activity. Recoverable operations can be undone for a limited time and always require confirmation.')}</p>
+				<AuditList>
+					{userAuditEntries.length ? userAuditEntries.map((entry) => (
+						<AuditRow key={entry.id}>
+							<strong>{entry.tool}</strong> · {entry.risk} · {entry.status} · {new Date(entry.createdAt).toLocaleString()}
+							{entry.resultReference ? <Hint>{t('settings.target_reference', 'Target')}: {entry.resultReference}</Hint> : null}
+							{entry.requestId ? <Hint>{t('settings.request_id', 'Request ID')}: {entry.requestId}</Hint> : null}
+							{entry.undoAvailable ? (
+								<SecondaryButton type="button" disabled={undoBusy.includes(entry.id)} onClick={(): void => void undoAuditEntry(entry)}>
+									{undoBusy.includes(entry.id) ? t('settings.undoing', 'Undoing...') : t('settings.undo', 'Undo')}
+								</SecondaryButton>
+							) : null}
+						</AuditRow>
+					)) : <li>{t('settings.no_tool_activity', 'No AI tool activity recorded yet.')}</li>}
+				</AuditList>
+			</AdminPanel>
 			{canManageSettings ? (
 				<AdminPanel>
 					<h2>{t('settings.admin_status', 'Administration status')}</h2>
+					{operationalHealth ? (
+						<>
+							<p><strong>{t('settings.overall_health', 'Overall health')}:</strong> {operationalHealth.status}</p>
+							<HealthGrid>
+								{Object.entries(operationalHealth.components).map(([name, health]) => (
+									<HealthCard key={name}>
+										<strong>{name}</strong>
+										<Status error={health.status === 'error'}>{health.status}</Status>
+										<Hint>{health.detail}</Hint>
+									</HealthCard>
+								))}
+							</HealthGrid>
+						</>
+					) : null}
+					<h3>{t('settings.emergency_controls', 'Emergency controls')}</h3>
+					<p>{safetyState?.writeToolsEnabled
+						? t('settings.write_tools_active', 'AI write tools are currently enabled.')
+						: t('settings.write_tools_stopped', 'AI write tools are currently stopped. Read-only tools remain available.')}</p>
+					<SecondaryButton
+						type="button"
+						disabled={!safetyState || (!safetyState.environmentAllowsWrites && !safetyState.writeToolsEnabled)}
+						onClick={(): void => void updateSafety(!safetyState?.writeToolsEnabled)}
+					>
+						{safetyState?.writeToolsEnabled ? t('settings.stop_writes', 'Stop all AI writes') : t('settings.enable_writes', 'Enable AI writes')}
+					</SecondaryButton>
 					<AdminSummary>
 						{adminMetrics
 							? JSON.stringify(

@@ -3,10 +3,12 @@ import {
 	consumeConfirmation,
 	createAuditEntry,
 	createConfirmation,
+	createUndoAction,
 	getIdempotentResult,
 	saveIdempotentResult
 } from './tool-audit.js';
 import { logEvent } from './logger.js';
+import { incrementMetric, observeMetric } from './metrics.js';
 import { getRegisteredTool, validateToolInput } from './tool-registry.js';
 
 const withTimeout = async (promise, timeoutMs, toolName) => {
@@ -113,6 +115,17 @@ export const executeTool = async ({ name, input, context }) => {
 			resultCount,
 			resultReference: definition.resultReference?.(result) ?? null
 		});
+		if (!context.undoOf) {
+			createUndoAction({
+				auditId: audit.id,
+				ownerId: context.ownerId,
+				toolName: name,
+				input,
+				result
+			});
+		}
+		incrementMetric(`tool_${name}_completed_total`);
+		observeMetric(`tool_${name}_duration_ms`, Date.now() - startedAt);
 		logEvent('info', 'tool_completed', {
 			tool: name,
 			risk: definition.risk,
@@ -128,6 +141,7 @@ export const executeTool = async ({ name, input, context }) => {
 			duration_ms: Date.now() - startedAt,
 			error
 		});
+		incrementMetric(`tool_${name}_failed_total`);
 		throw error;
 	}
 };

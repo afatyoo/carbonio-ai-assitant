@@ -34,6 +34,7 @@ const schema = `
 		indexed_documents INTEGER NOT NULL DEFAULT 0,
 		indexed_chunks INTEGER NOT NULL DEFAULT 0,
 		last_error TEXT,
+		last_sync_stats JSONB NOT NULL DEFAULT '{}'::jsonb,
 		updated_at BIGINT NOT NULL,
 		PRIMARY KEY (owner_id, module)
 	);
@@ -89,6 +90,11 @@ const schema = `
 		last_error TEXT
 	);
 	CREATE INDEX IF NOT EXISTS rag_jobs_queue ON rag_jobs(status, available_at, created_at);
+	CREATE TABLE IF NOT EXISTS rag_runtime_status (
+		component TEXT PRIMARY KEY,
+		last_seen_at BIGINT NOT NULL,
+		details JSONB NOT NULL DEFAULT '{}'::jsonb
+	);
 `;
 
 const rlsTables = ['rag_sources', 'rag_documents', 'rag_chunks', 'rag_tombstones'];
@@ -106,6 +112,7 @@ const initialize = async () => {
 		}
 		await client.query('SELECT pg_advisory_lock(1128352331)');
 		await client.query(schema);
+		await client.query("ALTER TABLE rag_sources ADD COLUMN IF NOT EXISTS last_sync_stats JSONB NOT NULL DEFAULT '{}'::jsonb");
 		for (const table of rlsTables) {
 			await client.query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
 			await client.query(`ALTER TABLE ${table} FORCE ROW LEVEL SECURITY`);
@@ -169,6 +176,7 @@ const parseSource = (row, module) => ({
 	indexedDocuments: Number(row?.indexed_documents ?? 0),
 	indexedChunks: Number(row?.indexed_chunks ?? 0),
 	lastError: row?.last_error ?? '',
+	lastSyncStats: row?.last_sync_stats ?? {},
 	updatedAt: row?.updated_at == null ? null : Number(row.updated_at)
 });
 
@@ -241,7 +249,18 @@ export const enqueueRagDocuments = (ownerId, moduleValue, documents) => {
 			[ownerId, module]
 		);
 		const syncStartedAt = Date.now();
-		for (const [index, document] of documents.entries()) {
+		const existingResult = await client.query(
+			'SELECT source_id, revision FROM rag_documents WHERE owner_id=$1 AND module=$2',
+			[ownerId, module]
+		);
+		const existing = new Map(existingResult.rows.map((row) => [String(row.source_id), String(row.revision)]));
+		const sourceIds = documents.map(({ id }) => String(id));
+		const changedDocuments = documents.filter(
+			(document) => existing.get(String(document.id)) !== String(document.revision ?? '')
+		);
+		const unchanged = documents.length - changedDocuments.length;
+		const deleted = [...existing.keys()].filter((sourceId) => !sourceIds.includes(sourceId)).length;
+		for (const [index, document] of changedDocuments.entries()) {
 			const id = randomUUID();
 			const payload = JSON.stringify({ ...document, module });
 			await client.query(
@@ -260,11 +279,14 @@ export const enqueueRagDocuments = (ownerId, moduleValue, documents) => {
 				finalizeId,
 				ownerId,
 				module,
-				encryptRagText(ownerId, 'job', finalizeId, JSON.stringify({ sourceIds: documents.map(({ id }) => String(id)) })),
-				syncStartedAt + documents.length
+				encryptRagText(ownerId, 'job', finalizeId, JSON.stringify({
+					sourceIds,
+					stats: { scanned: documents.length, changed: changedDocuments.length, unchanged, deleted }
+				})),
+				syncStartedAt + changedDocuments.length
 			]
 		);
-		return { module, queued: documents.length };
+		return { module, queued: changedDocuments.length, scanned: documents.length, unchanged, deleted };
 	});
 };
 
@@ -401,12 +423,14 @@ export const finalizeRagSync = (job) =>
 			[job.ownerId, job.module, sourceIds]
 		);
 		await client.query('DELETE FROM rag_jobs WHERE id=$1', [job.id]);
+		const stats = job.payload.stats && typeof job.payload.stats === 'object' ? job.payload.stats : {};
 		await client.query(
 			`UPDATE rag_sources SET status='ready',last_sync_at=$3,updated_at=$3,last_error=NULL,
+			 last_sync_stats=$4,
 			 indexed_documents=(SELECT COUNT(*) FROM rag_documents WHERE owner_id=$1 AND module=$2),
 			 indexed_chunks=(SELECT COUNT(*) FROM rag_chunks WHERE owner_id=$1 AND module=$2)
 			 WHERE owner_id=$1 AND module=$2`,
-			[job.ownerId, job.module, Date.now()]
+			[job.ownerId, job.module, Date.now(), stats]
 		);
 		await client.query('DELETE FROM rag_tombstones WHERE expires_at < $1', [Date.now()]);
 	});
@@ -516,7 +540,37 @@ export const getRagStatus = async () => {
 	const queue = await pool.query(
 		"SELECT COUNT(*)::int AS count FROM rag_jobs WHERE status IN ('queued','processing')"
 	);
-	return { backend: 'postgresql', pgvector: Boolean(vector.rowCount), queuedJobs: Number(queue.rows[0].count) };
+	const failed = await pool.query("SELECT COUNT(*)::int AS count FROM rag_jobs WHERE status='failed'");
+	const worker = await pool.query(
+		"SELECT last_seen_at, details FROM rag_runtime_status WHERE component='worker'"
+	);
+	const capacity = await pool.query(
+		`SELECT pg_total_relation_size('rag_documents') + pg_total_relation_size('rag_chunks') + pg_total_relation_size('rag_jobs') AS database_bytes`
+	);
+	const workerHeartbeatAt = worker.rows[0]?.last_seen_at == null ? null : Number(worker.rows[0].last_seen_at);
+	const capacityRow = capacity.rows[0] ?? {};
+	return {
+		backend: 'postgresql',
+		pgvector: Boolean(vector.rowCount),
+		queuedJobs: Number(queue.rows[0].count),
+		failedJobs: Number(failed.rows[0].count),
+		workerHeartbeatAt,
+		workerHealthy: workerHeartbeatAt !== null && Date.now() - workerHeartbeatAt < 30_000,
+		workerDetails: worker.rows[0]?.details ?? {},
+		capacity: {
+			databaseBytes: Number(capacityRow.database_bytes ?? 0),
+			documentSafetyLimitPerSync: 2_000
+		}
+	};
+};
+
+export const recordRagWorkerHeartbeat = async (details = {}) => {
+	await pool.query(
+		`INSERT INTO rag_runtime_status(component,last_seen_at,details)
+		 VALUES('worker',$1,$2)
+		 ON CONFLICT(component) DO UPDATE SET last_seen_at=EXCLUDED.last_seen_at,details=EXCLUDED.details`,
+		[Date.now(), details]
+	);
 };
 
 export const purgeRagOwnerForTest = (ownerId) =>

@@ -62,6 +62,23 @@ if (process.env.AI_DATABASE_URL && process.env.AI_HISTORY_ENCRYPTION_KEY) {
 		assert.ok(ownerAResults.some(({ content }) => content.includes('alpha-private-code')));
 		assert.ok(ownerAResults.every(({ content }) => !content.includes('beta-private-code')));
 		assert.deepEqual(await retrievePrivateRag(ownerA, 'completely-unrelated-no-evidence'), []);
+		const incremental = await enqueueRagDocuments(ownerA, 'mail', [{
+			id: '440', revision: '1', title: 'alpha-private-code mail', deepLink: '/mails/message/440',
+			metadata: {}, content: 'Evidence alpha-private-code'
+		}]);
+		assert.deepEqual(
+			{ queued: incremental.queued, scanned: incremental.scanned, unchanged: incremental.unchanged, deleted: incremental.deleted },
+			{ queued: 0, scanned: 1, unchanged: 1, deleted: 0 }
+		);
+		const incrementalFinalize = await claimRagJob();
+		assert.equal(incrementalFinalize.operation, 'finalize');
+		const { finalizeRagSync } = await import('../src/rag-postgres.js');
+		await finalizeRagSync(incrementalFinalize);
+		const deletion = await enqueueRagDocuments(ownerA, 'mail', []);
+		assert.equal(deletion.deleted, 1);
+		const deletionFinalize = await claimRagJob();
+		await finalizeRagSync(deletionFinalize);
+		assert.deepEqual(await retrievePrivateRag(ownerA, 'alpha-private-code'), []);
 		await setRagSource(ownerA, 'mail', false);
 		assert.deepEqual(await retrievePrivateRag(ownerA, 'alpha-private-code'), []);
 	} finally {

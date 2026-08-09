@@ -3,6 +3,7 @@ import {
 	getEmail,
 	getEmailAttachments,
 	getEmailThread,
+	listFolders,
 	messageAction,
 	searchEmails,
 	sendEmail
@@ -316,13 +317,31 @@ registerTool(
 			folderName: input.folderName ?? ''
 		})
 	},
-	(input, context) =>
-		messageAction({
+	async (input, context) => {
+		const [message, folders] = await Promise.all([
+			getEmail({ cookie: context.cookie, id: input.id, maxBodyLength: 1_000 }),
+			listFolders({ cookie: context.cookie })
+		]);
+		const destinationFolder = folders.find((folder) => folder.id === input.folderId);
+		if (!destinationFolder) {
+			throw new Error('Destination folder is unavailable; refresh and confirm again');
+		}
+		if (input.folderName && destinationFolder.name !== input.folderName) {
+			throw new Error('Destination folder changed since preview; refresh and confirm again');
+		}
+		const previousFolder = folders.find((folder) => folder.id === message.folderId);
+		const result = await messageAction({
 			cookie: context.cookie,
 			id: input.id,
 			operation: 'move',
 			folderId: input.folderId
-		})
+		});
+		return {
+			...result,
+			previousFolderId: message.folderId,
+			previousFolderName: previousFolder?.name ?? ''
+		};
+	}
 );
 
 registerTool(

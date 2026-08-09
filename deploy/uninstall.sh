@@ -28,6 +28,11 @@ config_root="/etc/carbonio-ai-assistant"
 ui_root="$iris_root/carbonio-ai-assistant-ui"
 service_file="/etc/systemd/system/carbonio-ai-gateway.service"
 worker_service_file="/etc/systemd/system/carbonio-ai-rag-worker.service"
+backup_service_file="/etc/systemd/system/carbonio-ai-backup.service"
+backup_timer_file="/etc/systemd/system/carbonio-ai-backup.timer"
+restore_drill_service_file="/etc/systemd/system/carbonio-ai-restore-drill.service"
+restore_drill_timer_file="/etc/systemd/system/carbonio-ai-restore-drill.timer"
+nginx_limits_file="/etc/systemd/system/carbonio-nginx.service.d/carbonio-ai-limits.conf"
 nginx_upstream="/opt/zextras/conf/nginx/extensions/upstream-carbonio-ai.conf"
 nginx_backend="/opt/zextras/conf/nginx/extensions/backend-carbonio-ai.conf"
 
@@ -52,7 +57,10 @@ fi
 
 systemctl disable --now carbonio-ai-rag-worker.service >/dev/null 2>&1 || true
 systemctl disable --now carbonio-ai-gateway.service >/dev/null 2>&1 || true
-rm -f "$service_file" "$worker_service_file"
+systemctl disable --now carbonio-ai-backup.timer >/dev/null 2>&1 || true
+systemctl disable --now carbonio-ai-restore-drill.timer >/dev/null 2>&1 || true
+rm -f "$service_file" "$worker_service_file" "$backup_service_file" "$backup_timer_file" \
+	"$restore_drill_service_file" "$restore_drill_timer_file" "$nginx_limits_file"
 systemctl daemon-reload
 
 rm -f "$nginx_upstream" "$nginx_backend"

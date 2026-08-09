@@ -17,15 +17,15 @@ pnpm run package:release
 ```
 
 The generated versioned archive and SHA-256 checksum are written to `release/`,
-for example `carbonio-ai-assistant-v0.0.2.tar.gz`.
+for example `carbonio-ai-assistant-v2.2.0.tar.gz`.
 
 ## Install or upgrade
 
 Copy the release archive to the Carbonio Proxy/Web UI server, then:
 
 ```bash
-tar -xzf carbonio-ai-assistant-v0.0.2.tar.gz
-cd carbonio-ai-assistant-v0.0.2
+tar -xzf carbonio-ai-assistant-v2.2.0.tar.gz
+cd carbonio-ai-assistant-v2.2.0
 sudo ./install.sh
 ```
 
@@ -33,11 +33,12 @@ The installer is idempotent for an existing managed installation. It:
 
 1. Downloads and verifies the pinned official Node.js runtime when missing.
 2. Installs the versioned gateway release.
-3. Registers and starts `carbonio-ai-gateway.service`.
+3. Registers the gateway, RAG worker, backup, and restore-drill systemd units.
 4. Installs the Carbonio Nginx extension route.
 5. Installs the versioned Iris UI component.
 6. Rebuilds `components.json` and keeps a backup.
-7. Validates Nginx and waits for gateway readiness.
+7. Installs explicit gateway, worker, and Nginx service resource limits.
+8. Validates Nginx and waits for gateway readiness.
 
 Run the read-only post-deployment smoke test:
 
@@ -62,6 +63,25 @@ journalctl -u carbonio-ai-gateway -f
 ```
 
 The service listens only on `127.0.0.1:8787`.
+
+## Metrics and recovery
+
+Rotate the dedicated Prometheus credential without printing it:
+
+```bash
+sudo /opt/carbonio-ai-assistant/bin/set-metrics-token.sh
+```
+
+Create a complete verified database and runtime-state recovery point:
+
+```bash
+sudo /opt/carbonio-ai-assistant/bin/backup-policy.sh
+```
+
+The daily backup timer is enabled after PostgreSQL configuration. The monthly restore drill is
+enabled only when `AI_RESTORE_DRILL_DATABASE_URL` is configured with an isolated non-production
+database. See [production hardening](../docs/production-hardening.md) for retention, offsite copy,
+Prometheus, alerting, and maintenance-window requirements.
 
 ## Encrypted provider credential
 

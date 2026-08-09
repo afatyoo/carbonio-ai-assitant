@@ -27,9 +27,18 @@ fi
 
 unauthorized_status="$(curl -sS -o /dev/null -w '%{http_code}' "$base_url/api/ai/admin/metrics")"
 [[ "$unauthorized_status" == "401" ]]
+metrics_unauthorized_status="$(curl -sS -o /dev/null -w '%{http_code}' "$base_url/api/ai/internal/metrics")"
+[[ "$metrics_unauthorized_status" == "401" ]]
+metrics_status="not_configured"
+if [[ -r /etc/carbonio-ai-assistant/metrics-token ]]; then
+	metrics_token="$(tr -d '\r\n' </etc/carbonio-ai-assistant/metrics-token)"
+	metrics_body="$(curl -fsS -H "Authorization: Bearer $metrics_token" "$base_url/api/ai/internal/metrics")"
+	grep -Fq 'carbonio_ai_' <<<"$metrics_body"
+	metrics_status="ok"
+fi
 cross_origin_status="$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
 	-H 'Origin: https://untrusted.invalid' -H 'Content-Type: application/json' \
 	--data '{}' "$base_url/api/ai/chat")"
 [[ "$cross_origin_status" == "403" ]]
 
-echo "smoke_health=ok headers=ok loopback=ok admin_auth=ok csrf=ok history=postgresql rag_worker=ok"
+echo "smoke_health=ok headers=ok loopback=ok admin_auth=ok metrics_auth=$metrics_status csrf=ok history=postgresql rag_worker=ok"

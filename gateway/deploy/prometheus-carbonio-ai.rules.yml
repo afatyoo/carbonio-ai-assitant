@@ -1,0 +1,37 @@
+groups:
+  - name: carbonio-ai-assistant
+    rules:
+      - alert: CarbonioAIGatewayDown
+        expr: up{job="carbonio-ai-assistant"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Carbonio AI gateway is unavailable
+      - alert: CarbonioAIHealthDegraded
+        expr: carbonio_ai_health_ok == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Carbonio AI operational health is degraded
+      - alert: CarbonioAIRagWorkerUnhealthy
+        expr: carbonio_ai_rag_worker_healthy == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Carbonio AI private RAG worker heartbeat is stale
+      - alert: CarbonioAIRagJobsFailed
+        expr: carbonio_ai_rag_failed_jobs > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Carbonio AI RAG jobs require operator attention
+      - alert: CarbonioAIProviderFailures
+        expr: increase(carbonio_ai_provider_circuit_failure_total[10m]) >= 5
+        labels:
+          severity: warning
+        annotations:
+          summary: Carbonio AI provider is repeatedly failing

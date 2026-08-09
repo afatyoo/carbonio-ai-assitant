@@ -2,7 +2,7 @@ if (!process.env.AI_DATABASE_URL) {
 	throw new Error('AI_DATABASE_URL is required by the private RAG worker');
 }
 
-const { claimRagJob, closeRagDatabase, completeRagJob, failRagJob, finalizeRagSync } =
+const { claimRagJob, closeRagDatabase, completeRagJob, failRagJob, finalizeRagSync, recordRagWorkerHeartbeat } =
 	await import('./rag-postgres.js');
 import { embedPrivateText } from './rag-embeddings.js';
 import { chunkRagText } from './rag-text.js';
@@ -39,13 +39,16 @@ process.once('SIGINT', () => {
 
 logEvent('info', 'rag_worker_started', {});
 while (!stopping) {
+	await recordRagWorkerHeartbeat({ state: 'polling' });
 	const job = await claimRagJob();
 	if (!job) {
 		await wait(pollMs);
 		continue;
 	}
 	try {
+		await recordRagWorkerHeartbeat({ state: 'processing', module: job.module, jobId: job.id });
 		await processJob(job);
+		await recordRagWorkerHeartbeat({ state: 'polling' });
 	} catch (error) {
 		await failRagJob(job, error);
 		logEvent('error', 'rag_job_failed', { job_id: job.id, module: job.module, error });

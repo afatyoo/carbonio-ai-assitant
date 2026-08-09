@@ -4,7 +4,8 @@ import {
 	searchAppointments,
 	searchTasksForIndex
 } from './calendar.js';
-import { downloadSafeTextAttachment, getEmail, searchEmailsForIndex } from './mailbox.js';
+import { downloadAttachmentBuffer, downloadSafeTextAttachment, getEmail, searchEmailsForIndex } from './mailbox.js';
+import { extractSandboxedDocument, getDocumentExtractionCapability } from './document-extractor.js';
 import { assertAvailableRagModule } from './rag-modules.js';
 import { normalizeRagText } from './rag-text.js';
 
@@ -53,6 +54,24 @@ const collectMail = async (cookie, attachmentsOnly = false) => {
 						messageId: message.id,
 						attachment
 					});
+					if (extracted.extraction === 'unsupported_type' && getDocumentExtractionCapability().enabled) {
+						const downloaded = await downloadAttachmentBuffer({
+							cookie,
+							messageId: message.id,
+							attachment,
+							maxBytes: 10_000_000
+						});
+						const responseMatches =
+							downloaded.responseType === downloaded.declaredType ||
+							downloaded.responseType === 'application/octet-stream';
+						extracted = responseMatches
+							? await extractSandboxedDocument({
+									buffer: downloaded.buffer,
+									filename: attachment.filename,
+									contentType: downloaded.declaredType
+								})
+							: { text: '', extraction: 'mime_mismatch' };
+					}
 				} catch {
 					extracted = { text: '', extraction: 'failed_closed' };
 				}

@@ -2,6 +2,43 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [2.2.0] - 2026-08-09
+
+### Added
+
+- Added an authenticated Prometheus endpoint, alert examples, administrator health matrix,
+  provider runtime state, per-tool metrics, RAG worker health, and capacity indicators.
+- Added saved-provider connection testing and ordered model fallback limited to retryable
+  availability, timeout, rate-limit, missing-model, and provider-server failures.
+- Added incremental private RAG synchronization, deletion propagation, sync statistics,
+  structured citations, worker heartbeat, and repeatable retrieval evaluation.
+- Added a Safety Center with emergency write stop, owner-scoped recent activity, and
+  confirmed time-limited Undo for supported reversible tools.
+- Added daily verified PostgreSQL and runtime-state backups, optional offsite copies,
+  retention controls, monthly isolated restore drills, and systemd resource limits.
+- Added fail-closed optional PDF and office extraction behind malware scanning, a no-network
+  sandbox wrapper, bounded extraction, and quarantine metrics.
+
+### Fixed
+
+- Prevented stale saved or conversation models from hiding the effective active model after
+  an administrator configuration change.
+- Prevented provider fallback on authentication, authorization, invalid-input, privacy-policy,
+  and user-cancellation failures.
+- Prevented unchanged RAG records from being re-embedded and propagated missing source records
+  into immediate deletion plus retention tombstones.
+- Added exact previous-folder capture so supported move, archive, and restore operations can
+  be undone without trusting browser-supplied destination state.
+
+### Security
+
+- Metrics require a separate bearer token and remain bound to the loopback gateway.
+- Undo is owner-scoped, expires, requires a fresh confirmation, and is single-use.
+- Binary document content remains metadata-only unless every extraction safety dependency is
+  explicitly configured.
+
+- See the [detailed v2.2.0 report](docs/releases/v2.2.0.md).
+
 ## [2.1.0] - 2026-08-08
 
 ### Added

@@ -199,6 +199,23 @@ const Bubble = styled.div<{ role: 'assistant' | 'user' }>`
 	}
 `;
 
+const SourcePanel = styled.div`
+	max-width: 80%;
+	margin: -0.5rem 0 1rem;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+`;
+
+const SourceLink = styled.a`
+	padding: 0.35rem 0.55rem;
+	border: 0.0625rem solid ${({ theme }): string => theme.palette.gray3.regular};
+	border-radius: 0.5rem;
+	color: ${({ theme }): string => theme.palette.primary.regular};
+	font-size: 0.78rem;
+	text-decoration: none;
+`;
+
 const ProcessMarker = styled.div`
 	min-height: 2rem;
 	margin: 0 0 1rem;
@@ -376,6 +393,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 	const [conversationTitle, setConversationTitle] = useState<string | null>(null);
 	const [input, setInput] = useState('');
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
+	const [responseSources, setResponseSources] = useState<Record<number, Array<{ module: string; sourceId: string; title: string; deepLink: string }>>>({});
 	const [agentStatus, setAgentStatus] = useState(() =>
 		t('status.connecting', 'Connecting...')
 	);
@@ -599,6 +617,8 @@ export const AiAssistantView = (): React.JSX.Element => {
 		const controller = new AbortController();
 		requestControllerRef.current = controller;
 		let answer = '';
+		let activeRuntimeModel = '';
+		let runtimeUsedFallback = false;
 
 		try {
 			const response = await apiFetch('/api/ai/chat', {
@@ -611,6 +631,15 @@ export const AiAssistantView = (): React.JSX.Element => {
 					signal: controller.signal
 				});
 			await readAgentEvents(response, (event) => {
+				if (event.event === 'sources' && event.data.sources) {
+					setResponseSources((current) => ({ ...current, [assistantId]: event.data.sources ?? [] }));
+					return;
+				}
+				if (event.event === 'provider') {
+					activeRuntimeModel = event.data.activeModel ?? '';
+					runtimeUsedFallback = Boolean(event.data.usedFallback);
+					return;
+				}
 				if (event.event === 'tool') {
 					setProcessLabel(toolStatusLabel(event));
 					return;
@@ -643,7 +672,11 @@ export const AiAssistantView = (): React.JSX.Element => {
 				}
 			});
 			if (!answer) throw new Error(t('status.empty_answer', 'The agent returned an empty answer'));
-			setAgentStatus(t('status.agent_connected', 'Agent connected'));
+			setAgentStatus(activeRuntimeModel
+				? runtimeUsedFallback
+					? t('status.agent_fallback_model', 'Connected · fallback {{model}}', { model: activeRuntimeModel })
+					: t('status.agent_active_model', 'Connected · {{model}}', { model: activeRuntimeModel })
+				: t('status.agent_connected', 'Agent connected'));
 		} catch (error) {
 			if (error instanceof Error && error.name === 'AbortError') {
 				setAgentStatus(t('status.agent_connected', 'Agent connected'));
@@ -794,11 +827,22 @@ export const AiAssistantView = (): React.JSX.Element => {
 					) : (
 						messages.map((message) =>
 							message.text ? (
-								<Bubble key={message.id} role={message.role}>
-									{message.role === 'assistant'
-										? normalizeAssistantDisplayText(message.text, locale)
-										: message.text}
-								</Bubble>
+								<React.Fragment key={message.id}>
+									<Bubble role={message.role}>
+										{message.role === 'assistant'
+											? normalizeAssistantDisplayText(message.text, locale)
+											: message.text}
+									</Bubble>
+									{responseSources[message.id]?.length ? (
+										<SourcePanel aria-label={t('chat.private_sources', 'Private sources')}>
+											{responseSources[message.id].map((source) => (
+												<SourceLink key={`${source.module}:${source.sourceId}`} href={source.deepLink}>
+													{source.title}
+												</SourceLink>
+											))}
+										</SourcePanel>
+									) : null}
+								</React.Fragment>
 							) : null
 						)
 					)}

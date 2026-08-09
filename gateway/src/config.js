@@ -102,7 +102,11 @@ const runtimeConfig = {
 		process.env.AI_AGENT_MODEL ??
 		savedConfig.model ??
 		PROVIDERS[initialProvider]?.defaultModel ??
-		''
+		'',
+	fallbackModels: parseAllowlist(
+		process.env.AI_MODEL_FALLBACKS ??
+			(Array.isArray(savedConfig.fallbackModels) ? savedConfig.fallbackModels.join(',') : '')
+	).slice(0, 5)
 };
 
 const providerAllowlist = new Set(
@@ -156,7 +160,8 @@ export const getAgentConfig = () => ({ ...runtimeConfig });
 const getConfigSource = () => ({
 	provider: process.env.AI_AGENT_PROVIDER ? 'environment' : 'runtime',
 	agentUrl: process.env.AI_AGENT_URL ? 'environment' : 'runtime',
-	model: process.env.AI_AGENT_MODEL ? 'environment' : 'runtime'
+	model: process.env.AI_AGENT_MODEL ? 'environment' : 'runtime',
+	fallbackModels: process.env.AI_MODEL_FALLBACKS ? 'environment' : 'runtime'
 });
 
 const getLockedFields = () =>
@@ -171,6 +176,7 @@ const getConfigRevision = () =>
 				provider: runtimeConfig.provider,
 				agentUrl: runtimeConfig.agentUrl,
 				model: runtimeConfig.model,
+				fallbackModels: runtimeConfig.fallbackModels,
 				modelAllowlist: process.env.AI_MODEL_ALLOWLIST ?? '',
 				modelPolicy: process.env.AI_MODEL_POLICY_JSON ?? '',
 				lockedFields: getLockedFields()
@@ -186,6 +192,7 @@ export const getPublicAgentConfig = (account) => ({
 	hasApiKey: Boolean(runtimeConfig.apiKey),
 	model: runtimeConfig.model,
 	effectiveModel: runtimeConfig.model,
+	fallbackModels: [...runtimeConfig.fallbackModels],
 	configRevision: getConfigRevision(),
 	configSource: getConfigSource(),
 	lockedFields: getLockedFields(),
@@ -200,6 +207,7 @@ export const updateAgentConfig = ({
 	agentUrl = '',
 	apiKey,
 	model,
+	fallbackModels,
 	clearApiKey = false
 }) => {
 	const nextProvider = provider ?? runtimeConfig.provider;
@@ -229,14 +237,48 @@ export const updateAgentConfig = ({
 	if (process.env.AI_AGENT_MODEL && nextModel !== runtimeConfig.model) {
 		throw new Error('model is managed by environment');
 	}
+	const nextFallbackModels = (Array.isArray(fallbackModels)
+		? fallbackModels
+		: typeof fallbackModels === 'string'
+			? fallbackModels.split(',')
+			: runtimeConfig.fallbackModels
+	)
+		.map((item) => String(item).trim())
+		.filter((item, index, values) => item && item !== nextModel && values.indexOf(item) === index)
+		.slice(0, 5)
+		.map((item) => assertModelAllowed(item));
+	if (
+		process.env.AI_MODEL_FALLBACKS &&
+		JSON.stringify(nextFallbackModels) !== JSON.stringify(runtimeConfig.fallbackModels)
+	) {
+		throw new Error('fallbackModels is managed by environment');
+	}
 
 	if (nextProvider !== runtimeConfig.provider && !apiKey) runtimeConfig.apiKey = '';
 	runtimeConfig.provider = nextProvider;
 	runtimeConfig.agentUrl = normalizedUrl;
 	runtimeConfig.model = nextModel;
+	runtimeConfig.fallbackModels = nextFallbackModels;
 	if (clearApiKey) runtimeConfig.apiKey = '';
 	if (typeof apiKey === 'string' && apiKey.trim()) runtimeConfig.apiKey = apiKey.trim();
 	persistConfig();
 
 	return getPublicAgentConfig();
+};
+
+export const getModelCandidates = (requestedModel, account) => {
+	const primary = assertModelAllowed(requestedModel || runtimeConfig.model, account);
+	const allowFallback = process.env.AI_MODEL_FALLBACK_ENABLED !== 'false';
+	if (!allowFallback) return [primary];
+	return [primary, ...runtimeConfig.fallbackModels]
+		.filter((item, index, values) => values.indexOf(item) === index)
+		.filter((item, index) => {
+			if (index === 0) return true;
+			try {
+				assertModelAllowed(item, account);
+				return true;
+			} catch {
+				return false;
+			}
+		});
 };

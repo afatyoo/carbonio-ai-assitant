@@ -70,7 +70,8 @@ cp -a gateway/package.json gateway/package-lock.json gateway/node_modules \
 cp deploy/install.sh deploy/uninstall.sh deploy/setup-postgres.sh \
 	deploy/setup-rag-postgres.sh \
 	deploy/backup-postgres.sh deploy/restore-postgres.sh deploy/rollback.sh \
-	deploy/smoke-test.sh deploy/set-api-key.sh \
+	deploy/backup-policy.sh deploy/restore-drill.sh \
+	deploy/smoke-test.sh deploy/set-api-key.sh deploy/set-metrics-token.sh \
 	CHANGELOG.md LICENSE README.md "$package_dir/"
 cp "$release_report" "$package_dir/RELEASE_NOTES.md"
 
@@ -83,8 +84,10 @@ EOF
 chmod 0755 "$package_dir/install.sh" "$package_dir/uninstall.sh" \
 	"$package_dir/setup-postgres.sh" "$package_dir/backup-postgres.sh" \
 	"$package_dir/setup-rag-postgres.sh" \
+	"$package_dir/backup-policy.sh" "$package_dir/restore-drill.sh" \
 	"$package_dir/restore-postgres.sh" "$package_dir/rollback.sh" \
-	"$package_dir/smoke-test.sh" "$package_dir/set-api-key.sh"
+	"$package_dir/smoke-test.sh" "$package_dir/set-api-key.sh" \
+	"$package_dir/set-metrics-token.sh"
 mkdir -p "$output_dir"
 	COPYFILE_DISABLE=1 tar --no-xattrs -C "$workspace" -czf "$archive" "$package_name"
 

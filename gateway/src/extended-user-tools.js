@@ -47,7 +47,9 @@ register({
 	const [message, folders] = await Promise.all([getEmail({ cookie: context.cookie, id: input.id }), listFolders({ cookie: context.cookie })]);
 	if (message.revision !== input.revision) throw new Error('Message changed since preview; refresh and confirm again');
 	if (!folders.some((folder) => folder.id === input.folderId && folder.name === input.folderName)) throw new Error('Archive folder changed since preview; refresh and confirm again');
-	return messageAction({ cookie: context.cookie, id: input.id, operation: 'move', folderId: input.folderId });
+	const previousFolder = folders.find((folder) => folder.id === message.folderId);
+	const result = await messageAction({ cookie: context.cookie, id: input.id, operation: 'move', folderId: input.folderId });
+	return { ...result, previousFolderId: message.folderId, previousFolderName: previousFolder?.name ?? '' };
 });
 
 register({
@@ -58,7 +60,9 @@ register({
 	const [message, folders] = await Promise.all([getEmail({ cookie: context.cookie, id: input.id }), listFolders({ cookie: context.cookie })]);
 	if (message.revision !== input.revision) throw new Error('Message changed since preview; refresh and confirm again');
 	if (!folders.some((folder) => folder.id === input.folderId && folder.name === input.folderName)) throw new Error('Destination folder changed since preview; refresh and confirm again');
-	return messageAction({ cookie: context.cookie, id: input.id, operation: 'move', folderId: input.folderId });
+	const previousFolder = folders.find((folder) => folder.id === message.folderId);
+	const result = await messageAction({ cookie: context.cookie, id: input.id, operation: 'move', folderId: input.folderId });
+	return { ...result, previousFolderId: message.folderId, previousFolderName: previousFolder?.name ?? '' };
 });
 
 register({

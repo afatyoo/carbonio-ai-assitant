@@ -45,6 +45,12 @@ async function runSmoke(health) {
 			return;
 		}
 
+		if (request.url === '/api/ai/internal/metrics') {
+			response.writeHead(401);
+			response.end();
+			return;
+		}
+
 		if (request.url === '/api/ai/chat') {
 			response.writeHead(403);
 			response.end();

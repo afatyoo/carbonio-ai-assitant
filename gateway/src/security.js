@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
 import { consumeDailyRequest, getDailyUsage } from './history.js';
 import { parseScopedPolicy, resolveScopedPolicy } from './account-policy.js';
 
@@ -37,6 +40,22 @@ const knownToolPermissions = new Set([
 	'tasks.write'
 ]);
 const usage = new Map();
+const runtimeStatePath = path.resolve('.runtime/security-state.json');
+const readRuntimeState = () => {
+	try {
+		const parsed = JSON.parse(fs.readFileSync(runtimeStatePath, 'utf8'));
+		return { writeToolsEnabled: parsed.writeToolsEnabled !== false, updatedAt: Number(parsed.updatedAt) || null };
+	} catch {
+		return { writeToolsEnabled: true, updatedAt: null };
+	}
+};
+const runtimeState = readRuntimeState();
+
+const persistRuntimeState = () => {
+	fs.mkdirSync(path.dirname(runtimeStatePath), { recursive: true, mode: 0o700 });
+	fs.writeFileSync(runtimeStatePath, `${JSON.stringify(runtimeState, null, 2)}\n`, { mode: 0o600 });
+	fs.chmodSync(runtimeStatePath, 0o600);
+};
 
 export const isAiEnabled = () => process.env.AI_ENABLED !== 'false';
 const matchesAccount = (allowlist, account) =>
@@ -56,7 +75,25 @@ export const requireAiAccess = (account) => {
 
 export const areWriteToolsEnabled = (account) =>
 	process.env.AI_WRITE_TOOLS_ENABLED !== 'false' &&
+	runtimeState.writeToolsEnabled &&
 	(writeToolAccounts.size === 0 || matchesAccount(writeToolAccounts, account));
+
+export const getRuntimeSafetyState = () => ({
+	writeToolsEnabled: process.env.AI_WRITE_TOOLS_ENABLED !== 'false' && runtimeState.writeToolsEnabled,
+	environmentAllowsWrites: process.env.AI_WRITE_TOOLS_ENABLED !== 'false',
+	updatedAt: runtimeState.updatedAt
+});
+
+export const updateRuntimeSafetyState = ({ writeToolsEnabled }) => {
+	if (typeof writeToolsEnabled !== 'boolean') throw new Error('writeToolsEnabled must be boolean');
+	if (writeToolsEnabled && process.env.AI_WRITE_TOOLS_ENABLED === 'false') {
+		throw new Error('Write tools are disabled by environment policy');
+	}
+	runtimeState.writeToolsEnabled = writeToolsEnabled;
+	runtimeState.updatedAt = Date.now();
+	persistRuntimeState();
+	return getRuntimeSafetyState();
+};
 
 export const getToolPermissions = (account) => {
 	const defaults = ['mail.read', 'calendar.read', 'contacts.read', 'sharing.read', 'preferences.read', 'tasks.read'];
@@ -175,7 +212,9 @@ export const getSecurityPolicy = () => ({
 	requestsPerDay: dailyLimit,
 	tokensPerDay: dailyTokenLimit,
 	aiEnabled: isAiEnabled(),
-	writeToolsEnabled: process.env.AI_WRITE_TOOLS_ENABLED !== 'false',
+	writeToolsEnabled: getRuntimeSafetyState().writeToolsEnabled,
+	writeToolsEnvironmentEnabled: process.env.AI_WRITE_TOOLS_ENABLED !== 'false',
+	writeToolsRuntimeUpdatedAt: runtimeState.updatedAt,
 	enabledAccountPolicyConfigured: enabledAccounts.size > 0,
 	writeToolAccountPolicyConfigured: writeToolAccounts.size > 0,
 	toolPermissionPolicyConfigured: toolPermissionPolicy.size > 0
