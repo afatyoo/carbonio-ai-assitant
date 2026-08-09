@@ -195,13 +195,18 @@ const collectBodyParts = (part, results = []) => {
 
 const decodeHtmlEntities = (value) =>
 	String(value)
-		.replace(/&nbsp;/gi, ' ')
-		.replace(/&amp;/gi, '&')
-		.replace(/&lt;/gi, '<')
-		.replace(/&gt;/gi, '>')
-		.replace(/&quot;/gi, '"')
-		.replace(/&#39;|&apos;/gi, "'")
-		.replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Math.min(Number(code), 0x10ffff)));
+		.replace(/&(nbsp|amp|lt|gt|quot|apos|#39|#(\d+));/gi, (match, entity, numericCode) => {
+			if (numericCode) return String.fromCodePoint(Math.min(Number(numericCode), 0x10ffff));
+			return {
+				nbsp: ' ',
+				amp: '&',
+				lt: '<',
+				gt: '>',
+				quot: '"',
+				apos: "'",
+				'#39': "'"
+			}[String(entity).toLowerCase()] ?? match;
+		});
 
 export const htmlToPlainText = (value) =>
 	decodeHtmlEntities(

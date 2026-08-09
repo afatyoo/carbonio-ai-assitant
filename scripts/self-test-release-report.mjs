@@ -125,7 +125,7 @@ try {
 		expectedVersion: '2.3.1'
 	});
 	assert.equal(contract.version, '2.3.1');
-	assert.equal(contract.closedBugCount, 25);
+	assert.equal(contract.closedBugCount, 28);
 
 	const brokenRoot = path.join(workspace, 'broken-repository');
 	const contractFiles = [
@@ -188,13 +188,13 @@ try {
 		/BUG-001 is missing detail: Root cause/
 	);
 	await writeFile(extendedReportPath, originalReport, 'utf8');
-	const extendedReport = `${await readFile(extendedReportPath, 'utf8')}\n### BUG-026 - Additional verified closure\n`;
+	const extendedReport = `${await readFile(extendedReportPath, 'utf8')}\n### BUG-029 - Additional verified closure\n`;
 	await writeFile(extendedReportPath, extendedReport, 'utf8');
 	const extendedContract = await validateRepositoryReleaseContract({
 		projectRoot: brokenRoot,
 		expectedVersion: '2.3.1'
 	});
-	assert.equal(extendedContract.closedBugCount, 26);
+	assert.equal(extendedContract.closedBugCount, 29);
 
 	const brokenWorkflowPath = path.join(brokenRoot, '.github/workflows/release.yml');
 	const brokenWorkflow = (await readFile(brokenWorkflowPath, 'utf8')).replace(

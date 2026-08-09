@@ -13,11 +13,15 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 - Removed internal database errors, worker details, and capacity data from public health output.
 - Enabled secure TLS verification by default for non-loopback Carbonio SOAP endpoints.
 - Cleared the internal Admin Console marker and normalized the forwarded host at the public proxy.
+- Replaced provider URL substring inference with exact parsed host matching, preventing crafted URLs
+  from being treated as built-in trusted provider endpoints.
+- Replaced sequential HTML entity replacements with single-pass decoding to prevent double decoding.
 
 ### Security
 
 - Pinned GitHub Actions and the PostgreSQL CI service image to immutable digests.
 - Added CodeQL and pull-request dependency-review workflows.
+- Closed every High alert from the first CodeQL run and added regression fixtures for the findings.
 - Documented the remaining operator-controlled GitHub repository protections and generated
   regression coverage for every application-level audit closure.
 

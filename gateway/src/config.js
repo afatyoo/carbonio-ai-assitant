@@ -77,13 +77,20 @@ export const PROVIDERS = {
 	}
 };
 
-const inferProvider = (url) => {
-	if (url?.includes('openrouter.ai')) return 'openrouter';
-	if (url?.includes('api.openai.com')) return 'openai';
-	if (url?.includes('anthropic.com')) return 'anthropic';
-	if (url?.includes('deepseek.com')) return 'deepseek';
-	if (url?.includes('generativelanguage.googleapis.com')) return 'gemini';
-	return url ? 'custom' : 'openrouter';
+export const inferProvider = (url) => {
+	if (!url) return 'openrouter';
+	let hostname;
+	try {
+		hostname = new URL(url).hostname.toLowerCase();
+	} catch {
+		return 'custom';
+	}
+	if (hostname === 'openrouter.ai') return 'openrouter';
+	if (hostname === 'api.openai.com') return 'openai';
+	if (hostname === 'api.anthropic.com') return 'anthropic';
+	if (hostname === 'api.deepseek.com') return 'deepseek';
+	if (hostname === 'generativelanguage.googleapis.com') return 'gemini';
+	return 'custom';
 };
 
 const initialProvider =

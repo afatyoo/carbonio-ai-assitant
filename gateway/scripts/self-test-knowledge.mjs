@@ -4,6 +4,20 @@ import {
 	retrieveKnowledge,
 	shouldRetrieveKnowledge
 } from '../src/knowledge.js';
+
+const hasOfficialCitation = (value) =>
+	[...String(value).matchAll(/https:\/\/[^\s)\]]+/g)].some(([candidate]) => {
+		try {
+			const url = new URL(candidate);
+			return (
+				url.protocol === 'https:' &&
+				url.hostname === 'docs.zextras.com' &&
+				url.pathname.startsWith('/apidoc/api-reference/')
+			);
+		} catch {
+			return false;
+		}
+	});
 import { runAgent } from '../src/agent.js';
 
 const draftResults = retrieveKnowledge('Bagaimana cara membuat draft email di Carbonio?');
@@ -29,7 +43,7 @@ if (!shouldRetrieveKnowledge('Buat draft balasan untuk email terakhir')) {
 }
 
 const answer = appendKnowledgeSources('Gunakan SaveDraftRequest.', draftResults.slice(0, 1));
-if (!answer.includes('https://docs.zextras.com/apidoc/api-reference/')) {
+if (!hasOfficialCitation(answer)) {
 	throw new Error('Knowledge answer did not include an official citation');
 }
 
@@ -49,7 +63,7 @@ const agentText = events
 if (!events.some(({ event, data }) => event === 'tool' && data.name === 'search_carbonio_docs')) {
 	throw new Error('Agent did not emit documentation retrieval status');
 }
-if (!agentText.includes('https://docs.zextras.com/apidoc/api-reference/')) {
+if (!hasOfficialCitation(agentText)) {
 	throw new Error('Agent documentation answer did not preserve official citations');
 }
 

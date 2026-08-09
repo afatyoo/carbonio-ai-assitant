@@ -39,9 +39,10 @@ const {
 	requireAdminAccount,
 	updateAccountAccess
 } = await import('../src/security.js');
-const { assertModelAllowed, getModelAllowlist, getPublicAgentConfig, updateAgentConfig } = await import(
+const { assertModelAllowed, getModelAllowlist, getPublicAgentConfig, inferProvider, updateAgentConfig } = await import(
 	'../src/config.js'
 );
+const { htmlToPlainText } = await import('../src/mailbox.js');
 const { closeHistoryDatabase, purgeDailyUsage } = await import('../src/history.js');
 const { redactSensitiveText } = await import('../src/redaction.js');
 const { sanitizeModelOutput } = await import('../src/output-safety.js');
@@ -170,6 +171,10 @@ assert.equal(
 	'special-model'
 );
 assert.throws(() => assertModelAllowed('blocked-model'), /not allowed/);
+assert.equal(inferProvider('https://api.openai.com/v1'), 'openai');
+assert.equal(inferProvider('https://evil.example/api.openai.com/v1'), 'custom');
+assert.equal(inferProvider('https://api.openai.com.evil.example/v1'), 'custom');
+assert.equal(htmlToPlainText('&amp;lt;script&amp;gt;'), '&lt;script&gt;');
 const lockedConfig = getPublicAgentConfig();
 assert.equal(lockedConfig.effectiveModel, 'locked-model');
 assert.equal(lockedConfig.configSource.model, 'environment');
