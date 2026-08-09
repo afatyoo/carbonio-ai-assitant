@@ -59,6 +59,7 @@ assert.match(nginx, /alias \/opt\/carbonio-ai-assistant\/admin-ui\/current\/inde
 assert.match(nginx, /default_type text\/html/);
 assert.match(nginx, /return 308 \/carbonioAdmin\/ai-assistant;/);
 assert.match(nginx, /client_max_body_size 15m/);
+assert.match(nginx, /proxy_request_buffering off/);
 assert.match(installer, /nginx\.conf\.web\.carbonio\.admin\.default/);
 assert.match(installer, /nginx\.conf\.web\.carbonio\.admin\.default\.template/);
 assert.match(installer, /admin-backend-carbonio-ai\.conf/);

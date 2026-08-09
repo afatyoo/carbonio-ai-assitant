@@ -4,7 +4,7 @@ Standalone AI assistant for Carbonio Webmail, delivered as an independent Carbon
 microfrontend and a private server-side gateway. It adds a ChatGPT-style workspace without
 replacing the existing Mail package.
 
-**Current release candidate:** `v2.3.1`
+**Current release candidate:** `v2.3.2`
 
 **Deployment class:** full user-scoped Carbonio release with documented known limitations
 
@@ -13,12 +13,14 @@ replacing the existing Mail package.
 ![Carbonio AI Assistant interface](docs/assets/carbonio-ai-assistant-overview.png)
 
 For exact release evidence, the closed-bug ledger, and authenticated UAT results, read the
-[v2.3.1 release report](docs/releases/v2.3.1.md).
+[v2.3.2 release report](docs/releases/v2.3.2.md).
 
-## What v2.3.1 includes
+## What v2.3.2 includes
 
 ### Production hardening
 
+- Organization-knowledge uploads from the Admin Console are streamed through Nginx to the bounded
+  gateway reader, avoiding Carbonio shared temporary-directory permission failures.
 - Authenticated Prometheus metrics, alert rules, an administrator health matrix, request IDs,
   per-tool counters, provider latency, RAG queue health, and capacity indicators.
 - Saved-provider connection tests, ordered model fallback for availability failures, visible
@@ -135,7 +137,7 @@ raw external provider errors are not translated automatically.
 
 ## RAG scope
 
-v2.3.1 provides opt-in private retrieval for the authenticated user's Mail, safe attachment text
+v2.3.2 provides opt-in private retrieval for the authenticated user's Mail, safe attachment text
 and metadata, Calendar, Tasks, and personal Contacts. The existing curated official Carbonio
 API documentation corpus remains available for product guidance.
 
@@ -205,7 +207,7 @@ part of the current live UAT evidence. See [browser support](docs/browser-suppor
 
 ## Known limitations
 
-Deploying or enabling v2.3.1 means the operator and each participating user accept the
+Deploying or enabling v2.3.2 means the operator and each participating user accept the
 remaining environment-dependent gates below. This project is an independent community addon
 and is not developed, supported, certified, or endorsed by Zextras. Acceptance does not create
 support obligations for Zextras and does not turn missing evidence into a pass:
@@ -236,7 +238,7 @@ support obligations for Zextras and does not turn missing evidence into a pass:
 
 Do not claim Files, Chats, binary attachment understanding, high availability, or performance
 targets that were not validated. The complete risk record is in the
-[v2.3.1 release report](docs/releases/v2.3.1.md#risk-acceptance).
+[v2.3.2 release report](docs/releases/v2.3.2.md#risk-acceptance).
 
 ## Security and privacy
 
@@ -392,19 +394,19 @@ Deploy from the public release artifact, not an arbitrary branch checkout. Run t
 inside a dedicated staging directory on the Carbonio Proxy/Web UI host:
 
 ```bash
-mkdir carbonio-ai-v2.3.1
-cd carbonio-ai-v2.3.1
-curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.3.1/carbonio-ai-assistant-v2.3.1.tar.gz
-curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.3.1/carbonio-ai-assistant-v2.3.1.tar.gz.sha256
-sha256sum --check carbonio-ai-assistant-v2.3.1.tar.gz.sha256
-tar -xzf carbonio-ai-assistant-v2.3.1.tar.gz
-cd carbonio-ai-assistant-v2.3.1
+mkdir carbonio-ai-v2.3.2
+cd carbonio-ai-v2.3.2
+curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.3.2/carbonio-ai-assistant-v2.3.2.tar.gz
+curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.3.2/carbonio-ai-assistant-v2.3.2.tar.gz.sha256
+sha256sum --check carbonio-ai-assistant-v2.3.2.tar.gz.sha256
+tar -xzf carbonio-ai-assistant-v2.3.2.tar.gz
+cd carbonio-ai-assistant-v2.3.2
 ```
 
 Use the signed release asset's `.sha256` file as the checksum authority. The release page
 also records the exact workflow, commit, and artifact digest.
 
-Inspect `release.env` and confirm version `2.3.1`, the approved exact commit, and the Node
+Inspect `release.env` and confirm version `2.3.2`, the approved exact commit, and the Node
 runtime before continuing.
 
 ### Install the application
@@ -710,7 +712,7 @@ through `AI_TEST_DATABASE_URL`. Do not aim it at an unapproved production databa
 
 ## Documentation
 
-- [v2.3.1 release report](docs/releases/v2.3.1.md)
+- [v2.3.2 release report](docs/releases/v2.3.2.md)
 - [v2.3.0 release report](docs/releases/v2.3.0.md)
 - [v2.1.0 release report](docs/releases/v2.1.0.md)
 - [Carbonio user tool matrix](docs/carbonio-user-tool-matrix.md)

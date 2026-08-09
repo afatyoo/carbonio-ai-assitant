@@ -16,7 +16,9 @@ const api = async (path, options = {}) => {
 	try {
 		data = text ? JSON.parse(text) : {};
 	} catch {
-		throw new Error(`Gateway returned invalid JSON (${response.status})`);
+		const contentType = response.headers.get('content-type') || '';
+		const responseKind = contentType.includes('text/html') ? 'an HTML proxy error page' : 'a non-JSON response';
+		throw new Error(`Gateway HTTP ${response.status} returned ${responseKind}`);
 	}
 	if (response.status === 401) {
 		if (!redirectingToLogin) {
