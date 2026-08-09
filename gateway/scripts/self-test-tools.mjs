@@ -662,8 +662,10 @@ const {
 	classifyCalendarActionRequest,
 	classifyOrganizationActionRequest,
 	isDraftActionRequest,
+	isExplicitReadOnlyRequest,
 	isExtendedToolRequest,
 	isMeetingActionRequest,
+	selectTool,
 	zonedLocalToIso
 } = await import('../src/agent.js');
 assert.deepEqual(classifyOrganizationActionRequest('Buat folder "Projects"'), {
@@ -701,6 +703,16 @@ if (
 ) {
 	throw new Error('Indonesian draft or meeting intent matching failed');
 }
+const readOnlyUnreadPrompt =
+	'List at most 2 unread email subjects and message IDs only. Read-only: do not mark anything as read and do not modify, move, tag, send, draft, or delete anything.';
+assert.equal(isExplicitReadOnlyRequest(readOnlyUnreadPrompt), true);
+assert.equal(classifyActionRequest(readOnlyUnreadPrompt), null);
+assert.deepEqual(selectTool(readOnlyUnreadPrompt), {
+	name: 'list_unread_emails',
+	input: { query: 'is:unread', limit: 10 }
+});
+assert.equal(isExplicitReadOnlyRequest('Tampilkan email belum dibaca. Hanya baca, jangan ubah apa pun.'), true);
+assert.equal(classifyActionRequest('Tampilkan email belum dibaca. Hanya baca, jangan tandai sebagai dibaca.'), null);
 assert.deepEqual(classifyActionRequest('Kirim email ke guest@example.test tentang UAT'), {
 	tool: 'send_email'
 });

@@ -21,6 +21,10 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 
 ### Fixed
 
+- Prevented explicit read-only prompts from being routed to write classifiers when they contain
+  negative examples such as `do not mark as read`, and stopped plural `message IDs` from being
+  parsed as the item ID `s`. Folder and tag list intents now require an adjacent command phrase,
+  preventing forbidden-operation lists from overriding an unread-mail request.
 - Granted the restricted RAG worker access to the new heartbeat table during both database
   setup and gateway schema migration, preventing an upgrade-time worker restart loop.
 - Prevented stale saved or conversation models from hiding the effective active model after

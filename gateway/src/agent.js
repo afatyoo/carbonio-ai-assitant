@@ -79,6 +79,18 @@ export const isDraftActionRequest = (message) =>
 		message
 	);
 
+export const isExplicitReadOnlyRequest = (message) => {
+	const value = String(message ?? '');
+	const declaresReadOnly = /\b(?:read[ -]?only|hanya\s+baca|mode\s+baca)\b/i.test(value);
+	if (declaresReadOnly) return true;
+	const firstNegation = value.search(/\b(?:do\s+not|don't|dont|never|jangan|tanpa)\b/i);
+	if (firstNegation < 0) return false;
+	const firstMutation = value.search(
+		/\b(?:mark|modify|move|tag|send|draft|delete|remove|archive|restore|create|update|forward|ubah|tandai|pindah(?:kan)?|kirim|hapus|arsip|pulihkan|buat|perbarui|teruskan)\b/i
+	);
+	return firstMutation < 0 || firstNegation <= firstMutation;
+};
+
 export const isMeetingActionRequest = (message) =>
 	/(schedule\s+(a\s+)?meeting|create\s+(an?\s+)?appointment|buat(?:kan)?\s+(jadwal|meeting|rapat|janji)|jadwalkan\s+(meeting|rapat)|buat.*(acara|kalender))/i.test(
 		message
@@ -123,7 +135,7 @@ const resolveMoveDestination = (value) => {
 
 export const classifyActionRequest = (message) => {
 	const value = String(message ?? '').trim();
-	if (/(bagaimana|cara|panduan|how\s+to)/i.test(value)) return null;
+	if (/(bagaimana|cara|panduan|how\s+to)/i.test(value) || isExplicitReadOnlyRequest(value)) return null;
 	if (/(kirim(?:kan)?|send)\s+(?:sebuah\s+)?email\b/i.test(value)) {
 		return { tool: 'send_email' };
 	}
@@ -171,7 +183,7 @@ export const classifyActionRequest = (message) => {
 
 export const classifyCalendarActionRequest = (message) => {
 	const value = String(message ?? '').trim();
-	if (/(bagaimana|cara|panduan|how\s+to)/i.test(value)) return null;
+	if (/(bagaimana|cara|panduan|how\s+to)/i.test(value) || isExplicitReadOnlyRequest(value)) return null;
 	if (/(batalkan|cancel)\b[\s\S]*\b(meeting|rapat|jadwal|appointment)\b/i.test(value)) {
 		return { tool: 'cancel_appointment' };
 	}
@@ -189,11 +201,11 @@ export const classifyCalendarActionRequest = (message) => {
 
 const quotedName = (value) => value.match(/["“']([^"”']{1,300})["”']/)?.[1]?.trim() ?? '';
 const exactObjectId = (value, object) =>
-	value.match(new RegExp(`\\b${object}(?:\\s+id)?\\s*[:#]?\\s*([A-Z0-9][A-Z0-9._:-]{0,99})`, 'i'))?.[1] ?? '';
+	value.match(new RegExp(`\\b${object}(?:\\s+id\\b)?\\s*[:#]?\\s*([A-Z0-9][A-Z0-9._:-]{0,99})`, 'i'))?.[1] ?? '';
 
 export const classifyOrganizationActionRequest = (message) => {
 	const value = String(message ?? '').trim();
-	if (/(bagaimana|cara|panduan|how\s+to)/i.test(value)) return null;
+	if (/(bagaimana|cara|panduan|how\s+to)/i.test(value) || isExplicitReadOnlyRequest(value)) return null;
 	if (/(kosongkan|empty)\s+(trash|sampah)/i.test(value)) return { tool: 'empty_trash', input: {} };
 	const name = quotedName(value);
 	if (/(buat|create)\s+(folder|map)/i.test(value) && name) {
@@ -226,16 +238,16 @@ const isSummaryRequest = (message) =>
 	);
 const isThreadRequest = (message) => /(thread|conversation|percakapan|utas)/i.test(message);
 
-const selectTool = (message) => {
+export const selectTool = (message) => {
 	const value = message.toLowerCase();
-	if (/(daftar|list|tampilkan|show).*(folder|map)/i.test(value)) {
-		return { name: 'list_folders', input: {} };
-	}
-	if (/(daftar|list|tampilkan|show).*tag/i.test(value)) {
-		return { name: 'list_tags', input: {} };
-	}
 	if (value.includes('belum dibaca') || value.includes('unread')) {
 		return { name: 'list_unread_emails', input: { query: 'is:unread', limit: 10 } };
+	}
+	if (/\b(?:daftar|list|tampilkan|show)(?:\s+semua)?\s+(?:folder|map)\b/i.test(value)) {
+		return { name: 'list_folders', input: {} };
+	}
+	if (/\b(?:daftar|list|tampilkan|show)(?:\s+semua)?\s+tags?\b/i.test(value)) {
+		return { name: 'list_tags', input: {} };
 	}
 	if (
 		value.includes('email') ||
@@ -950,7 +962,7 @@ const prepareLatestEmailMutation = async ({ action, cookie, account, permissions
 	const explicitId = action.message
 		.match(
 			new RegExp(
-				`\\b(?:email|message)(?:\\s+(?:${standardFolderPattern}))?\\s+id\\s*[:#]?\\s*([A-Z0-9][A-Z0-9._:-]{0,99})`,
+				`\\b(?:email|message)(?:\\s+(?:${standardFolderPattern}))?\\s+id\\b\\s*[:#]?\\s*([A-Z0-9][A-Z0-9._:-]{0,99})`,
 				'i'
 			)
 		)?.[1]
@@ -1638,7 +1650,11 @@ export const runAgent = async ({
 		emit('done', {});
 		return;
 	}
-	if (!isDocumentationOnlyQuery(message) && isDraftActionRequest(message)) {
+	if (
+		!isDocumentationOnlyQuery(message) &&
+		!isExplicitReadOnlyRequest(message) &&
+		isDraftActionRequest(message)
+	) {
 		const answer = await prepareDraft({
 			message,
 			model,
@@ -1654,7 +1670,11 @@ export const runAgent = async ({
 		emit('done', {});
 		return;
 	}
-	if (!isDocumentationOnlyQuery(message) && isExtendedToolRequest(message)) {
+	if (
+		!isDocumentationOnlyQuery(message) &&
+		!isExplicitReadOnlyRequest(message) &&
+		isExtendedToolRequest(message)
+	) {
 		const planned = await planExtendedTool({
 			message,
 			requestedModel: model,
