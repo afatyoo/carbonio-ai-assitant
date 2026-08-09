@@ -31,6 +31,27 @@ policy mismatch, and user cancellation fail immediately.
 Use the Settings connection test after every provider or model change. The response identifies
 the configured and active model. A fallback result is degraded health, not a silent success.
 
+Provider response bodies are limited during streaming. The default completion ceiling is 2 MB and
+can be lowered with `AI_PROVIDER_MAX_RESPONSE_BYTES`. The hard maximum is 10 MB. Model discovery is
+limited to 4 MB and embedding responses are limited to 256 KB.
+
+## Carbonio SOAP transport
+
+The default SOAP endpoints use loopback addresses and support Carbonio's local certificate. A SOAP
+endpoint on any non-loopback host verifies its TLS certificate by default. Install the appropriate
+certificate authority instead of disabling verification. The emergency compatibility override
+`CARBONIO_ALLOW_INSECURE_REMOTE_TLS=true` exposes session cookies to interception and requires
+explicit operator risk acceptance.
+
+SOAP responses default to a 10 MB streaming limit through `CARBONIO_SOAP_MAX_RESPONSE_BYTES`. The
+gateway rejects larger responses instead of retaining them in memory.
+
+## Request limits
+
+AI generation uses `AI_REQUESTS_PER_MINUTE`. Non-generation conversation history operations use a
+separate `AI_API_REQUESTS_PER_MINUTE` limit, which defaults to 180 per authenticated account. Both
+controls are per gateway process. Apply a shared edge limiter for multi-node deployments.
+
 ## Safety Center
 
 The administrator write stop persists in `/var/lib/carbonio-ai-assistant/.runtime/security-state.json`.

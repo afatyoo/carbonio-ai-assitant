@@ -2,6 +2,7 @@ import http from 'node:http';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 
 import { runAgent, testProviderConnection } from './agent.js';
+import { readJson } from './bounded-request.js';
 import { normalizeContextReference } from './context-reference.js';
 import {
 	assertModelAllowed,
@@ -68,6 +69,7 @@ import { listToolDefinitions } from './tool-registry.js';
 import { executeTool } from './tool-runner.js';
 import {
 	assertSameOrigin,
+	consumeAccountApiRate,
 	consumeAccountQuota,
 	getAccountAccess,
 	getAccountUsage,
@@ -122,15 +124,6 @@ const metricsTokenMatches = (request) => {
 	const supplied = String(request.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
 	if (!expected || !supplied || expected.length !== supplied.length) return false;
 	return timingSafeEqual(Buffer.from(expected), Buffer.from(supplied));
-};
-
-const readJson = async (request, maxBytes = 64_000) => {
-	const chunks = [];
-	for await (const chunk of request) chunks.push(chunk);
-	if (chunks.reduce((size, chunk) => size + chunk.length, 0) > maxBytes) {
-		throw new Error('Request body is too large');
-	}
-	return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 };
 
 const organizationDocumentFromUpload = async ({ filename, contentType, dataBase64 }) => {
@@ -220,14 +213,19 @@ const handleRequest = async (request, response) => {
 	if (request.method === 'GET' && request.url === '/api/ai/health') {
 		let rag;
 		try {
-			rag = await getRagStatus();
-		} catch (error) {
-			rag = { backend: 'error', error: error.message, queuedJobs: 0, failedJobs: 1, workerHealthy: false };
+			const status = await getRagStatus();
+			rag = {
+				backend: status.backend,
+				queuedJobs: status.queuedJobs ?? 0,
+				failedJobs: status.failedJobs ?? 0,
+				workerHealthy: Boolean(status.workerHealthy)
+			};
+		} catch {
+			rag = { backend: 'error', queuedJobs: 0, failedJobs: 1, workerHealthy: false };
 		}
 		const status = historyBackend === 'postgresql' && rag.backend !== 'error' ? 'ok' : 'degraded';
 		sendJson(response, status === 'ok' ? 200 : 503, {
 			status,
-			mode: getPublicAgentConfig().mode,
 			historyBackend,
 			enabled: isAiEnabled(),
 			rag
@@ -726,7 +724,8 @@ const handleRequest = async (request, response) => {
 
 	if (requestUrl.pathname === '/api/ai/conversations' && request.method === 'GET') {
 		try {
-			const account = await getCurrentAccount(request.headers.cookie ?? '');
+			const account = await authenticate(request);
+			consumeAccountApiRate(account.id);
 			const page = await listConversationPage(account.id, {
 				cursor: requestUrl.searchParams.get('cursor') ?? '',
 				limit: requestUrl.searchParams.get('limit') ?? 20,
@@ -734,7 +733,7 @@ const handleRequest = async (request, response) => {
 			});
 			sendJson(response, 200, page);
 		} catch (error) {
-			sendJson(response, error.message.includes('cursor') ? 400 : 401, {
+			sendJson(response, error.message.includes('cursor') ? 400 : errorStatus(error, 401), {
 				error: error.message
 			});
 		}
@@ -746,7 +745,8 @@ const handleRequest = async (request, response) => {
 	);
 	if (restoreMatch && request.method === 'POST') {
 		try {
-			const account = await getCurrentAccount(request.headers.cookie ?? '');
+			const account = await authenticate(request);
+			consumeAccountApiRate(account.id);
 			const conversation = await restoreConversation(account.id, restoreMatch[1]);
 			sendJson(
 				response,
@@ -754,7 +754,7 @@ const handleRequest = async (request, response) => {
 				conversation ?? { error: 'Deleted conversation not found' }
 			);
 		} catch (error) {
-			sendJson(response, 400, { error: error.message });
+			sendJson(response, errorStatus(error), { error: error.message });
 		}
 		return;
 	}
@@ -764,7 +764,8 @@ const handleRequest = async (request, response) => {
 	);
 	if (conversationMatch) {
 		try {
-			const account = await getCurrentAccount(request.headers.cookie ?? '');
+			const account = await authenticate(request);
+			consumeAccountApiRate(account.id);
 			const id = conversationMatch[1];
 			if (request.method === 'GET') {
 				const conversation = await getConversation(account.id, id);
@@ -800,7 +801,7 @@ const handleRequest = async (request, response) => {
 				return;
 			}
 		} catch (error) {
-			sendJson(response, 400, { error: error.message });
+			sendJson(response, errorStatus(error), { error: error.message });
 			return;
 		}
 	}

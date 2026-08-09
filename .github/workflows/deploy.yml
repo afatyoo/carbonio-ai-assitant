@@ -22,9 +22,9 @@ jobs:
     timeout-minutes: 30
     environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 22.22.0
           cache: pnpm
@@ -59,4 +59,3 @@ jobs:
           scp -P "${DEPLOY_PORT:-22}" "release/$archive" "release/$archive.sha256" "$remote:/tmp/"
           ssh -p "${DEPLOY_PORT:-22}" "$remote" \
             "cd /tmp && expected=\$(cut -d' ' -f1 '$archive.sha256') && actual=\$(sha256sum '$archive' | cut -d' ' -f1) && test \"\$expected\" = \"\$actual\" && work=\$(mktemp -d /tmp/carbonio-ai-ci.XXXXXX) && tar -xzf '$archive' -C \"\$work\" && \"\$work/carbonio-ai-assistant-v${version}/install.sh\" && /opt/carbonio-ai-assistant/bin/smoke-test.sh"
-

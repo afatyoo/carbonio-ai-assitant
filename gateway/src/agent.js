@@ -6,6 +6,11 @@ import './extended-user-tools.js';
 import { randomUUID } from 'node:crypto';
 
 import { assertModelAllowed, getAgentConfig, getModelCandidates } from './config.js';
+import {
+	readBoundedResponseJson,
+	readBoundedResponseText,
+	responseLimitFromEnvironment
+} from './bounded-response.js';
 import { fetchWithRetry } from './fetch-with-retry.js';
 import { recordTokenUsage } from './history.js';
 import {
@@ -483,7 +488,7 @@ const remoteCompletionAttempt = async ({
 		} else {
 			recordProviderSuccess(config.provider);
 		}
-		const errorText = await response.text();
+		const errorText = await readBoundedResponseText(response, 256_000);
 		let detail = errorText.slice(0, 240);
 		try {
 			const errorJson = JSON.parse(errorText);
@@ -507,7 +512,10 @@ const remoteCompletionAttempt = async ({
 		});
 		throw error;
 	}
-	const data = await response.json();
+	const data = await readBoundedResponseJson(
+		response,
+		responseLimitFromEnvironment('AI_PROVIDER_MAX_RESPONSE_BYTES', 2_000_000, 10_000_000)
+	);
 	const output = sanitizeModelOutput(
 		data.choices?.[0]?.message?.content ??
 		data.content?.find((item) => item.type === 'text')?.text ??

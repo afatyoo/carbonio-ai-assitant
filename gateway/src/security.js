@@ -15,6 +15,10 @@ const allowedOrigins = new Set(normalizeList(process.env.AI_ALLOWED_ORIGINS));
 const enabledAccounts = new Set(normalizeList(process.env.AI_ENABLED_ACCOUNTS));
 const writeToolAccounts = new Set(normalizeList(process.env.AI_WRITE_TOOL_ACCOUNTS));
 const minuteLimit = Math.min(Math.max(Number(process.env.AI_REQUESTS_PER_MINUTE ?? 30), 1), 10_000);
+const configuredApiMinuteLimit = Number(process.env.AI_API_REQUESTS_PER_MINUTE ?? 180);
+const apiMinuteLimit = Number.isSafeInteger(configuredApiMinuteLimit)
+	? Math.min(Math.max(configuredApiMinuteLimit, 10), 20_000)
+	: 180;
 const dailyLimit = Math.min(Math.max(Number(process.env.AI_REQUESTS_PER_DAY ?? 500), 1), 1_000_000);
 const dailyTokenLimit = Math.min(
 	Math.max(Number(process.env.AI_TOKENS_PER_DAY ?? 250_000), 1_000),
@@ -40,6 +44,7 @@ const knownToolPermissions = new Set([
 	'tasks.write'
 ]);
 const usage = new Map();
+const apiUsage = new Map();
 const runtimeStatePath = path.resolve('.runtime/security-state.json');
 const accountAccessPath = path.resolve('.runtime/account-access.json');
 const readRuntimeState = () => {
@@ -269,6 +274,24 @@ export const consumeAccountQuota = async (ownerId) => {
 	};
 };
 
+export const consumeAccountApiRate = (ownerId) => {
+	const now = Date.now();
+	const key = String(ownerId);
+	const current = apiUsage.get(key) ?? { minuteStartedAt: now, minuteCount: 0 };
+	if (now - current.minuteStartedAt >= 60_000) {
+		current.minuteStartedAt = now;
+		current.minuteCount = 0;
+	}
+	if (current.minuteCount >= apiMinuteLimit) {
+		const error = new Error('AI API rate limit exceeded');
+		error.statusCode = 429;
+		throw error;
+	}
+	current.minuteCount += 1;
+	apiUsage.set(key, current);
+	return { minuteRemaining: Math.max(apiMinuteLimit - current.minuteCount, 0) };
+};
+
 export const getAccountUsage = async (ownerId) => {
 	const usageDate = new Date().toISOString().slice(0, 10);
 	const current = await getDailyUsage(String(ownerId), usageDate);
@@ -285,6 +308,7 @@ export const getAccountUsage = async (ownerId) => {
 export const getSecurityPolicy = () => ({
 	adminAccountsConfigured: adminAccounts.size > 0,
 	requestsPerMinute: minuteLimit,
+	apiRequestsPerMinute: apiMinuteLimit,
 	requestsPerDay: dailyLimit,
 	tokensPerDay: dailyTokenLimit,
 	aiEnabled: isAiEnabled(),

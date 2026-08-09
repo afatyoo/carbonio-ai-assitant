@@ -2,6 +2,27 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [2.3.1] - 2026-08-09
+
+### Fixed
+
+- Enforced administrator-managed AI access on every conversation history route and added a
+  dedicated per-account API request limit.
+- Rejected oversized request bodies while streaming instead of buffering them completely.
+- Bounded AI provider, model-catalog, embedding, and Carbonio SOAP responses.
+- Removed internal database errors, worker details, and capacity data from public health output.
+- Enabled secure TLS verification by default for non-loopback Carbonio SOAP endpoints.
+- Cleared the internal Admin Console marker and normalized the forwarded host at the public proxy.
+
+### Security
+
+- Pinned GitHub Actions and the PostgreSQL CI service image to immutable digests.
+- Added CodeQL and pull-request dependency-review workflows.
+- Documented the remaining operator-controlled GitHub repository protections and generated
+  regression coverage for every application-level audit closure.
+
+- See the [detailed v2.3.1 report](docs/releases/v2.3.1.md).
+
 ## [2.3.0] - 2026-08-09
 
 ### Added

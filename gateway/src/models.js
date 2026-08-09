@@ -1,4 +1,5 @@
 import { getAgentConfig, getModelAllowlist } from './config.js';
+import { readBoundedResponseJson } from './bounded-response.js';
 import { fetchWithRetry } from './fetch-with-retry.js';
 import { logEvent } from './logger.js';
 
@@ -66,7 +67,7 @@ export const listAvailableModels = async (account) => {
 		duration_ms: Date.now() - startedAt
 	});
 	if (!response.ok) throw new Error(`Unable to load models: HTTP ${response.status}`);
-	const data = await response.json();
+	const data = await readBoundedResponseJson(response, 4_000_000);
 	const freeModels = (data.data ?? [])
 		.filter(
 			(model) =>

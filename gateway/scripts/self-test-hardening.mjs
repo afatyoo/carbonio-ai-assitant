@@ -2,12 +2,35 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { Readable } from 'node:stream';
 
 process.env.AI_AGENT_PROVIDER = 'openrouter';
 process.env.AI_AGENT_URL = 'https://provider.invalid/v1';
 process.env.AI_AGENT_MODEL = 'test/primary';
 process.env.AI_MODEL_FALLBACKS = 'test/fallback';
 process.env.AI_MODEL_ALLOWLIST = 'test/primary,test/fallback';
+
+const { readJson } = await import('../src/bounded-request.js');
+const { readBoundedResponseJson } = await import('../src/bounded-response.js');
+const boundedRequest = Readable.from([Buffer.from('{"safe":'), Buffer.from('true}')]);
+boundedRequest.headers = {};
+assert.deepEqual(await readJson(boundedRequest, 64), { safe: true });
+const oversizedRequest = Readable.from([Buffer.alloc(40), Buffer.alloc(40)]);
+oversizedRequest.headers = {};
+await assert.rejects(() => readJson(oversizedRequest, 64), (error) => error.statusCode === 413);
+const declaredOversizedRequest = Readable.from([Buffer.from('{}')]);
+declaredOversizedRequest.headers = { 'content-length': '65' };
+await assert.rejects(
+	() => readJson(declaredOversizedRequest, 64),
+	(error) => error.statusCode === 413
+);
+assert.deepEqual(await readBoundedResponseJson(new Response('{"safe":true}'), 64), {
+	safe: true
+});
+await assert.rejects(
+	() => readBoundedResponseJson(new Response('x'.repeat(65)), 64),
+	/Upstream response exceeds/
+);
 
 const { formatPrometheusMetrics, incrementMetric } = await import('../src/metrics.js');
 incrementMetric('hardening_test_total');
@@ -62,6 +85,14 @@ const metricsToken = await fs.readFile(new URL('../../deploy/set-metrics-token.s
 const gatewayService = await fs.readFile(new URL('../deploy/carbonio-ai-gateway.service', import.meta.url), 'utf8');
 const ragSetup = await fs.readFile(new URL('../../deploy/setup-rag-postgres.sh', import.meta.url), 'utf8');
 const ragPostgres = await fs.readFile(new URL('../src/rag-postgres.js', import.meta.url), 'utf8');
+const serverSource = await fs.readFile(new URL('../src/server.js', import.meta.url), 'utf8');
+const mailboxSource = await fs.readFile(new URL('../src/mailbox.js', import.meta.url), 'utf8');
+const nginxBackend = await fs.readFile(new URL('../deploy/nginx/backend-carbonio-ai.conf', import.meta.url), 'utf8');
+const workflowSources = await Promise.all(
+	['ci.yml', 'release.yml', 'deploy.yml', 'codeql.yml', 'dependency-review.yml'].map((name) =>
+		fs.readFile(new URL(`../../.github/workflows/${name}`, import.meta.url), 'utf8')
+	)
+);
 assert.match(backupPolicy, /pg_restore --list/);
 assert.match(backupPolicy, /AI_BACKUP_OFFSITE_PATH/);
 assert.match(backupPolicy, /backup-runtime-state\.mjs/);
@@ -76,10 +107,21 @@ assert.match(gatewayService, /LimitNOFILE=8192/);
 assert.match(gatewayService, /MemoryMax=1G/);
 assert.match(ragSetup, /rag_jobs, rag_runtime_status TO \$\{worker_user\}/);
 assert.match(ragPostgres, /GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE rag_runtime_status TO carbonio_ai_worker/);
+assert.doesNotMatch(serverSource, /conversations[\s\S]{0,500}getCurrentAccount/);
+assert.doesNotMatch(serverSource, /rag\s*=\s*\{[^}]*error:\s*error\.message/);
+assert.doesNotMatch(mailboxSource, /rejectUnauthorized:\s*false/);
+assert.match(mailboxSource, /CARBONIO_ALLOW_INSECURE_REMOTE_TLS/);
+assert.match(mailboxSource, /CARBONIO_SOAP_MAX_RESPONSE_BYTES/);
+assert.match(nginxBackend, /proxy_set_header X-Carbonio-AI-Admin-Console ""/);
+assert.match(nginxBackend, /proxy_set_header X-Forwarded-Host \$http_host/);
+for (const workflowSource of workflowSources) {
+	assert.doesNotMatch(workflowSource, /uses:\s+[^\s#]+@v[0-9]/);
+}
+assert.doesNotMatch(workflowSources.join('\n'), /image:\s+postgres:16\s*$/m);
 
 const { extractSandboxedDocument, getDocumentExtractionCapability } = await import('../src/document-extractor.js');
 assert.equal(getDocumentExtractionCapability().enabled, false);
 assert.equal((await extractSandboxedDocument({ buffer: Buffer.from('%PDF-test'), filename: 'test.pdf', contentType: 'application/pdf' })).extraction, 'sandbox_unavailable');
 assert.equal((await extractSandboxedDocument({ buffer: Buffer.from('EICAR-STANDARD-ANTIVIRUS-TEST-FILE'), filename: 'test.pdf', contentType: 'application/pdf' })).extraction, 'sandbox_unavailable');
 
-console.log('prometheus=ok health_matrix=ok undo=owner_scoped backup_policy=ok restore_drill=isolated systemd_limits=ok document_extraction=fail_closed');
+console.log('prometheus=ok health_matrix=ok request_bounds=ok response_bounds=ok access_policy=ok proxy_headers=ok supply_chain_pins=ok undo=owner_scoped backup_policy=ok restore_drill=isolated systemd_limits=ok document_extraction=fail_closed');

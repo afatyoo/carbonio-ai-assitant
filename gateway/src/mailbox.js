@@ -8,6 +8,19 @@ const soapUrl = new URL(
 const adminSoapUrl = new URL(
 	process.env.CARBONIO_ADMIN_SOAP_URL ?? 'https://127.0.0.1:7071/service/admin/soap'
 );
+const loopbackSoapHosts = new Set(['127.0.0.1', '::1', 'localhost']);
+const rejectUnauthorizedFor = (endpoint) => {
+	if (loopbackSoapHosts.has(endpoint.hostname.toLowerCase())) {
+		return process.env.CARBONIO_LOOPBACK_TLS_VERIFY === 'true';
+	}
+	return process.env.CARBONIO_ALLOW_INSECURE_REMOTE_TLS !== 'true';
+};
+const configuredSoapResponseMaxBytes = Number(
+	process.env.CARBONIO_SOAP_MAX_RESPONSE_BYTES ?? 10_000_000
+);
+const soapResponseMaxBytes = Number.isSafeInteger(configuredSoapResponseMaxBytes)
+	? Math.min(Math.max(configuredSoapResponseMaxBytes, 1_000_000), 50_000_000)
+	: 10_000_000;
 const soapTimeoutMs = Math.min(
 	Math.max(Number(process.env.CARBONIO_SOAP_TIMEOUT_MS ?? 20_000), 5_000),
 	30_000
@@ -62,7 +75,7 @@ export const soapRequest = (
 				port: endpoint.port || 443,
 				path: `${endpoint.pathname}/${operation}Request`,
 				method: 'POST',
-				rejectUnauthorized: false,
+				rejectUnauthorized: rejectUnauthorizedFor(endpoint),
 				headers: {
 					'content-type': 'application/json',
 					'content-length': Buffer.byteLength(payload),
@@ -71,8 +84,20 @@ export const soapRequest = (
 			},
 			(response) => {
 				const chunks = [];
-				response.on('data', (chunk) => chunks.push(chunk));
+				let responseBytes = 0;
+				let responseTooLarge = false;
+				response.on('data', (chunk) => {
+					responseBytes += chunk.length;
+					if (responseBytes > soapResponseMaxBytes) {
+						responseTooLarge = true;
+						response.destroy(new Error('Carbonio SOAP response exceeds the configured limit'));
+						return;
+					}
+					chunks.push(chunk);
+				});
+				response.on('error', reject);
 				response.on('end', () => {
+					if (responseTooLarge) return;
 					const text = Buffer.concat(chunks).toString('utf8');
 					let data;
 					try {
@@ -409,7 +434,7 @@ export const downloadAttachmentBuffer = ({ cookie, messageId, attachment, maxByt
 				port: soapUrl.port || 443,
 				path,
 				method: 'GET',
-				rejectUnauthorized: false,
+				rejectUnauthorized: rejectUnauthorizedFor(soapUrl),
 				headers: cookie ? { cookie } : {}
 			},
 			(response) => {

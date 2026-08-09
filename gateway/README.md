@@ -34,6 +34,14 @@ draft/appointment dapat dibatasi terpisah melalui `AI_WRITE_TOOL_ACCOUNTS`.
 Request OpenRouter secara default mengirim policy `data_collection=deny` dan `zdr=true`;
 ubah hanya setelah review kebijakan data organisasi.
 
+Semua endpoint conversation memakai policy AI account yang sama dengan chat. User yang
+dinonaktifkan administrator tidak dapat mengakses history melalui API langsung. History
+memiliki limit terpisah melalui `AI_API_REQUESTS_PER_MINUTE`.
+
+Request body, response provider, model catalog, embedding, dan SOAP dibatasi selama streaming.
+Remote Carbonio SOAP host memverifikasi sertifikat TLS secara default. Jangan aktifkan
+`CARBONIO_ALLOW_INSECURE_REMOTE_TLS` kecuali operator menerima risiko intersepsi cookie sesi.
+
 Self-test database dan reliability dapat dijalankan dari working directory service:
 
 ```bash

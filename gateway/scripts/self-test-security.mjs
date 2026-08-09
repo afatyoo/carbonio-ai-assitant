@@ -10,6 +10,7 @@ process.chdir(testWorkingDirectory);
 process.env.AI_ADMIN_ACCOUNTS = 'admin@example.test,account-admin-id';
 process.env.AI_ALLOWED_ORIGINS = 'https://trusted.example.test';
 process.env.AI_REQUESTS_PER_MINUTE = '2';
+process.env.AI_API_REQUESTS_PER_MINUTE = '10';
 process.env.AI_REQUESTS_PER_DAY = '3';
 process.env.AI_MODEL_ALLOWLIST = 'allowed-model,locked-model';
 process.env.AI_AGENT_MODEL = 'locked-model';
@@ -28,6 +29,7 @@ process.env.AI_WRITE_TOOL_ACCOUNTS = 'writer@example.test,default-writer@other.t
 
 const {
 	assertSameOrigin,
+	consumeAccountApiRate,
 	consumeAccountQuota,
 	isAdminAccount,
 	isAccountEnabled,
@@ -144,6 +146,8 @@ await consumeAccountQuota(quotaOwner);
 await consumeAccountQuota(quotaOwner);
 await assert.rejects(() => consumeAccountQuota(quotaOwner), /quota exceeded/);
 await assert.doesNotReject(() => consumeAccountQuota(`${quotaOwner}-other`));
+for (let request = 0; request < 10; request += 1) consumeAccountApiRate(quotaOwner);
+assert.throws(() => consumeAccountApiRate(quotaOwner), /API rate limit exceeded/);
 await purgeDailyUsage(quotaOwner);
 await purgeDailyUsage(`${quotaOwner}-other`);
 

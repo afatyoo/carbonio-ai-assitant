@@ -1,4 +1,5 @@
 import { fetchWithRetry } from './fetch-with-retry.js';
+import { readBoundedResponseJson } from './bounded-response.js';
 import { lexicalEmbedding } from './rag-text.js';
 
 const dimensions = 384;
@@ -32,7 +33,7 @@ export const embedPrivateText = async (text, { signal } = {}) => {
 		signal
 	});
 	if (!response.ok) throw new Error(`Self-hosted embedding endpoint returned HTTP ${response.status}`);
-	const payload = await response.json();
+	const payload = await readBoundedResponseJson(response, 256_000);
 	const vector = payload.data?.[0]?.embedding ?? payload.embedding;
 	if (!Array.isArray(vector) || vector.length !== dimensions || vector.some((entry) => !Number.isFinite(Number(entry)))) {
 		throw new Error(`Embedding endpoint must return exactly ${dimensions} finite dimensions`);
