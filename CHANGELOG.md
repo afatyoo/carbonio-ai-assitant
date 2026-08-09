@@ -21,6 +21,8 @@ All notable changes to Carbonio AI Assistant are documented in this file.
 
 ### Fixed
 
+- Granted the restricted RAG worker access to the new heartbeat table during both database
+  setup and gateway schema migration, preventing an upgrade-time worker restart loop.
 - Prevented stale saved or conversation models from hiding the effective active model after
   an administrator configuration change.
 - Prevented provider fallback on authentication, authorization, invalid-input, privacy-policy,

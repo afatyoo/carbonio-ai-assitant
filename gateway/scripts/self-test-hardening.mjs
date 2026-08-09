@@ -59,6 +59,8 @@ const backupPolicy = await fs.readFile(new URL('../../deploy/backup-policy.sh', 
 const restoreDrill = await fs.readFile(new URL('../../deploy/restore-drill.sh', import.meta.url), 'utf8');
 const metricsToken = await fs.readFile(new URL('../../deploy/set-metrics-token.sh', import.meta.url), 'utf8');
 const gatewayService = await fs.readFile(new URL('../deploy/carbonio-ai-gateway.service', import.meta.url), 'utf8');
+const ragSetup = await fs.readFile(new URL('../../deploy/setup-rag-postgres.sh', import.meta.url), 'utf8');
+const ragPostgres = await fs.readFile(new URL('../src/rag-postgres.js', import.meta.url), 'utf8');
 assert.match(backupPolicy, /pg_restore --list/);
 assert.match(backupPolicy, /AI_BACKUP_OFFSITE_PATH/);
 assert.match(backupPolicy, /backup-runtime-state\.mjs/);
@@ -68,6 +70,8 @@ assert.match(metricsToken, /openssl rand -hex 32/);
 assert.doesNotMatch(metricsToken, /echo \"\$token\"/);
 assert.match(gatewayService, /LimitNOFILE=8192/);
 assert.match(gatewayService, /MemoryMax=1G/);
+assert.match(ragSetup, /rag_jobs, rag_runtime_status TO \$\{worker_user\}/);
+assert.match(ragPostgres, /GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE rag_runtime_status TO carbonio_ai_worker/);
 
 const { extractSandboxedDocument, getDocumentExtractionCapability } = await import('../src/document-extractor.js');
 assert.equal(getDocumentExtractionCapability().enabled, false);

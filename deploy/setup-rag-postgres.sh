@@ -39,7 +39,7 @@ fi
 runuser -u postgres -- psql -v ON_ERROR_STOP=1 -c \
 	"ALTER ROLE ${worker_user} LOGIN PASSWORD '${worker_password}'"
 runuser -u postgres -- psql -v ON_ERROR_STOP=1 -d "$db_name" -c \
-	"GRANT CONNECT ON DATABASE ${db_name} TO ${worker_user}; GRANT USAGE ON SCHEMA public TO ${worker_user}; GRANT SELECT, INSERT, UPDATE, DELETE ON rag_sources, rag_documents, rag_chunks, rag_tombstones, rag_jobs TO ${worker_user}"
+	"GRANT CONNECT ON DATABASE ${db_name} TO ${worker_user}; GRANT USAGE ON SCHEMA public TO ${worker_user}; GRANT SELECT, INSERT, UPDATE, DELETE ON rag_sources, rag_documents, rag_chunks, rag_tombstones, rag_jobs, rag_runtime_status TO ${worker_user}"
 
 backup_user="carbonio_ai_backup"
 backup_password="$(openssl rand -hex 24)"

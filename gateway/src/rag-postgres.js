@@ -113,6 +113,15 @@ const initialize = async () => {
 		await client.query('SELECT pg_advisory_lock(1128352331)');
 		await client.query(schema);
 		await client.query("ALTER TABLE rag_sources ADD COLUMN IF NOT EXISTS last_sync_stats JSONB NOT NULL DEFAULT '{}'::jsonb");
+		await client.query(`
+			DO $grant_worker$
+			BEGIN
+				IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='carbonio_ai_worker') THEN
+					EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE rag_runtime_status TO carbonio_ai_worker';
+				END IF;
+			END
+			$grant_worker$
+		`);
 		for (const table of rlsTables) {
 			await client.query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
 			await client.query(`ALTER TABLE ${table} FORCE ROW LEVEL SECURITY`);
