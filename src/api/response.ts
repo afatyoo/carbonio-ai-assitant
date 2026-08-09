@@ -1,3 +1,5 @@
+import { getI18n } from '@zextras/carbonio-shell-ui';
+
 type ApiErrorPayload = {
 	error?: unknown;
 	message?: unknown;
@@ -13,6 +15,9 @@ const createRequestId = (): string =>
 	typeof globalThis.crypto?.randomUUID === 'function'
 		? globalThis.crypto.randomUUID()
 		: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+const localizedTransportError = (key: string, fallback: string, service: string): string =>
+	String(getI18n().t(key, { defaultValue: fallback, service }));
 
 export const apiFetch = (input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> => {
 	const headers = new Headers(init.headers);
@@ -34,14 +39,20 @@ export const parseJsonResponse = async <T>(
 		try {
 			payload = JSON.parse(body) as ApiErrorPayload;
 		} catch {
-			throw new Error(`${service} mengembalikan JSON yang tidak valid${requestSuffix}`);
+			throw new Error(
+				`${localizedTransportError('errors.invalid_json', '{{service}} returned invalid JSON', service)}${requestSuffix}`
+			);
 		}
 	}
 
 	if (!response.ok) {
 		if (response.status === 404 && !payload) {
 			throw new Error(
-				`${service} belum terpasang atau proxy API belum dikonfigurasi${requestSuffix}`
+				`${localizedTransportError(
+					'errors.not_installed',
+					'{{service}} is not installed or the API proxy is not configured',
+					service
+				)}${requestSuffix}`
 			);
 		}
 		const message = getApiErrorMessage(payload ?? {}) ?? `${service} HTTP ${response.status}`;
@@ -49,9 +60,15 @@ export const parseJsonResponse = async <T>(
 	}
 
 	if (!contentType.includes('application/json')) {
-		throw new Error(`${service} mengembalikan respons non-JSON${requestSuffix}`);
+		throw new Error(
+			`${localizedTransportError('errors.non_json', '{{service}} returned a non-JSON response', service)}${requestSuffix}`
+		);
 	}
 
-	if (!body) throw new Error(`${service} mengembalikan respons kosong${requestSuffix}`);
+	if (!body) {
+		throw new Error(
+			`${localizedTransportError('errors.empty_response', '{{service}} returned an empty response', service)}${requestSuffix}`
+		);
+	}
 	return payload as T;
 };

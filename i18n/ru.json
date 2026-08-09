@@ -2,6 +2,12 @@
 	"app": {
 		"name": "ИИ-ассистент"
 	},
+	"errors": {
+		"invalid_json": "{{service}} вернул недопустимый JSON",
+		"not_installed": "{{service}} не установлен или прокси API не настроен",
+		"non_json": "{{service}} вернул ответ не в формате JSON",
+		"empty_response": "{{service}} вернул пустой ответ"
+	},
 	"sidebar": {
 		"new_chat": "Новый чат",
 		"recent": "Недавние",

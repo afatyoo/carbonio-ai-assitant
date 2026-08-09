@@ -4,6 +4,7 @@ import fs from 'node:fs';
 const assistantSource = fs.readFileSync('src/views/ai-assistant-view.tsx', 'utf8');
 const confirmationSource = fs.readFileSync('src/utils/action-confirmation.ts', 'utf8');
 const translationSource = fs.readFileSync('src/i18n/use-app-translation.ts', 'utf8');
+const responseSource = fs.readFileSync('src/api/response.ts', 'utf8');
 
 assert.match(assistantSource, /theme\.palette\.gray6\.regular/);
 assert.match(assistantSource, /theme\.palette\.text\.regular/);
@@ -24,6 +25,11 @@ assert.ok(fs.existsSync('scripts/self-test-i18n.mjs'));
 assert.match(translationSource, /export const resolveAppLocale/);
 assert.match(translationSource, /SUPPORTED_LOCALES/);
 assert.match(translationSource, /resolveAppLocale\(i18n\.resolvedLanguage \?\? i18n\.language\)/);
+assert.match(responseSource, /getI18n/);
+for (const key of ['invalid_json', 'not_installed', 'non_json', 'empty_response']) {
+	assert.match(responseSource, new RegExp(`errors\\.${key}`));
+}
+assert.doesNotMatch(responseSource, /mengembalikan|belum terpasang/);
 
 console.log(
 	'carbonio_theme_tokens=ok responsive_breakpoints=ok reduced_motion=ok safe_text=ok accessible_actions=ok i18n_contract_script=ok'

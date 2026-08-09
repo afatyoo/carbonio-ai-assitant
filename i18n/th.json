@@ -2,6 +2,12 @@
 	"app": {
 		"name": "ผู้ช่วย AI"
 	},
+	"errors": {
+		"invalid_json": "{{service}} ส่งคืน JSON ที่ไม่ถูกต้อง",
+		"not_installed": "ยังไม่ได้ติดตั้ง {{service}} หรือยังไม่ได้กำหนดค่าพร็อกซี API",
+		"non_json": "{{service}} ส่งคืนการตอบกลับที่ไม่ใช่ JSON",
+		"empty_response": "{{service}} ส่งคืนการตอบกลับว่างเปล่า"
+	},
 	"sidebar": {
 		"new_chat": "แชทใหม่",
 		"recent": "ล่าสุด",

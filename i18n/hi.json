@@ -2,6 +2,12 @@
 	"app": {
 		"name": "AI सहायक"
 	},
+	"errors": {
+		"invalid_json": "{{service}} ने अमान्य JSON लौटाया",
+		"not_installed": "{{service}} इंस्टॉल नहीं है या API प्रॉक्सी कॉन्फ़िगर नहीं है",
+		"non_json": "{{service}} ने गैर-JSON प्रतिक्रिया लौटाई",
+		"empty_response": "{{service}} ने खाली प्रतिक्रिया लौटाई"
+	},
 	"sidebar": {
 		"new_chat": "नई चैट",
 		"recent": "हाल की",

@@ -665,6 +665,7 @@ const {
 	isExplicitReadOnlyRequest,
 	isExtendedToolRequest,
 	isMeetingActionRequest,
+	requestedMailLimit,
 	selectTool,
 	zonedLocalToIso
 } = await import('../src/agent.js');
@@ -688,6 +689,9 @@ assert.deepEqual(classifyOrganizationActionRequest('Kosongkan Trash'), {
 	tool: 'empty_trash',
 	input: {}
 });
+assert.equal(classifyOrganizationActionRequest('Delete folder IDs only'), null);
+assert.equal(classifyOrganizationActionRequest('Delete tag IDs only'), null);
+assert.equal(classifyOrganizationActionRequest('Move folder IDs 20 to folder IDs 21'), null);
 assert.equal(isExtendedToolRequest('Tampilkan semua kontak saya'), true);
 assert.equal(isExtendedToolRequest('Create signature named Sales'), true);
 assert.equal(isExtendedToolRequest('Berapa harga kopi hari ini?'), false);
@@ -709,8 +713,11 @@ assert.equal(isExplicitReadOnlyRequest(readOnlyUnreadPrompt), true);
 assert.equal(classifyActionRequest(readOnlyUnreadPrompt), null);
 assert.deepEqual(selectTool(readOnlyUnreadPrompt), {
 	name: 'list_unread_emails',
-	input: { query: 'is:unread', limit: 10 }
+	input: { query: 'is:unread', limit: 2 }
 });
+assert.equal(requestedMailLimit('Show up to 3 emails', 10), 3);
+assert.equal(requestedMailLimit('Tampilkan maksimal 4 email', 10), 4);
+assert.equal(requestedMailLimit('Show 200 emails', 10), 20);
 assert.equal(isExplicitReadOnlyRequest('Tampilkan email belum dibaca. Hanya baca, jangan ubah apa pun.'), true);
 assert.equal(classifyActionRequest('Tampilkan email belum dibaca. Hanya baca, jangan tandai sebagai dibaca.'), null);
 assert.deepEqual(classifyActionRequest('Kirim email ke guest@example.test tentang UAT'), {

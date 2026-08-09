@@ -2,6 +2,12 @@
 	"app": {
 		"name": "Assistant IA"
 	},
+	"errors": {
+		"invalid_json": "{{service}} a renvoyé un JSON non valide",
+		"not_installed": "{{service}} n’est pas installé ou le proxy API n’est pas configuré",
+		"non_json": "{{service}} a renvoyé une réponse qui n’est pas au format JSON",
+		"empty_response": "{{service}} a renvoyé une réponse vide"
+	},
 	"sidebar": {
 		"new_chat": "Nouvelle conversation",
 		"recent": "Récentes",

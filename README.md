@@ -4,7 +4,7 @@ Standalone AI assistant for Carbonio Webmail, delivered as an independent Carbon
 microfrontend and a private server-side gateway. It adds a ChatGPT-style workspace without
 replacing or modifying the existing Mail application.
 
-**Current release candidate:** `v2.2.0`
+**Current release candidate:** `v2.2.1`
 
 **Deployment class:** full user-scoped Carbonio release with documented known limitations
 
@@ -13,9 +13,9 @@ replacing or modifying the existing Mail application.
 ![Carbonio AI Assistant interface](docs/assets/carbonio-ai-assistant-overview.png)
 
 For exact release evidence, the closed-bug ledger, and authenticated UAT results, read the
-[v2.2.0 release report](docs/releases/v2.2.0.md).
+[v2.2.1 release report](docs/releases/v2.2.1.md).
 
-## What v2.2.0 includes
+## What v2.2.1 includes
 
 ### Production hardening
 
@@ -123,7 +123,7 @@ raw external provider errors are not translated automatically.
 
 ## RAG scope
 
-v2.2.0 provides opt-in private retrieval for the authenticated user's Mail, safe attachment text
+v2.2.1 provides opt-in private retrieval for the authenticated user's Mail, safe attachment text
 and metadata, Calendar, Tasks, and personal Contacts. The existing curated official Carbonio
 API documentation corpus remains available for product guidance.
 
@@ -193,7 +193,7 @@ part of the current live UAT evidence. See [browser support](docs/browser-suppor
 
 ## Known limitations
 
-Deploying or enabling v2.2.0 means the operator and each participating user accept the
+Deploying or enabling v2.2.1 means the operator and each participating user accept the
 remaining environment-dependent gates below. This project is an independent community addon
 and is not developed, supported, certified, or endorsed by Zextras. Acceptance does not create
 support obligations for Zextras and does not turn missing evidence into a pass:
@@ -220,7 +220,7 @@ support obligations for Zextras and does not turn missing evidence into a pass:
 
 Do not claim Files, Chats, binary attachment understanding, high availability, or performance
 targets that were not validated. The complete risk record is in the
-[v2.2.0 release report](docs/releases/v2.2.0.md#risk-acceptance).
+[v2.2.1 release report](docs/releases/v2.2.1.md#risk-acceptance).
 
 ## Security and privacy
 
@@ -308,19 +308,19 @@ Deploy from the public release artifact, not an arbitrary branch checkout. Run t
 inside a dedicated staging directory on the Carbonio Proxy/Web UI host:
 
 ```bash
-mkdir carbonio-ai-v2.2.0
-cd carbonio-ai-v2.2.0
-curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.2.0/carbonio-ai-assistant-v2.2.0.tar.gz
-curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.2.0/carbonio-ai-assistant-v2.2.0.tar.gz.sha256
-sha256sum --check carbonio-ai-assistant-v2.2.0.tar.gz.sha256
-tar -xzf carbonio-ai-assistant-v2.2.0.tar.gz
-cd carbonio-ai-assistant-v2.2.0
+mkdir carbonio-ai-v2.2.1
+cd carbonio-ai-v2.2.1
+curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.2.1/carbonio-ai-assistant-v2.2.1.tar.gz
+curl -fLO https://github.com/afatyoo/carbonio-ai-assitant/releases/download/v2.2.1/carbonio-ai-assistant-v2.2.1.tar.gz.sha256
+sha256sum --check carbonio-ai-assistant-v2.2.1.tar.gz.sha256
+tar -xzf carbonio-ai-assistant-v2.2.1.tar.gz
+cd carbonio-ai-assistant-v2.2.1
 ```
 
 Use the signed release asset's `.sha256` file as the checksum authority. The release page
 also records the exact workflow, commit, and artifact digest.
 
-Inspect `release.env` and confirm version `2.2.0`, the approved exact commit, and the Node
+Inspect `release.env` and confirm version `2.2.1`, the approved exact commit, and the Node
 runtime before continuing.
 
 ### Install the application
@@ -604,7 +604,7 @@ through `AI_TEST_DATABASE_URL`. Do not aim it at an unapproved production databa
 
 ## Documentation
 
-- [v2.2.0 release report](docs/releases/v2.2.0.md)
+- [v2.2.1 release report](docs/releases/v2.2.1.md)
 - [v2.1.0 release report](docs/releases/v2.1.0.md)
 - [Carbonio user tool matrix](docs/carbonio-user-tool-matrix.md)
 - [Private RAG architecture](docs/rag-architecture.md)

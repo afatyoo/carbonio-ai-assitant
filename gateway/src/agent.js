@@ -200,8 +200,18 @@ export const classifyCalendarActionRequest = (message) => {
 };
 
 const quotedName = (value) => value.match(/["“']([^"”']{1,300})["”']/)?.[1]?.trim() ?? '';
-const exactObjectId = (value, object) =>
-	value.match(new RegExp(`\\b${object}(?:\\s+id\\b)?\\s*[:#]?\\s*([A-Z0-9][A-Z0-9._:-]{0,99})`, 'i'))?.[1] ?? '';
+const exactObjectId = (value, object) => {
+	const explicit = value.match(
+		new RegExp(`\\b${object}\\s+id\\b\\s*[:#]?\\s*([A-Z0-9][A-Z0-9._:-]{0,99})`, 'i')
+	)?.[1];
+	if (explicit) return explicit;
+	return value.match(
+		new RegExp(
+			`\\b${object}(?:\\s*[:#]\\s*|\\s+)((?!(?:ids?)\\b)[A-Z0-9][A-Z0-9._:-]{0,99})`,
+			'i'
+		)
+	)?.[1] ?? '';
+};
 
 export const classifyOrganizationActionRequest = (message) => {
 	const value = String(message ?? '').trim();
@@ -221,8 +231,12 @@ export const classifyOrganizationActionRequest = (message) => {
 	if (folderId && /(hapus|delete)/i.test(value)) {
 		return { tool: 'delete_folder', input: { id: folderId } };
 	}
-	const moveIds = value.match(/\b(?:pindahkan|move)\s+folder(?:\s+id)?\s*[:#]?\s*([\w.:-]+)[\s\S]*?\b(?:ke|to)\s+folder(?:\s+id)?\s*[:#]?\s*([\w.:-]+)/i);
-	if (moveIds) return { tool: 'move_folder', input: { id: moveIds[1], parentId: moveIds[2] } };
+	const moveParts = value.match(/\b(?:pindahkan|move)\b([\s\S]*?)\b(?:ke|to)\b([\s\S]*)/i);
+	if (moveParts) {
+		const sourceId = exactObjectId(moveParts[1], 'folder');
+		const parentId = exactObjectId(moveParts[2], 'folder');
+		if (sourceId && parentId) return { tool: 'move_folder', input: { id: sourceId, parentId } };
+	}
 	const tagId = exactObjectId(value, 'tag');
 	if (tagId && /(ubah\s+nama|rename)/i.test(value) && name) {
 		return { tool: 'rename_tag', input: { id: tagId, name } };
@@ -238,10 +252,23 @@ const isSummaryRequest = (message) =>
 	);
 const isThreadRequest = (message) => /(thread|conversation|percakapan|utas)/i.test(message);
 
+export const requestedMailLimit = (message, fallback = 10) => {
+	const value = String(message ?? '');
+	const requested =
+		value.match(
+			/\b(?:at\s+most|up\s+to|no\s+more\s+than|max(?:imum)?|maksimal|paling\s+banyak|hingga)\s+(\d{1,3})\b/i
+		)?.[1] ??
+		value.match(/\b(?:list|show|tampilkan|daftar)\s+(\d{1,3})\b/i)?.[1];
+	const boundedFallback = Math.min(Math.max(Number(fallback) || 10, 1), 20);
+	if (!requested) return boundedFallback;
+	return Math.min(Math.max(Number(requested), 1), 20);
+};
+
 export const selectTool = (message) => {
 	const value = message.toLowerCase();
+	const limit = requestedMailLimit(message, 10);
 	if (value.includes('belum dibaca') || value.includes('unread')) {
-		return { name: 'list_unread_emails', input: { query: 'is:unread', limit: 10 } };
+		return { name: 'list_unread_emails', input: { query: 'is:unread', limit } };
 	}
 	if (/\b(?:daftar|list|tampilkan|show)(?:\s+semua)?\s+(?:folder|map)\b/i.test(value)) {
 		return { name: 'list_folders', input: {} };
@@ -255,7 +282,7 @@ export const selectTool = (message) => {
 		value.includes('ringkas') ||
 		value.includes('penting')
 	) {
-		return { name: 'search_emails', input: { query: 'in:inbox', limit: 10 } };
+		return { name: 'search_emails', input: { query: 'in:inbox', limit } };
 	}
 	return null;
 };
@@ -1766,10 +1793,11 @@ export const runAgent = async ({
 		};
 	} else if (!isDocumentationOnlyQuery(message) && isSummaryRequest(message)) {
 		const unreadOnly = /(unread|belum dibaca)/i.test(message);
+		const summaryLimit = isThreadRequest(message) ? 1 : requestedMailLimit(message, 5);
 		emit('tool', { name: 'search_emails', status: 'running' });
 		const search = await executeTool({
 			name: 'search_emails',
-			input: { query: unreadOnly ? 'is:unread' : 'in:inbox', limit: isThreadRequest(message) ? 1 : 5 },
+			input: { query: unreadOnly ? 'is:unread' : 'in:inbox', limit: summaryLimit },
 			context: { ownerId: account.id, cookie, permissions }
 		});
 		const matches = search.result ?? [];
@@ -1786,7 +1814,7 @@ export const runAgent = async ({
 		} else {
 			emit('tool', { name: 'get_email', status: 'running' });
 			const detailed = [];
-			for (const item of matches.slice(0, 5)) {
+			for (const item of matches.slice(0, summaryLimit)) {
 				const read = await executeTool({
 					name: 'get_email',
 					input: { id: String(item.id), maxBodyLength: 4_000 },

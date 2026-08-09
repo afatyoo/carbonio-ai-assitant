@@ -2,6 +2,24 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [2.2.1] - 2026-08-09
+
+### Fixed
+
+- Honored explicit bounded mail counts such as `at most 2` throughout listing and summary body
+  retrieval, with a hard maximum of 20 records.
+- Rejected ambiguous plural folder and tag `IDs` phrases instead of treating them as exact
+  mutation targets.
+- Localized browser-side gateway transport errors across all nine supported Carbonio locales.
+
+### Security
+
+- Reduced unnecessary mailbox disclosure by applying the user's explicit result bound before
+  full-body summary retrieval.
+- Kept ambiguous organization mutations fail closed until one exact object ID is provided.
+
+- See the [detailed v2.2.1 report](docs/releases/v2.2.1.md).
+
 ## [2.2.0] - 2026-08-09
 
 ### Added

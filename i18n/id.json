@@ -2,6 +2,12 @@
 	"app": {
 		"name": "Asisten AI"
 	},
+	"errors": {
+		"invalid_json": "{{service}} mengembalikan JSON yang tidak valid",
+		"not_installed": "{{service}} belum terpasang atau proxy API belum dikonfigurasi",
+		"non_json": "{{service}} mengembalikan respons non-JSON",
+		"empty_response": "{{service}} mengembalikan respons kosong"
+	},
 	"sidebar": {
 		"new_chat": "Percakapan baru",
 		"recent": "Terbaru",
