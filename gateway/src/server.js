@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 
-import { runAgent, summarizeConversation, testProviderConnection } from './agent.js';
+import { isAgentDataAccessOptOut, runAgent, summarizeConversation, testProviderConnection } from './agent.js';
 import { readJson } from './bounded-request.js';
 import { normalizeContextReference } from './context-reference.js';
 import {
@@ -844,7 +844,12 @@ const handleRequest = async (request, response) => {
 		const contextReference = normalizeContextReference(payload.context);
 		await consumeAccountQuota(account.id);
 		let history = [];
-		if (typeof payload.conversationId === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(payload.conversationId)) {
+		// Opt-out requests must not send earlier turns to the provider, not even to summarize them.
+		if (
+			typeof payload.conversationId === 'string' &&
+			/^[A-Za-z0-9_-]{1,100}$/.test(payload.conversationId) &&
+			!isAgentDataAccessOptOut(payload.message)
+		) {
 			try {
 				const stored = await getConversation(account.id, payload.conversationId);
 				const conversationId = payload.conversationId;
