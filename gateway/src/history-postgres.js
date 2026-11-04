@@ -84,6 +84,22 @@ const migrations = [
 				updated_at BIGINT NOT NULL
 			);
 		`
+	},
+	{
+		version: 5,
+		sql: `
+			CREATE TABLE IF NOT EXISTS conversation_summaries (
+				owner_id TEXT NOT NULL,
+				conversation_id TEXT NOT NULL,
+				covered_count INTEGER NOT NULL,
+				anchor TEXT NOT NULL,
+				summary_encrypted TEXT NOT NULL,
+				updated_at BIGINT NOT NULL,
+				PRIMARY KEY (owner_id, conversation_id),
+				FOREIGN KEY (owner_id, conversation_id)
+					REFERENCES conversations(owner_id, id) ON DELETE CASCADE
+			);
+		`
 	}
 ];
 
@@ -311,6 +327,41 @@ export const saveConversation = async (ownerId, conversation) => {
 	} finally {
 		client.release();
 	}
+};
+
+export const getConversationSummary = async (ownerId, id) => {
+	const result = await pool.query(
+		`SELECT s.covered_count, s.anchor, s.summary_encrypted
+		 FROM conversation_summaries s
+		 JOIN conversations c ON c.owner_id = s.owner_id AND c.id = s.conversation_id
+		 WHERE s.owner_id = $1 AND s.conversation_id = $2 AND c.deleted_at IS NULL`,
+		[ownerId, id]
+	);
+	const row = result.rows[0];
+	if (!row) return null;
+	try {
+		return {
+			coveredCount: Number(row.covered_count),
+			anchor: row.anchor,
+			text: decryptHistoryText(row.summary_encrypted, `${ownerId}:${id}:summary`)
+		};
+	} catch {
+		return null;
+	}
+};
+
+export const saveConversationSummary = async (ownerId, id, { coveredCount, anchor, text }) => {
+	const result = await pool.query(
+		`INSERT INTO conversation_summaries
+		 (owner_id, conversation_id, covered_count, anchor, summary_encrypted, updated_at)
+		 SELECT $1, $2, $3, $4, $5, $6
+		 WHERE EXISTS (SELECT 1 FROM conversations WHERE owner_id = $1 AND id = $2 AND deleted_at IS NULL)
+		 ON CONFLICT(owner_id, conversation_id) DO UPDATE SET
+		 covered_count = EXCLUDED.covered_count, anchor = EXCLUDED.anchor,
+		 summary_encrypted = EXCLUDED.summary_encrypted, updated_at = EXCLUDED.updated_at`,
+		[ownerId, id, coveredCount, anchor, encryptHistoryText(text, `${ownerId}:${id}:summary`), Date.now()]
+	);
+	return result.rowCount > 0;
 };
 
 export const renameConversation = async (ownerId, id, title) => {

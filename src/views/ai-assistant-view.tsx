@@ -699,6 +699,7 @@ export const AiAssistantView = (): React.JSX.Element => {
 					body: JSON.stringify({
 						message: prompt,
 						model: selectedModel,
+						conversationId: activeConversationId ?? undefined,
 						context: askAiContext
 							? {
 									...askAiContext,

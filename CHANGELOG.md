@@ -2,6 +2,20 @@
 
 All notable changes to Carbonio AI Assistant are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Multi-turn conversation memory: the gateway loads the caller's own stored conversation and sends
+  the most recent turns, marked as untrusted context, with read and answer requests. Action
+  preparation paths and data-access opt-out requests never receive history.
+- Rolling, encrypted per-conversation summary (PostgreSQL migration 5) of turns that fall outside
+  the verbatim window, refreshed in batches. The summary is discarded and rebuilt if the covered
+  messages change, and any failure falls back to the recent-turns window.
+- Settings: `AI_HISTORY_CONTEXT_MESSAGES`, `AI_HISTORY_CONTEXT_MESSAGE_CHARS`,
+  `AI_HISTORY_CONTEXT_TOTAL_CHARS`, `AI_HISTORY_SUMMARY_ENABLED`, `AI_HISTORY_SUMMARY_BATCH`,
+  `AI_HISTORY_SUMMARY_MAX_CHARS`. Summaries need PostgreSQL; the SQLite fallback keeps the window only.
+
 ## [2.3.2] - 2026-08-09
 
 ### Fixed
