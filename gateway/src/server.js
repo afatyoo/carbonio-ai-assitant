@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 
-import { runAgent, testProviderConnection } from './agent.js';
+import { isAgentDataAccessOptOut, runAgent, summarizeConversation, testProviderConnection } from './agent.js';
 import { readJson } from './bounded-request.js';
 import { normalizeContextReference } from './context-reference.js';
 import {
@@ -16,6 +16,8 @@ import {
 	closeHistoryDatabase,
 	getAccountPreferences,
 	getConversation,
+	getConversationSummary,
+	saveConversationSummary,
 	historyBackend,
 	listConversationPage,
 	purgeAllAccountPreferences,
@@ -24,6 +26,7 @@ import {
 	saveAccountPreferences,
 	saveConversation
 } from './history.js';
+import { buildConversationContext } from './conversation-memory.js';
 import { getKnowledgeMetadata, retrieveKnowledge } from './knowledge.js';
 import {
 	getAdminAccountById,
@@ -840,6 +843,35 @@ const handleRequest = async (request, response) => {
 		}
 		const contextReference = normalizeContextReference(payload.context);
 		await consumeAccountQuota(account.id);
+		let history = [];
+		// Opt-out requests must not send earlier turns to the provider, not even to summarize them.
+		if (
+			typeof payload.conversationId === 'string' &&
+			/^[A-Za-z0-9_-]{1,100}$/.test(payload.conversationId) &&
+			!isAgentDataAccessOptOut(payload.message)
+		) {
+			try {
+				const stored = await getConversation(account.id, payload.conversationId);
+				const conversationId = payload.conversationId;
+				history = await buildConversationContext({
+					messages: stored?.messages,
+					currentMessage: payload.message,
+					getSummary: () => getConversationSummary(account.id, conversationId),
+					saveSummary: (summary) => saveConversationSummary(account.id, conversationId, summary),
+					summarize: ({ previousSummary, messages }) =>
+						summarizeConversation({
+							previousSummary,
+							messages,
+							model: typeof payload.model === 'string' ? payload.model.trim() : '',
+							account
+						}),
+					onError: (error) =>
+						logEvent('warn', 'conversation_summary_failed', { reason: String(error?.message ?? error).slice(0, 200) })
+				});
+			} catch (error) {
+				logEvent('warn', 'conversation_history_unavailable', { reason: String(error?.message ?? error).slice(0, 200) });
+			}
+		}
 
 		const wantsEventStream = request.headers.accept
 			?.toLowerCase()
@@ -871,6 +903,7 @@ const handleRequest = async (request, response) => {
 				message: payload.message.trim(),
 				model: typeof payload.model === 'string' ? payload.model.trim() : '',
 				contextReference,
+				history,
 				cookie: request.headers.cookie ?? '',
 				account,
 				permissions: getToolPermissions(account),

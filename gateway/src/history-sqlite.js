@@ -372,3 +372,7 @@ export const purgeConversation = (ownerId, id) => {
 		.run(ownerId, id);
 	return result.changes > 0;
 };
+
+// Conversation summaries are stored encrypted, which needs the PostgreSQL backend.
+export const getConversationSummary = () => null;
+export const saveConversationSummary = () => false;

@@ -7,6 +7,8 @@ export const listConversationPage = (...args) => Promise.resolve(backend.listCon
 export const listConversations = (...args) => Promise.resolve(backend.listConversations(...args));
 export const getConversation = (...args) => Promise.resolve(backend.getConversation(...args));
 export const saveConversation = (...args) => Promise.resolve(backend.saveConversation(...args));
+export const getConversationSummary = (...args) => Promise.resolve(backend.getConversationSummary(...args));
+export const saveConversationSummary = (...args) => Promise.resolve(backend.saveConversationSummary(...args));
 export const renameConversation = (...args) => Promise.resolve(backend.renameConversation(...args));
 export const deleteConversation = (...args) => Promise.resolve(backend.deleteConversation(...args));
 export const restoreConversation = (...args) => Promise.resolve(backend.restoreConversation(...args));
