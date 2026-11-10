@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/logo.png" width="128" alt="Carbonio AI Assistant logo">
+</p>
+
 # Carbonio AI Assistant
 
 Standalone AI assistant for Carbonio Webmail, delivered as an independent Carbonio
